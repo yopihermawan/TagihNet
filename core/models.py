@@ -371,6 +371,47 @@ class Reminder(models.Model):
         ]
 
 
+class MonitoringDevice(models.Model):
+    SCENARIOS = [("normal", "Sesi contoh online/offline"), ("empty", "Tidak ada sesi"),
+                 ("stale", "Data kedaluwarsa"), ("unavailable", "Router tidak dapat dijangkau")]
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
+    name = models.CharField(max_length=80)
+    location = models.CharField(max_length=80, blank=True)
+    enabled = models.BooleanField(default=False)
+    scenario = models.CharField(max_length=16, choices=SCENARIOS, default="normal")
+    version = models.PositiveIntegerField(default=1)
+    authorized_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT)
+    authorization_version = models.PositiveIntegerField(default=0)
+    next_poll_at = models.DateTimeField(null=True, blank=True, default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["name", "pk"]
+        indexes = [models.Index(fields=["enabled", "next_poll_at"], name="monitor_due_idx")]
+        constraints = [models.UniqueConstraint(fields=["tenant", "name"], name="monitor_name_per_tenant")]
+
+
+class MonitoringPoll(models.Model):
+    STATES = [("success", "Snapshot tersimpan"), ("failed", "Gagal diambil"), ("blocked", "Persetujuan tertahan")]
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
+    device = models.ForeignKey(MonitoringDevice, related_name="polls", on_delete=models.PROTECT)
+    device_version = models.PositiveIntegerField()
+    bucket = models.BigIntegerField()
+    scenario = models.CharField(max_length=16, choices=MonitoringDevice.SCENARIOS)
+    status = models.CharField(max_length=16, choices=STATES)
+    observed_at = models.DateTimeField(null=True)
+    sessions = models.JSONField(default=list, blank=True)
+    reason = models.CharField(max_length=250)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        indexes = [models.Index(fields=["device", "-created_at", "-id"], name="monitor_latest_idx")]
+        constraints = [models.UniqueConstraint(fields=["device", "device_version", "bucket"], name="one_monitor_poll_per_minute"),
+            models.CheckConstraint(condition=(Q(status="success", observed_at__isnull=False)
+                | Q(status__in=["failed", "blocked"], observed_at__isnull=True)), name="monitor_snapshot_requires_time")]
+
+
 class AuditEvent(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT)

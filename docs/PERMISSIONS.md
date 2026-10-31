@@ -23,7 +23,7 @@ Sumber enforcement: `core/permissions.py`, `core/views.py:allowed_invoice`, dan 
 
 Tabel di atas adalah preset awal. Owner dapat menetapkan peran kustom pada akun operator; capability efektif menggantikan preset pada setiap endpoint dan menu, termasuk PDF. `manage_access` tidak dapat didelegasikan. Owner/customer/teknisi tidak boleh menerima peran kustom. Izin tulis memerlukan izin baca terkait. Membership dibaca dari database, bukan claim browser. Perubahan akun/role meningkatkan session_version sehingga sesi lama dicabut pada request berikutnya. Pemilik aktif terakhir dilindungi dalam transaksi. Editor membutuhkan MFA terverifikasi dalam 5 menit terakhir. Lihat [AUTHENTICATION](AUTHENTICATION.md).
 
-Preset Teknisi kini tersedia dengan akses hanya pada tiket/PSB yang ditugaskan. Scope wilayah geografis dan role Sales masih belum tersedia. Keuangan/operasional pada checkpoint ini melihat identitas pelanggan satu ISP; minimisasi field lebih lanjut perlu disepakati sebelum produksi. NOC hanya melihat nama pelanggan dalam antrean dan hasil simulasi, tanpa nominal/sandi layanan.
+Preset Teknisi kini tersedia dengan akses hanya pada tiket/PSB yang ditugaskan. Scope wilayah geografis dan role Sales masih belum tersedia. Keuangan/operasional pada checkpoint ini melihat identitas pelanggan satu ISP; minimisasi field lebih lanjut perlu disepakati sebelum produksi. NOC melihat nama pelanggan dalam antrean rekonsiliasi serta snapshot sesi sintetis monitoring ISP sendiri, tanpa nominal/sandi layanan.
 
 Worker tidak menerima tenant dari request pengguna; tiap job menyimpan tenant dan mengambil pelanggan dengan pasangan tenant+ID. Job silang tenant ditolak oleh lookup. Tidak ada cache bisnis bersama atau realtime pada fondasi ini. Database/shell administrator tetap batas kepercayaan; constraint lintas relasi yang lebih ketat dan audit tahan manipulasi perlu ditambahkan sebelum deployment.
 
@@ -48,3 +48,9 @@ Batch dan scope invoice tidak berubah. Peran Teknisi tidak dapat diberi custom r
 `reminders` tersedia untuk Owner secara bawaan, atau role kustom dengan seluruh prasyarat `tickets`, `invoices`, `customers`. Role ini dapat melihat isi pengingat finansial/operasional satu ISP. Teknisi dan pelanggan tidak mendapat akses. Kebijakan perlu MFA <=5 menit, versi sesi dan versi kebijakan yang cocok; GET tidak membuat kebijakan. Worker memeriksa akun aktif, tenant, semua capability dan session_version pemberi persetujuan. Perubahan akses menahan antrean sampai persetujuan baru; kondisi objek tetap diperiksa ulang.
 
 Edit identitas/paket dan jadwal ulang PSB menggunakan `installations`, bukan `field_work`. Owner/Ops dapat mengubah PSB satu ISP, teknisi tetap hanya mengubah tahap/catatan tugasnya. Identitas/paket terkunci mulai Pengerjaan. Riwayat perubahan internal dan plaintext; pelanggan tidak melihatnya.
+
+## Monitoring NAS simulasi
+
+`network` memberi akses list/detail/history dan POST pengambilan snapshot yang dibatasi interval. Owner/NOC memilikinya secara bawaan. NOC tidak boleh membuat/mengubah konfigurasi. `manage_monitoring` tersedia untuk Owner atau role kustom dengan prasyarat `network`; penyimpanan memerlukan MFA <=5 menit dan versi sesi/form yang berlaku. Semua lookup perangkat/snapshot mengambil tenant dari membership, bukan POST.
+
+Worker memeriksa persetujuan konfigurasi terhadap akun aktif, ISP, capability dan session_version. Perubahan izin menahan pengambilan; ringkasan langsung mengecualikan snapshotnya sebelum worker berjalan. Simpan ulang konfigurasi dengan MFA memulai versi baru. Teknisi/pelanggan/preset finansial tidak mendapat akses monitoring secara bawaan. Tidak ada secret router atau endpoint target jaringan yang dapat dimasukkan.

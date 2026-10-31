@@ -7,7 +7,7 @@ Input adalah observasi UI pada brief. Tidak dilakukan akses ulang demo KelolaNet
 | Navigasi terlalu banyak | Hanya modul yang punya alur aktif; menu berizin, pencarian menu, sidebar responsif | Screenshot dashboard; modul pending di FEATURE-MATRIX |
 | Aksi tabel mudah keluar layar | Kolom aksi sticky di kanan, detail sekunder di halaman detail, area scroll lokal berlabel | Screenshot pelanggan; cek 360/768/1366/1920 tanpa overflow halaman |
 | Ukuran halaman dan rentang tidak konsisten | Paginator Django satu sumber state, 10/25/50, GET query tersimpan di URL | Backend tests + browser size=25/filter/return list |
-| Widget koneksi bisa ambigu | Tidak menampilkan angka online yang belum tersedia; status layanan vs perintah job dipisahkan | Dashboard/network menyatakan adapter simulasi |
+| Widget koneksi bisa ambigu | Data router nyata dinyatakan belum tersedia; monitoring contoh terpisah, status layanan vs perintah job dipisahkan | Dashboard/network menyatakan adapter simulasi |
 | Pembayaran vs faktur lunas bercampur | Metrik berbeda menurut tanggal pembayaran/periode layanan; piutang seluruh periode | Definisi pada kartu + tenant/source/update WIB |
 | Aksi faktur terlalu ramai | Satu CTA “Buat faktur”; detail berisi pembayaran, histori, PDF; reversal memerlukan alasan dan konfirmasi | Browser full workflow; massal belum dibuat |
 | Footer dapat berisi markup | Footer default teks, autoescape web dan escape teks PDF | Tes markup aman; tidak ada renderer HTML |
@@ -50,3 +50,9 @@ Bukti: [tugas teknisi](evidence/technician-ticket-desktop.png), [portal tiket mo
 Form edit menjelaskan bahwa perubahan pada Terjadwal membatalkan jadwal dan kembali Survei. Jadwal ulang memerlukan alasan dan menampilkan waktu lama/baru pada timeline. Kontrol hanya muncul untuk tahap/peran yang berlaku. [PSB dijadwalkan ulang](evidence/psb-rescheduled-desktop.png).
 
 Pengingat menyatakan Tidak ada pesan nyata dikirim, nonaktif bawaan, memakai persetujuan eksplisit dan status Menunggu/Tercatat simulasi/Dilewati/Tertahan/Gagal. Detail menunjukkan attempts, alasan, retry dan isi plaintext saat pemrosesan. [Receipt desktop](evidence/reminder-detail-desktop.png) dan [antrean mobile](evidence/reminders-mobile.png). Browser memeriksa empat viewport, tanpa overflow halaman; tabel lebar memakai scroll lokal agar alasan tidak membungkus menjadi baris terlalu tinggi. Audit WCAG/screen reader menyeluruh tetap belum dilakukan.
+
+## Monitoring jaringan simulasi
+
+Ringkasan menyebut sumber, ISP, waktu, umur maksimum dan jumlah NAS yang masuk/dikecualikan. Data belum diketahui tampil sebagai teks, sedangkan nol hanya dari snapshot berhasil. Label Segar/Kedaluwarsa/Gagal/Persetujuan tertahan/Nonaktif memisahkan kualitas data dari status layanan. Snapshot lama tetap bertanggal dan berlabel histori, tanpa dijumlahkan sebagai data terkini. Tombol Muat ulang status tidak mengambil data; POST Ambil snapshot dibatasi interval.
+
+Bukti: [snapshot segar](evidence/monitoring-fresh-desktop.png), [gagal dengan histori](evidence/monitoring-failed-history.png), [kedaluwarsa](evidence/monitoring-stale-desktop.png), [mobile](evidence/monitoring-mobile.png). Empat viewport diuji pada list/detail/form. NOC tidak melihat kontrol konfigurasi atau billing. Pengujian screen reader/WCAG menyeluruh dan perangkat nyata tetap belum.

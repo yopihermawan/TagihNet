@@ -242,22 +242,68 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             page.screenshot(path=str(evidence / "reminder-detail-desktop.png"), full_page=True)
             assert technician.request.get(reminder_url).status == 403
             assert customer.request.get(reminder_url).status == 403
+            # Monitoring uses another opt-in configuration; no real NAS is contacted.
+            page.goto(base + "/network/monitoring/")
+            expect(page.get_by_text("Belum ada data segar", exact=True)).to_have_count(2)
+            page.get_by_role("link", name="＋ NAS simulasi", exact=True).click()
+            page.get_by_label("Nama NAS simulasi").fill("NAS Bandung Fiktif")
+            page.get_by_label("Lokasi (opsional)").fill("Laboratorium fiktif")
+            page.get_by_label("Aktifkan pengambilan snapshot simulasi").check()
+            page.get_by_label("Saya memahami NAS ini hanya simulasi").check()
+            page.get_by_role("button", name="Simpan", exact=True).click()
+            monitor_url = page.url
+            page.get_by_role("button", name="Ambil snapshot simulasi").click()
+            expect(page.locator('.page-heading .eyebrow')).to_contain_text("SEGAR")
+            expect(page.get_by_text("demo-ppp-01", exact=True)).to_be_visible()
+            page.get_by_role("button", name="Ambil snapshot simulasi").click()
+            with sqlite3.connect(db_path) as db:
+                assert db.execute("SELECT COUNT(*) FROM core_monitoringpoll").fetchone()[0] == 1
+            page.screenshot(path=str(evidence / "monitoring-fresh-desktop.png"), full_page=True)
+            for scenario, state in [("unavailable", "GAGAL DIAMBIL"), ("stale", "KEDALUWARSA"), ("empty", "SEGAR")]:
+                page.get_by_role("link", name="Ubah konfigurasi", exact=True).click()
+                page.get_by_label("Skenario data simulasi").select_option(scenario)
+                page.get_by_label("Saya memahami NAS ini hanya simulasi").check()
+                page.get_by_role("button", name="Simpan", exact=True).click()
+                expect(page.locator('.page-heading .eyebrow')).to_contain_text("BELUM ADA SNAPSHOT VERSI INI")
+                page.get_by_role("button", name="Ambil snapshot simulasi").click()
+                expect(page.locator('.page-heading .eyebrow')).to_contain_text(state)
+                if scenario == "unavailable":
+                    expect(page.get_by_text("demo-ppp-01", exact=True)).to_be_visible()
+                    page.screenshot(path=str(evidence / "monitoring-failed-history.png"), full_page=True)
+                elif scenario == "stale":
+                    page.screenshot(path=str(evidence / "monitoring-stale-desktop.png"), full_page=True)
+                else:
+                    expect(page.get_by_text("Snapshot berhasil: tidak ada sesi.", exact=False)).to_be_visible()
+                page.goto(base + "/network/monitoring/")
+                count = page.locator('.monitoring-summary .definition-list dd').first
+                expect(count).to_have_text("0" if scenario == "empty" else "Belum ada data segar")
+                page.goto(monitor_url)
+            noc_context = browser.new_context(viewport={"width": 360, "height": 900})
+            noc = new_page(noc_context)
+            login(noc, "noc", enroll=True)
+            noc.goto(monitor_url)
+            expect(noc.get_by_role("link", name="Ubah konfigurasi", exact=True)).to_have_count(0)
+            assert noc_context.request.get(monitor_url+"edit/").status == 403
+            assert noc_context.request.get(base+"/network/monitoring/new/").status == 403
+            assert "Rp" not in noc.inner_text("main")
             for width in [360, 768, 1366, 1920]:
                 page.set_viewport_size({"width": width, "height": 1000})
-                for route in ["/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/"]:
+                for route in ["/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/"]:
                     page.goto(base + route)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, route)
-                for url in [ticket_url, order_url, reminder_url]:
+                for url in [ticket_url, order_url, reminder_url, monitor_url]:
                     page.goto(url)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, url)
             page.set_viewport_size({"width": 360, "height": 1000})
             page.goto(base + "/operations/reminders/")
             assert page.locator("tbody tr").first.bounding_box()["height"] < 170
             page.screenshot(path=str(evidence / "reminders-mobile.png"), full_page=True)
+            page.goto(base + "/network/monitoring/")
+            page.screenshot(path=str(evidence / "monitoring-mobile.png"), full_page=True)
             subprocess.run([sys.executable, "scripts/verify_restore.py"], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
             assert failures == [], failures
             browser.close()
-        print("PASS: owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, 4 viewports, restore state; no MFA factors in evidence.")
+        print("PASS: owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, 4 viewports, restore state; no MFA factors in evidence.")
     finally:
         server.terminate()
         try:

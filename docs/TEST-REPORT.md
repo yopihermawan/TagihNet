@@ -1,6 +1,6 @@
 # Laporan pengujian — 31 Oktober 2026, WIB
 
-Target: checkpoint billing, operasional, pengingat simulasi dan jadwal ulang PSB TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite, Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
+Target: checkpoint billing, operasional, pengingat, PSB dan monitoring NAS simulasi TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite, Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
 
 ## Eksekusi dan bukti
 
@@ -11,14 +11,14 @@ Target: checkpoint billing, operasional, pengingat simulasi dan jadwal ulang PSB
 | `python manage.py check` | pass · no issues |
 | `python manage.py makemigrations --check --dry-run` | pass · no changes detected |
 | `python -m pip check` | pass · no broken requirements |
-| `python manage.py test --verbosity 1` | pass · **162 tes dieksekusi**, tanpa fail/skip/expected-failure |
+| `python manage.py test --verbosity 1` | pass · **187 tes dieksekusi**, tanpa fail/skip/expected-failure |
 | `python manage.py collectstatic --noinput` | pass · tiga aset lokal terkumpul |
 | `python scripts/browser_smoke.py` | pass · Chromium sungguhan: login/password toggle, tambah/reload pelanggan, faktur, pembayaran penuh, reversal, PDF, filter/URL kembali, logout, dark mode, menu mobile; **0 browser errors** |
 | `python scripts/security_smoke.py` | pass · server/database sementara, MFA enrollment/challenge, custom role assignment/edit, session revocation, recovery regeneration/rejection, penerbitan 28 faktur massal dengan diskon, replay, worker resume/duplikat/cancel parsial/restore antrean, lalu seluruh alur billing; tanpa mengubah akun demo pengguna |
-| `python scripts/operations_smoke.py` | pass · owner/teknisi/pelanggan, catatan internal tersembunyi, scope tugas, tiket sampai Ditutup, PSB sampai aktivasi/replay, satu customer/invoice/job, provisioning simulasi, edit/reschedule/reset Survei, opt-in pengingat, dedupe, pelunasan sebelum proses, 4 viewport dan restore outbox |
+| `python scripts/operations_smoke.py` | pass · owner/teknisi/pelanggan, catatan internal tersembunyi, scope tugas, tiket sampai Ditutup, PSB sampai aktivasi/replay, satu customer/invoice/job, provisioning simulasi, edit/reschedule/reset Survei, opt-in pengingat, dedupe, pelunasan sebelum proses, monitoring NAS normal/gagal/stale/nol, NOC scope, 4 viewport dan restore outbox/snapshot |
 | Browser responsive checks | pass terbatas · 360/768/1366/1920 px, dashboard/pelanggan/faktur/jaringan/setelan tanpa scroll horizontal seluruh halaman; tabel punya scroll lokal |
 | `python scripts/verify_pdf.py` | pass · A4 **14 halaman**, 100 baris teks panjang, total Rp100.000, label simulasi, markup footer tampil sebagai teks; fixture di-rollback |
-| `python scripts/verify_restore.py` | pass · backup konsisten dan restore ke direktori kosong, integrity_check ok; pelanggan/faktur/total/pembayaran/piutang, state batch/items/tiket/PSB/outbox, versi kebijakan/siklus SLA/jadwal PSB sama |
+| `python scripts/verify_restore.py` | pass · backup konsisten dan restore ke direktori kosong, integrity_check ok; pelanggan/faktur/total/pembayaran/piutang, state batch/items/tiket/PSB/outbox, versi kebijakan/siklus SLA/jadwal PSB, konfigurasi dan payload snapshot NAS sama |
 | `python manage.py run_simulation_worker --once` | simulated · batch pertama 18 confirmed dan satu router seeded gagal; pembayaran tetap tersimpan, kegagalan dijadwalkan backoff |
 | `pip-audit 2.10.1 -r requirements.txt --no-deps --disable-pip --vulnerability-service pypi` | pass saat scan · no known vulnerabilities found untuk sebelas paket runtime; tidak mencakup OS, dev dependencies, atau bug logika |
 | `manage.py check --deploy` dengan DEBUG off dan secret sesi/MFA/host sementara | warning konfigurasi · W021: HSTS preload false. Ini disengaja sampai domain/HTTPS siap, tidak ada klaim deployment HTTPS sudah diverifikasi |
@@ -43,7 +43,7 @@ Prefix `python` pada tabel berarti interpreter `.venv/bin/python` proyek. Pip-au
 | 12 | Markup tidak dieksekusi | pass lokal · web/detail dan PDF; portal memakai renderer sama dan otorisasi yang diuji; email faktur belum tersedia |
 | 13 | Upload/impor/ekspor | pass subset · CSV tenant/izin/formula; upload/impor belum tersedia |
 | 14 | Demo guard backend/worker | simulated · payment di luar SIMULATION ditolak, worker fail-closed; tidak ada adapter eksternal |
-| 15 | Metrik jelas dan data gagal bukan nol | pass lokal · sumber/tenant/periode/update tersedia, sesi online dinyatakan belum tersedia |
+| 15 | Metrik jelas dan data gagal bukan nol | pass lokal · sumber/tenant/periode/update tersedia; snapshot sesi contoh membedakan nol/unknown/stale/gagal, data router nyata belum tersedia |
 | 16 | UI/accessibility/kontras/fallback | pass subset · screenshots, 4 viewport, password/menu/Escape/return URL, empty/validation states; audit WCAG penuh dan screen reader belum |
 | 17 | PDF A4/multipage/nominal/izin | pass · browser PDF, stress test 14 halaman, footer panjang, cross-tenant 404 |
 | 18 | Restore & rekonsiliasi | pass lokal · direktori kosong + jumlah/saldo identik; enkripsi/offsite/RPO/RTO belum |
@@ -83,3 +83,11 @@ Pada checkpoint operasional sebelumnya, edit/rescheduling dan seluruh notifikasi
 Browser operations_smoke.py memakai database/server sementara: edit prospek → jadwal ulang beralasan → perubahan alamat kembali Survei → penjadwalan baru → aktivasi. Kebijakan pengingat disetujui melalui UI; satu faktur dilunasi melalui UI setelah perencanaan dan sebelum worker, menghasilkan skipped/0 attempts. SLA overdue fiktif menghasilkan satu receipt simulated/1 attempt; pengulangan worker tidak menggandakan antrean. Teknisi/pelanggan ditolak dari receipt. Fixture SLA hanya diubah pada database sementara. Empat viewport memverifikasi list/detail/kebijakan; tabel mobile memakai scroll lokal dan tinggi baris terbatas.
 
 Migrasi 0005 telah diterapkan dengan backup sebelum migrasi. PDF 14 halaman, restore drill, model drift check, system check, pip check dan collectstatic lulus. Dependensi tidak berubah; audit runtime pada tabel tetap hasil checkpoint akses. Database pengguna tetap 33 pelanggan/40 faktur tanpa kebijakan/outbox/tiket/PSB/perangkat MFA uji. Browser security_smoke.py dijalankan ulang untuk regresi MFA/akses/billing massal. Hasil lokal tidak membuktikan CI remote atau kesiapan produksi.
+
+## Checkpoint monitoring jaringan simulasi
+
+25 tes baru, **187 total**, lulus tanpa fail/skip/expected-failure. Cakupan: default-off/GET tanpa efek; snapshot normal/empty/failure/stale/expiry 120 detik; kegagalan menjaga histori dan tidak menjadi nol; ringkasan hanya NAS segar ISP sendiri dan cakupan parsial; data konfigurasi lama dikecualikan; dedupe/restart/dua collector bersamaan; dua edit konfigurasi bersamaan; status layanan/ledger tidak berubah; MFA/session/version/CSRF/review; role kustom/dependensi/revocation; direct endpoint lintas tenant/NOC/role lain; plaintext; batas perangkat/session/command dan penolakan SIMULATION=0. Snapshot malformed, duplikat username, durasi salah dan timestamp masa depan ditolak.
+
+Browser operations_smoke.py kini juga menguji Owner membuat NAS opt-in → snapshot normal → pengulangan tanpa duplikasi → gagal sambil mempertahankan histori → kedaluwarsa → nol yang berasal dari snapshot berhasil. Ringkasan unknown vs nol diperiksa. NOC dapat membaca tanpa konfigurasi atau nominal finansial. List/detail/form diuji 360/768/1366/1920 tanpa overflow seluruh halaman; empat screenshot baru tidak menyimpan faktor MFA. Restore membandingkan konfigurasi dan payload snapshot. Semua memakai server/database sementara. security_smoke.py dijalankan ulang dan lulus untuk MFA/akses/billing massal serta billing browser.
+
+Satu assertion regresi awal mendeteksi teks peringatan data router yang berubah. Pesan dashboard disesuaikan agar tetap menyatakan data sesi router nyata belum tersedia, lalu seluruh 187 tes lulus; assertion lama dipertahankan. Migrasi 0006 diuji pada restore salinan sebelum database lokal; jumlah dan total ledger cocok. System/model drift/pip check, collectstatic, PDF 14 halaman dan restore drill lulus. Collector kosong lokal tidak membuat NAS/snapshot. Data pengguna tetap 33 pelanggan/40 faktur dan tanpa NAS, poll atau perangkat MFA uji. Dependensi runtime tidak berubah, audit package pada tabel tetap hasil checkpoint akses. Polling perangkat nyata, trafik, PostgreSQL multi-process, retensi dan CI remote belum diverifikasi.

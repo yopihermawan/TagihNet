@@ -1,6 +1,7 @@
 import time
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.core.management import call_command
 from django.utils import timezone
 from core.models import NetworkJob
 from core.network import run_job
@@ -21,6 +22,12 @@ class Command(BaseCommand):
                 for job_id in jobs:
                     job = run_job(job_id)
                     self.stdout.write(f"job={job.pk} status={job.status} attempts={job.attempts}")
+                try:
+                    call_command("collect_monitoring", stdout=self.stdout, stderr=self.stderr)
+                except CommandError as exc:
+                    if options["once"]:
+                        raise
+                    self.stderr.write(str(exc))
                 if options["once"]:
                     return
                 time.sleep(5)

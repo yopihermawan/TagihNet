@@ -70,3 +70,9 @@ Aktivasi memerlukan activate_installations, MFA terbaru, signed quote terikat ac
 Edit/reschedule PSB memakai installations; teknisi tidak boleh melakukannya. Semua mutasi berscope tenant, versi dan UUID; alasan serta before/after plaintext disimpan internal. Perubahan scheduled membatalkan jadwal dan kembali survey; setelah installing identitas/paket terkunci. Tidak ada mutasi finansial dari edit/reschedule.
 
 Isi receipt mengandung informasi billing/operasional; akses terbatas pada pengelola dengan seluruh prasyarat. Retensi/enkripsi database, audit anti-tamper dan penyerahan pesan nyata belum tersedia. Tidak ada klaim exactly-once eksternal atau database multi-process. Pengujian browser terisolasi memverifikasi dedupe, receipt, pembayaran sebelum proses dan pembatasan akses tanpa faktor MFA pada screenshot.
+
+## Monitoring NAS simulasi
+
+187 tes total dan browser terisolasi memverifikasi tenant/object scope, NOC read/collect vs konfigurasi terpisah, dependensi custom role, MFA/CSRF/review/version dan pencabutan persetujuan saat akses berubah. Kolektor memakai unique device/version/minute dan transaksi/retry; dua collector lokal menghasilkan satu snapshot. Konfigurasi baru mengecualikan snapshot lama. Kegagalan/stale tidak dipalsukan menjadi nol atau data segar.
+
+Tidak ada URL/IP/port/password/secret input pada konfigurasi. Adapter tidak menggunakan I/O jaringan, sehingga belum menambah permukaan SSRF router nyata. Data sesi sintetis dibatasi 100, field/status/durasi/duplikat/timestamp divalidasi sebelum disimpan; error adapter tidak menyalin detail exception. Histori tidak memiliki endpoint edit/delete; admin database tetap dipercaya. Audit tidak mencatat daftar username sesi. Retensi otomatis, enkripsi backup, multi-process PostgreSQL dan adapter perangkat nyata masih terbuka.

@@ -5,8 +5,14 @@ from core import security_views as security
 from core import bulk_views as bulk
 from core import operation_views as operations
 from core import reminder_views as reminders
+from core import monitoring_views as monitoring
 
 urlpatterns = [
+    path("network/monitoring/", monitoring.monitoring_list, name="monitoring_list"),
+    path("network/monitoring/new/", monitoring.monitoring_form, name="monitoring_new"),
+    path("network/monitoring/<int:pk>/", monitoring.monitoring_detail, name="monitoring_detail"),
+    path("network/monitoring/<int:pk>/edit/", monitoring.monitoring_form, name="monitoring_edit"),
+    path("network/monitoring/<int:pk>/collect/", monitoring.monitoring_collect, name="monitoring_collect"),
     path("health/", views.health, name="health"),
     path("login/", views.login_view, name="login"),
     path("mfa/verify/", security.challenge, name="mfa_challenge"),

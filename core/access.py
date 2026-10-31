@@ -28,7 +28,7 @@ def save_role(actor, name, rights, role_id=None, correlation_id=None):
         "pay": {"invoices"}, "reverse": {"invoices"}, "export": {"customers"},
         "bulk_issue": {"issue", "invoices", "customers"},
         "activate_installations": {"installations", "edit_customers", "issue", "invoices", "customers"},
-        "reminders": {"tickets", "invoices", "customers"}}
+        "reminders": {"tickets", "invoices", "customers"}, "manage_monitoring": {"network"}}
     for capability, prerequisites in dependencies.items():
         if capability in rights and not prerequisites <= rights:
             raise ValidationError(f"Izin {capability} memerlukan: {', '.join(sorted(prerequisites))}.")

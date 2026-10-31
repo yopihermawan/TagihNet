@@ -6,9 +6,9 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | --- | --- | --- |
 | Brand, shell, login | Logo SVG orisinal, sidebar berbasis peran, pencarian menu, mobile, dark mode | 1–2 · implemented |
 | Dashboard billing | Pembayaran berdasarkan tanggal transaksi, faktur berdasarkan periode layanan, piutang/tunggakan seluruh periode ISP | 2 · implemented |
-| Dashboard NOC | Antrean perintah simulasi; sesi/trafik/polling dinyatakan belum tersedia | 2 · limited |
+| Monitoring NOC | NAS/snapshot sesi PPPoE contoh, segar/stale/gagal, nol vs unknown, ringkasan bersumber/cakupan; histori dan collector idempoten | 3 · simulated; trafik/polling nyata pending |
 | Pelanggan | Satu paket/layanan, cari/filter/sort/URL/pagination, tambah/ubah/detail, deteksi duplikat, CSV | 2 · implemented |
-| Filter NAS/jatuh tempo; drawer bertab | NAS belum dimodelkan; detail berupa halaman, URL daftar dipertahankan di sessionStorage | 3 · pending |
+| Filter NAS/jatuh tempo; drawer bertab | NAS simulasi monitoring terpisah, belum dipetakan ke pelanggan; detail berupa halaman, URL daftar dipertahankan di sessionStorage | 3 · pending |
 | Multi-tenant | Membership satu ISP per akun; tenant dari login, dua tenant seed, objek/PDF/CSV terbatasi | 2 · implemented |
 | Role dan cakupan | Tujuh preset termasuk Teknisi dan peran kustom tenant; owner membuat/mengubah akun dan izin, sesi dicabut, owner terakhir dilindungi. Teknisi dibatasi penugasan; sales dan scope wilayah geografis belum | 2 · limited |
 | Faktur | Bulanan full month, tanggal akhir bulan, snapshot harga/pajak/diskon, constraint satu pelanggan/periode | 2 · implemented |

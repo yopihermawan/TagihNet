@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Checkpoint `feature/tagihnet-network-monitoring` menambah monitoring NAS dan snapshot sesi contoh. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Yang bisa digunakan
 
@@ -18,6 +18,7 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 - Faktur massal: pratinjau maksimal 500 pelanggan, MFA konfirmasi, snapshot disetujui, worker resumable, duplikat dilewati, serta pembatalan sisa pekerjaan.
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.
 - Antrean rekonsiliasi jaringan **simulasi** dengan pengecekan ulang tunggakan, backoff, dan maksimal tiga percobaan. Pembayaran tetap tercatat bila adapter gagal.
+- Monitoring NAS simulasi: snapshot sesi PPPoE contoh, waktu sumber, status segar/kedaluwarsa/gagal, ringkasan dengan cakupan, dan histori tanpa angka nol palsu.
 - Tiket gangguan/portal, prioritas/kategori/SLA snapshot, komentar publik/internal, penugasan dan timeline.
 - PSB prospek → terpasang → aktivasi berizin/MFA, satu pelanggan/faktur awal/provisioning job, dengan status jaringan terpisah.
 - Edit identitas/paket PSB sebelum Pengerjaan serta jadwal ulang beralasan, dengan versi dan riwayat sebelum/sesudah.
@@ -39,6 +40,7 @@ core/bulk_billing.py     preview, persetujuan snapshot, worker massal per baris
 core/operations.py       tiket, scope penugasan, SLA, PSB dan aktivasi atomik
 core/reminders.py        kebijakan opt-in, planner/outbox pengingat tanpa pengiriman
 core/network.py          adapter simulasi dan rekonsiliasi
+core/monitoring.py       pengambilan snapshot read-only dan kualitas data simulasi
 core/permissions.py      izin deny-by-default
 core/security.py         MFA, enkripsi, recovery, limiter atomic
 core/access.py           editor role/akun dan perlindungan owner terakhir
@@ -113,6 +115,18 @@ docker compose down
 
 Volume `tagihnet-data` mempertahankan database. `docker compose down -v` menghapusnya; jangan gunakan bila ingin menyimpan data. Image berjalan sebagai user non-root; port hanya diikat ke localhost. Dockerfile dan konfigurasi Windows disediakan, tetapi belum dieksekusi pada checkpoint Linux ini.
 
+## Monitoring NAS simulasi
+
+Buka **Monitoring simulasi**. Owner menambah NAS, memilih skenario dan menyetujui pengambilan dengan MFA terbaru. Tidak ada alamat router, secret, atau perangkat nyata yang dihubungi. Pengambilan berjalan melalui worker jaringan yang sama, tanpa proses tambahan:
+
+```bash
+python manage.py run_simulation_worker
+# atau satu putaran monitoring saja:
+python manage.py collect_monitoring --limit 100
+```
+
+NOC dapat membaca dan meminta pengambilan; konfigurasi memerlukan izin terpisah. Nol sesi dibedakan dari data belum tersedia. Ringkasan hanya menjumlahkan snapshot segar dan menyebut NAS yang dikecualikan. Panduan: [NETWORK-MONITORING](docs/NETWORK-MONITORING.md).
+
 ## Pengingat simulasi
 
 Owner dapat membuka **Pengingat simulasi**, meninjau dan menyimpan kebijakan dengan MFA terbaru. Billing dan SLA nonaktif secara bawaan. Jalankan proses keempat secara terpisah:
@@ -163,7 +177,7 @@ Variabel tersedia di [.env.example](.env.example). Aplikasi membaca **environmen
 - **Pengingat kosong/tertahan:** pastikan kebijakan opt-in dan worker aktif; perubahan izin pemberi persetujuan memerlukan simpan ulang dengan MFA terbaru. Gagal tiga kali tetap terminal untuk kunci deduplikasi tersebut.
 - **Database busy:** ulangi request dengan kunci idempotensi yang sama. SQLite untuk pengembangan; uji PostgreSQL serta lock/queue terdistribusi sebelum skala produksi.
 - **Email reset tidak terkirim:** pada development, lihat file privat di `data/emails/`. SMTP/TLS harus dikonfigurasi dan diuji untuk deployment.
-- **Sesi online tidak ada:** adapter monitoring nyata belum dibuat; UI sengaja menampilkan “belum tersedia”.
+- **Monitoring belum ada data segar:** buat dan aktifkan NAS simulasi dengan MFA, lalu ambil snapshot atau jalankan worker jaringan. Data >120 detik, gagal diambil, versi lama atau izin berubah dikecualikan dari ringkasan. Perangkat nyata tetap belum terhubung.
 
 Lihat [OPERATIONS](docs/OPERATIONS.md), [SECURITY-AUDIT](docs/SECURITY-AUDIT.md), [ASVS-CHECKLIST](docs/ASVS-CHECKLIST.md), [PERMISSIONS](docs/PERMISSIONS.md), dan [UX-AUDIT](docs/UX-AUDIT.md) sebelum melanjutkan implementasi atau deployment.
 
