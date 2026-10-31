@@ -52,11 +52,50 @@ class Customer(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "code"], name="customer_code_per_tenant"),
             models.UniqueConstraint(fields=["tenant", "username"], name="customer_username_per_tenant"),
+            models.UniqueConstraint(models.F("tenant"), models.functions.Lower("username"), name="customer_username_ci_per_tenant"),
             models.UniqueConstraint(fields=["tenant", "phone"], name="customer_phone_per_tenant"),
         ]
 
     def __str__(self):
         return f"{self.code} · {self.name}"
+
+
+class CustomerImportBatch(models.Model):
+    STATES = [("preview", "Pratinjau"), ("completed", "Selesai"), ("cancelled", "Dibatalkan"),
+              ("stale", "Perlu pratinjau baru"), ("expired", "Kedaluwarsa")]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    request_key = models.UUIDField()
+    authorization_version = models.PositiveIntegerField()
+    source_digest = models.CharField(max_length=64)
+    fingerprint = models.CharField(max_length=64)
+    status = models.CharField(max_length=16, choices=STATES, default="preview")
+    reason = models.CharField(max_length=250, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField()
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        constraints = [models.UniqueConstraint(fields=["tenant", "created_by", "request_key"], name="import_request_per_creator")]
+
+
+class CustomerImportRow(models.Model):
+    STATES = [("valid", "Siap diimpor"), ("invalid", "Perlu diperbaiki"), ("created", "Ditambahkan")]
+    batch = models.ForeignKey(CustomerImportBatch, related_name="rows", on_delete=models.PROTECT)
+    row_number = models.PositiveIntegerField()
+    data = models.JSONField()
+    plan_snapshot = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=16, choices=STATES)
+    error = models.CharField(max_length=700, blank=True)
+    customer = models.ForeignKey(Customer, null=True, blank=True, on_delete=models.PROTECT)
+
+    class Meta:
+        ordering = ["row_number", "pk"]
+        constraints = [models.UniqueConstraint(fields=["batch", "row_number"], name="one_import_row_number"),
+            models.CheckConstraint(condition=(Q(status="created", customer__isnull=False)
+                | Q(status__in=["valid", "invalid"], customer__isnull=True)), name="import_row_customer_matches_state")]
 
 
 class AccessRole(models.Model):

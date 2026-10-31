@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Checkpoint `feature/tagihnet-network-monitoring` menambah monitoring NAS dan snapshot sesi contoh. Checkpoint `feature/tagihnet-postgresql-hardening` menambah backend PostgreSQL opsional dan pengujian transaksi lintas proses. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Checkpoint `feature/tagihnet-network-monitoring` menambah monitoring NAS dan snapshot sesi contoh. Checkpoint `feature/tagihnet-postgresql-hardening` menambah backend PostgreSQL opsional dan pengujian transaksi lintas proses. Checkpoint `feature/tagihnet-customer-import` menambah impor CSV pelanggan dengan pratinjau dan konfirmasi atomik. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Yang bisa digunakan
 
@@ -14,6 +14,7 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 - Editor akun/peran kustom untuk owner, perlindungan pemilik terakhir, pembatasan tenant, dan pencabutan sesi saat akses berubah.
 - Dashboard yang menghitung data dari ledger, disertai definisi metrik, periode, cakupan, serta waktu pembaruan WIB.
 - Cari/filter/sort pelanggan, pagination server-side 10/25/50 yang tersimpan di URL, tambah/ubah/detail, dan ekspor CSV berizin.
+- Impor CSV pelanggan: template, maksimal 200 baris/128 KiB, validasi/duplikat, laporan CSV aman, konfirmasi MFA atomik dan replay tanpa duplikasi.
 - Satu layanan/paket per pelanggan; faktur bulanan idempoten, snapshot harga/pajak, diskon, pembayaran sebagian, penolakan lebih bayar, dan reversal penuh dengan histori.
 - Faktur massal: pratinjau maksimal 500 pelanggan, MFA konfirmasi, snapshot disetujui, worker resumable, duplikat dilewati, serta pembatalan sisa pekerjaan.
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.
@@ -37,6 +38,7 @@ config/                  pengaturan, pilihan database, URL, WSGI
 core/models.py           tenant, pelanggan, faktur, ledger, audit, antrean
 core/billing.py          transaksi domain dan hitungan integer rupiah
 core/bulk_billing.py     preview, persetujuan snapshot, worker massal per baris
+core/customer_import.py  parsing CSV, pratinjau privat dan impor atomik
 core/operations.py       tiket, scope penugasan, SLA, PSB dan aktivasi atomik
 core/reminders.py        kebijakan opt-in, planner/outbox pengingat tanpa pengiriman
 core/network.py          adapter simulasi dan rekonsiliasi
@@ -115,6 +117,12 @@ docker compose down
 
 Volume `tagihnet-data` mempertahankan database. `docker compose down -v` menghapusnya; jangan gunakan bila ingin menyimpan data. Image berjalan sebagai user non-root; port hanya diikat ke localhost. Dockerfile dan konfigurasi Windows disediakan, tetapi belum dieksekusi pada checkpoint Linux ini.
 
+## Impor pelanggan CSV
+
+Owner membuka **Impor pelanggan → Unggah CSV**, mengunduh template dan memilih paket_id dari ISP sendiri. Batas 200 baris/128 KiB, UTF-8 dan delimiter koma. Pratinjau belum menambah pelanggan. Semua kesalahan wajib diperbaiki; konfirmasi memerlukan MFA terbaru dan berlaku 15 menit.
+
+Impor menambah pelanggan baru dengan status **Menunggu provisioning**, tanpa faktur, akun portal atau job router. Pelanggan lama tidak diubah. Penagihan dilakukan terpisah; untuk faktur massal atas pelanggan pending, pilih filter Semua layanan. Panduan lengkap: [CUSTOMER-IMPORT](docs/CUSTOMER-IMPORT.md).
+
 ## PostgreSQL opsional
 
 SQLite tetap default dan data demo tidak dipindahkan. Lab PostgreSQL Linux/Docker terpisah memakai role aplikasi non-superuser dan password acak privat:
@@ -127,7 +135,7 @@ python scripts/postgres_lab.py run manage.py test --verbosity 1 --noinput
 python scripts/postgres_lab.py run scripts/verify_postgres.py
 ```
 
-`run` hanya mengatur environment untuk subprocess itu. Verifikasi membuat database sementara sendiri dan menghapusnya setelah delapan skenario lintas proses serta pg_dump/pg_restore. Snapshot cloud tidak menjamin container/volume Docker ikut pulih. Panduan konfigurasi TLS, kredensial, restart, backup dan batas bukti: [POSTGRESQL](docs/POSTGRESQL.md).
+`run` hanya mengatur environment untuk subprocess itu. Verifikasi membuat database sementara sendiri dan menghapusnya setelah sepuluh skenario lintas proses serta pg_dump/pg_restore. Snapshot cloud tidak menjamin container/volume Docker ikut pulih. Panduan konfigurasi TLS, kredensial, restart, backup dan batas bukti: [POSTGRESQL](docs/POSTGRESQL.md).
 
 ## Monitoring NAS simulasi
 

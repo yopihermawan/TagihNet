@@ -62,6 +62,9 @@ def child(data):
         if case == "activation":
             return activate_installation(actor, data["order"], date.fromisoformat(data["period"]),
                 data["fingerprint"], time.time(), 1).customer_id
+        if case == "customer_import":
+            from core.customer_import import confirm_import
+            return confirm_import(actor, data["import_batch"], time.time(), 1).status
         if case == "retry_deadlock":
             from django.db import transaction
             from core.billing import audit, retry_locked
@@ -289,6 +292,21 @@ def verify():
         from core.models import AuditEvent
         assert AuditEvent.objects.filter(action="lab.deadlock_probe").count() == 2
         print("PASS: deliberately forced PostgreSQL deadlock retries the rolled-back transaction exactly once", flush=True)
+        from core.customer_import import preview_import
+        from core.tests.test_customer_import import source
+        data = source(tenant, username="import-process-a", telepon="081299977701")
+        imported = preview_import(actor, data, uuid.uuid4())
+        results = parallel("customer_import", {**common, "import_batch": imported.pk})
+        assert [result["ok"] for result in results] == ["completed", "completed"]
+        assert imported.rows.filter(status="created").count() == 1
+        assert Customer.objects.filter(tenant=tenant, username="import-process-a").count() == 1
+        print("PASS: 2 processes, same customer-import confirmation -> 1 customer", flush=True)
+        data = source(tenant, username="import-process-b", telepon="081299977702")
+        imports = [preview_import(actor, data, uuid.uuid4()) for _ in range(2)]
+        results = parallel("customer_import", common, [{"import_batch": batch.pk} for batch in imports])
+        assert sorted(result["ok"] for result in results) == ["completed", "stale"]
+        assert Customer.objects.filter(tenant=tenant, username="import-process-b").count() == 1
+        print("PASS: 2 processes, overlapping imports -> 1 atomic import, 1 stale preview", flush=True)
         before = database_fingerprint(connection)
         with tempfile.TemporaryDirectory(prefix="tagihnet-pg-restore-") as folder:
             archive = Path(folder)/"backup.dump"

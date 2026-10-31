@@ -18,7 +18,7 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 | Privilege escalation / last owner | applicable | pass lokal | Owner-only editor, custom-cap allowlist/dependency, last-owner demotion/deactivation dan race, role changes revoke sessions |
 | Validation/SQL injection/output encoding | applicable | pass subset | ORM parameterized, form limit/allowlist, markup footer test; fuzzing lengkap belum |
 | PDF sandbox / resource fetch | applicable | pass desain + tes | ReportLab teks lokal; tidak ada file/URL fetch atau HTML browser |
-| Upload/import validation | not applicable | not applicable | Tidak ada endpoint upload/impor |
+| Upload/import validation | applicable | pass subset | CSV UTF-8 <=128 KiB/200 record, header/field/tenant/creator/review/MFA/atomic; raw file tidak diarsipkan; lampiran biner belum tersedia |
 | CSV formula injection | applicable | pass | Prefix sel berisiko + tenant/permission export tests |
 | Payment webhook signature/freshness/order | not applicable | not applicable | Endpoint tidak tersedia, gateway belum diimplementasikan |
 | Ledger constraints/idempotency/reversal | applicable | pass lokal | Unique period/event, integer rupiah, partial/reject overpay; single/bulk race, approved snapshots, stale/expiry, queue/resume/cancel dan concurrency tests |
@@ -45,3 +45,5 @@ Checkpoint pengingat/jadwal ulang menambah 33 tes (162 total) untuk otorisasi/de
 Checkpoint monitoring menambah 25 tes (187 total) untuk scope NOC/tenant, izin konfigurasi/MFA/CSRF, persetujuan worker, batas snapshot/validasi waktu, deduplikasi collector, kualitas data dan plaintext. Tidak ada alamat router atau koneksi jaringan baru; kontrol SSRF/secret perangkat nyata tetap perlu diuji saat adapter live ditambahkan. SQLite thread concurrency bukan bukti PostgreSQL multi-process atau kepatuhan penuh ASVS L2.
 
 Checkpoint PostgreSQL: 195 tes pada tiap backend, delapan race dua proses dan pg_dump/pg_restore lokal memperluas bukti transaksi/constraint/retry. UUID silang invoice dan lock relasi diperbaiki setelah reproduksi. Konfigurasi TLS fail-closed diuji pada parser, bukan koneksi HTTPS/TLS remote. 14 package Python base+driver dipindai tanpa advisory saat scan. Lab CREATEDB, Docker volume, backup plaintext dan hasil lokal tidak membuktikan least-privilege produksi, DR, kapasitas atau seluruh ASVS L2.
+
+Checkpoint impor menambah 30 tes (225 pada tiap backend) dan dua race proses PG (10 total). Upload CSV kini applicable dengan parser/limit/input allowlist dan private preview/report, revalidasi/MFA/CSRF serta rollback atomic; formula-safe CSV dan plaintext diuji. Constraint case-insensitive plus preflight migrasi diuji tanpa normalisasi destruktif data lama. Retensi/enkripsi PII dan kontrol file biner tidak dinyatakan selesai.

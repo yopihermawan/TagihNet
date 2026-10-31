@@ -56,3 +56,9 @@ Pengingat menyatakan Tidak ada pesan nyata dikirim, nonaktif bawaan, memakai per
 Ringkasan menyebut sumber, ISP, waktu, umur maksimum dan jumlah NAS yang masuk/dikecualikan. Data belum diketahui tampil sebagai teks, sedangkan nol hanya dari snapshot berhasil. Label Segar/Kedaluwarsa/Gagal/Persetujuan tertahan/Nonaktif memisahkan kualitas data dari status layanan. Snapshot lama tetap bertanggal dan berlabel histori, tanpa dijumlahkan sebagai data terkini. Tombol Muat ulang status tidak mengambil data; POST Ambil snapshot dibatasi interval.
 
 Bukti: [snapshot segar](evidence/monitoring-fresh-desktop.png), [gagal dengan histori](evidence/monitoring-failed-history.png), [kedaluwarsa](evidence/monitoring-stale-desktop.png), [mobile](evidence/monitoring-mobile.png). Empat viewport diuji pada list/detail/form. NOC tidak melihat kontrol konfigurasi atau billing. Pengujian screen reader/WCAG menyeluruh dan perangkat nyata tetap belum.
+
+## Impor pelanggan CSV
+
+Alur upload → preview → review/MFA → hasil menjelaskan bahwa upload belum menambah pelanggan. Header/template/paket ISP dan batas 200 baris/128 KiB ditampilkan. Telepon/username yang dinormalisasi dapat ditinjau; kesalahan per baris menghalangi seluruh konfirmasi. Status stale/expired meminta upload ulang. Hasil pending, tanpa faktur/akun portal/router dijelaskan sebelum persetujuan. Riwayat privat dan laporan CSV dapat diunduh dengan izin yang sama.
+
+Bukti: [preview desktop](evidence/customer-import-preview.png), [selesai](evidence/customer-import-completed.png), [mobile](evidence/customer-import-mobile.png). Browser memeriksa 360/768/1366/1920 px tanpa overflow halaman. Tabel punya scroll lokal dan hasil sticky; lebar hasil mobile disesuaikan agar identitas masih terlihat. Audit WCAG/screen reader lengkap belum dilakukan.

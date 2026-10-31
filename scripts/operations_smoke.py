@@ -286,12 +286,45 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             assert noc_context.request.get(monitor_url+"edit/").status == 403
             assert noc_context.request.get(base+"/network/monitoring/new/").status == 403
             assert "Rp" not in noc.inner_text("main")
+            # CSV imports stay inside this disposable SQLite database.
+            with sqlite3.connect(db_path) as db:
+                import_plan = db.execute("SELECT p.id FROM core_plan p JOIN core_membership m ON p.tenant_id=m.tenant_id JOIN auth_user u ON m.user_id=u.id WHERE u.username='owner' ORDER BY p.id LIMIT 1").fetchone()[0]
+                before_import = [db.execute("SELECT COUNT(*) FROM "+table).fetchone()[0] for table in ["core_customer", "core_invoice", "core_networkjob", "core_membership"]]
+            def upload_csv(payload):
+                page.goto(base+"/customers/imports/new/")
+                page.get_by_label("File pelanggan CSV UTF-8").set_input_files({"name": "pelanggan.csv", "mimeType": "text/csv", "buffer": payload.encode()})
+                page.get_by_role("button", name="Buat pratinjau impor", exact=True).click()
+                expect(page.get_by_role("heading", name="Tinjau penambahan pelanggan")).to_be_visible()
+            header = "nama,email,telepon,username,paket_id,wilayah,alamat\n"
+            upload_csv(header+f"Pelanggan CSV Salah,,bukan-telepon,csv-salah,{import_plan},Dago,Alamat fiktif\n")
+            expect(page.get_by_role("button", name="Konfirmasi dan tambahkan pelanggan")).to_have_count(0)
+            expect(page.get_by_text("Perlu diperbaiki", exact=True)).to_be_visible()
+            upload_csv(header+f"Pelanggan CSV Fiktif,,+62 812-9999771,CSV-BROWSER-1,{import_plan},Dago,Alamat fiktif satu\n"+f"Pelanggan CSV Kedua,,08129999772,csv-browser-2,{import_plan},Dago,Alamat fiktif dua\n")
+            import_url = page.url
+            page.screenshot(path=str(evidence / "customer-import-preview.png"), full_page=True)
+            with sqlite3.connect(db_path) as db:
+                assert db.execute("SELECT COUNT(*) FROM core_customer").fetchone()[0] == before_import[0]
+            page.get_by_label("Saya meninjau seluruh baris").check()
+            page.once("dialog", lambda dialog: dialog.accept())
+            page.get_by_role("button", name="Konfirmasi dan tambahkan pelanggan").click()
+            page.wait_for_url(import_url)
+            expect(page.locator('.page-heading .eyebrow')).to_contain_text("SELESAI")
+            # The CSRF cookie is read by name; no factor or token is logged.
+            csrf = next(cookie['value'] for cookie in owner.cookies() if cookie['name']=='csrftoken')
+            assert owner.request.post(import_url+"confirm/", form={"reviewed": "on", "csrfmiddlewaretoken": csrf}, max_redirects=0).status == 302
+            with sqlite3.connect(db_path) as db:
+                after_import = [db.execute("SELECT COUNT(*) FROM "+table).fetchone()[0] for table in ["core_customer", "core_invoice", "core_networkjob", "core_membership"]]
+                assert after_import == [before_import[0]+2, *before_import[1:]]
+                assert db.execute("SELECT service_state,phone FROM core_customer WHERE username='csv-browser-1'").fetchone() == ("pending", "08129999771")
+            assert technician.request.get(import_url).status == 403
+            assert customer.request.get(import_url).status == 403
+            page.screenshot(path=str(evidence / "customer-import-completed.png"), full_page=True)
             for width in [360, 768, 1366, 1920]:
                 page.set_viewport_size({"width": width, "height": 1000})
-                for route in ["/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/"]:
+                for route in ["/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/", "/customers/imports/", "/customers/imports/new/"]:
                     page.goto(base + route)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, route)
-                for url in [ticket_url, order_url, reminder_url, monitor_url]:
+                for url in [ticket_url, order_url, reminder_url, monitor_url, import_url]:
                     page.goto(url)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, url)
             page.set_viewport_size({"width": 360, "height": 1000})
@@ -300,10 +333,12 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             page.screenshot(path=str(evidence / "reminders-mobile.png"), full_page=True)
             page.goto(base + "/network/monitoring/")
             page.screenshot(path=str(evidence / "monitoring-mobile.png"), full_page=True)
+            page.goto(import_url)
+            page.screenshot(path=str(evidence / "customer-import-mobile.png"), full_page=True)
             subprocess.run([sys.executable, "scripts/verify_restore.py"], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
             assert failures == [], failures
             browser.close()
-        print("PASS: owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, 4 viewports, restore state; no MFA factors in evidence.")
+        print("PASS: owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
     finally:
         server.terminate()
         try:

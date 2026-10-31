@@ -1,6 +1,6 @@
 # PostgreSQL opsional dan hardening transaksi
 
-Checkpoint `feature/tagihnet-postgresql-hardening` menambah PostgreSQL tanpa memindahkan database demo. SQLite tetap default; seluruh data/kunci lokal yang sudah ada dipertahankan. Migrasi skema yang sama (0001–0006) dapat diterapkan dari kosong pada PostgreSQL. Belum ada cutover atau migrasi data produksi.
+Checkpoint `feature/tagihnet-postgresql-hardening` menambah PostgreSQL tanpa memindahkan database demo. SQLite tetap default; seluruh data/kunci lokal yang sudah ada dipertahankan. Migrasi skema yang sama (0001–0007) dapat diterapkan dari kosong pada PostgreSQL. Belum ada cutover atau migrasi data produksi.
 
 ## Lab yang telah diuji
 
@@ -53,7 +53,7 @@ Connect timeout 5 detik; lock timeout 5 detik; statement timeout 30 detik. Konek
 2. **Lock relasi pada worker bulk.** FOR UPDATE tanpa OF ikut mengunci joined actor/tenant. Overlap yang dipaksakan dengan penerbitan satuan menghasilkan satu deadlock terukur. Lock kini dibatasi ke self. Pengunci tenant untuk akses/konfigurasi memakai NO KEY UPDATE agar insert FK biasa tidak ikut tertahan; serialisasi konfigurasi/owner tetap ada. Retest domain ini memeriksa counter deadlock nol.
 3. **Retry database yang eksplisit.** Retry membaca SQLSTATE 40001 (serialization), 40P01 (deadlock), 55P03 (lock unavailable), atau SQLite BUSY/LOCKED. Maksimal lima percobaan dengan jeda bertingkat. Koneksi putus, SQL salah dan error lain tidak diulang secara umum. Fixture deadlock terkontrol menguji satu retry dengan rollback sehingga tidak ada audit yang committed dua kali.
 
-Pembatasan lock juga diterapkan pada query join terkait pembayaran, pengingat, akun dan reset MFA. SQLite mengabaikan row-lock flags; 195 tesnya tetap lulus. Tidak ada perubahan izin web atau mutasi ledger lama dari pemilihan backend.
+Pembatasan lock juga diterapkan pada query join terkait pembayaran, pengingat, akun dan reset MFA. SQLite mengabaikan row-lock flags; suite terbaru 225 tes lulus di kedua backend. Tidak ada perubahan izin web atau mutasi ledger lama dari pemilihan backend.
 
 ## Verifikasi lintas proses dan restore
 
@@ -67,15 +67,19 @@ Pembatasan lock juga diterapkan pada query join terkait pembayaran, pengingat, a
 - Dua worker pengingat menghasilkan satu receipt dan satu attempt.
 - Aktivasi PSB menghasilkan satu customer/invoice/job.
 - Deadlock buatan menghasilkan satu retry; dua transaksi yang berhasil meninggalkan tepat dua audit.
+- Dua konfirmasi impor pelanggan yang sama menghasilkan satu set pelanggan.
+- Dua preview impor bertumpang tindih menghasilkan satu completed dan satu stale tanpa penambahan parsial.
 
 Gate file hanya menyelaraskan proses/lock; tidak mengganti operasi database dengan hasil palsu. Fixture deadlock terakhir sengaja menghasilkan deadlock, terpisah dari assertion nol deadlock pada race domain. Ini uji dua proses terbatas, bukan benchmark, jaminan fairness, klaim tidak pernah deadlock, atau pembuktian exactly-once integrasi eksternal.
 
 Setelah race, verifier menjalankan pg_dump custom ke file sementara 0600, restore ke database kosong kedua dengan pg_restore, lalu membandingkan jumlah/hash payload seluruh tabel aplikasi/auth beserta through table. Kedua database kemudian dihapus; database asal dan SQLite pengguna tidak diisi fixture. Tools PG berasal dari container yang dikonfigurasi helper/CI atau client lokal yang sesuai server. Arsip belum terenkripsi, tanpa offsite, PITR, RPO/RTO atau failover. Pemulihan authenticator masih memerlukan kunci MFA terpisah.
 
-`backup.py` dan `verify_restore.py` khusus SQLite dan menolak ketika ENGINE=postgresql; keduanya tidak boleh dianggap backup PG. Kedua browser smoke secara eksplisit memakai SQLite sementara walaupun environment induk PG. Chromium belum diuji terhadap PG; tes HTTP/domain pada PG termasuk dalam 195 tes. CI mendaftarkan backend PG dan proses/restore, tanpa klaim remote CI sudah lulus.
+`backup.py` dan `verify_restore.py` khusus SQLite dan menolak ketika ENGINE=postgresql; keduanya tidak boleh dianggap backup PG. Kedua browser smoke secara eksplisit memakai SQLite sementara walaupun environment induk PG. Chromium belum diuji terhadap PG; tes HTTP/domain pada PG termasuk dalam 225 tes. CI mendaftarkan backend PG dan proses/restore, tanpa klaim remote CI sudah lulus.
 
 ## Cutover berikutnya
 
 Jangan mengubah DB_ENGINE pada instalasi berisi data lalu menganggap data otomatis berpindah. Siapkan backup konsisten, migrasi ID/relasi/sequence dan data terenkripsi, rekonsiliasi saldo/jumlah/ledger, maintenance window, kunci MFA, rollback dan validasi staging. Prosedur migrasi data ini belum diimplementasikan.
 
 Kesiapan produksi masih memerlukan TLS target, role minimum, beban/queue/pooling, retensi/monitoring, backup terenkripsi/offsite, pemulihan nyata dan integrasi gateway/router yang terverifikasi. Detail hasil lokal ada di [TEST-REPORT](TEST-REPORT.md).
+
+Checkpoint impor menambah migrasi 0007, dua model dan index LOWER(username)/tenant. Preflight menolak benturan data lama; tidak menggabungkan/menghapus customer. Verifier kini memiliki sepuluh race dua proses dan restore juga mencakup batch/row impor. Batas kapasitas/cutover produksi di atas tetap berlaku.

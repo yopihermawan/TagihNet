@@ -1,5 +1,6 @@
 from django.contrib.auth import views as auth
 from django.urls import path
+from core import customer_import_views as customer_import
 from core import views
 from core import security_views as security
 from core import bulk_views as bulk
@@ -8,6 +9,13 @@ from core import reminder_views as reminders
 from core import monitoring_views as monitoring
 
 urlpatterns = [
+    path("customers/imports/", customer_import.import_list, name="customer_import_list"),
+    path("customers/imports/new/", customer_import.import_upload, name="customer_import_upload"),
+    path("customers/imports/template.csv", customer_import.import_template, name="customer_import_template"),
+    path("customers/imports/<uuid:pk>/", customer_import.import_detail, name="customer_import_detail"),
+    path("customers/imports/<uuid:pk>/confirm/", customer_import.import_confirm, name="customer_import_confirm"),
+    path("customers/imports/<uuid:pk>/cancel/", customer_import.import_cancel, name="customer_import_cancel"),
+    path("customers/imports/<uuid:pk>/report.csv", customer_import.import_report, name="customer_import_report"),
     path("network/monitoring/", monitoring.monitoring_list, name="monitoring_list"),
     path("network/monitoring/new/", monitoring.monitoring_form, name="monitoring_new"),
     path("network/monitoring/<int:pk>/", monitoring.monitoring_detail, name="monitoring_detail"),

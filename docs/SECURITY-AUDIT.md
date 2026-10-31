@@ -1,10 +1,10 @@
-# Audit keamanan TagihNet — 31 Oktober 2026
+# Audit keamanan TagihNet — 1 November 2026
 
 Lingkungan: lokal Linux, Python 3.12.14, Django 5.2.18, SQLite, Chromium; semua data fiktif. Audit hanya pada kode TagihNet yang ditulis untuk checkpoint ini. Observasi KelolaNet dalam brief adalah referensi UI, bukan temuan teknis terkonfirmasi. Checkpoint kini mencakup MFA/editor akses dan penerbitan massal dengan persetujuan snapshot. Tidak ada sertifikasi ASVS atau klaim production-ready.
 
 ## Model ancaman dan batas kepercayaan
 
-Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengaturan billing, serta antrean perubahan layanan. Ancaman prioritas: pembacaan lintas ISP/IDOR, kasir menaikkan privilege, manipulasi nominal browser, payment replay, XSS footer, CSV formula injection, serta indikator router palsu. Internet, input browser, dan ID pada URL tidak dipercaya. Administrator database/host masih berada dalam batas kepercayaan. Tidak ada koneksi router/gateway, upload, atau URL-fetch API pada implementasi ini.
+Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengaturan billing, serta antrean perubahan layanan. Ancaman prioritas: pembacaan lintas ISP/IDOR, kasir menaikkan privilege, manipulasi nominal browser, payment replay, XSS footer, CSV formula injection, serta indikator router palsu. Internet, input browser, dan ID pada URL tidak dipercaya. Administrator database/host masih berada dalam batas kepercayaan. Unggahan hanya CSV pelanggan terbatasi. Tidak ada koneksi router/gateway, upload lampiran biner, atau URL-fetch API pada implementasi ini.
 
 ## Kontrol yang diverifikasi
 
@@ -41,7 +41,7 @@ Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengatur
 | TGN-P05 | Sedang | Akun demo lokal tersedia dengan password yang didokumentasikan; seed dibatasi development. Dilarang mempublikasikan database seed sebagai layanan produksi |
 | TGN-P06 | Belum dinilai | TLS end-to-end, SMTP produksi, provisioning/rotation secret, Docker runtime, penetrasi aplikasi, dan beban belum diuji. Tidak ada klaim lulus untuk kontrol tersebut |
 
-Gateway/webhook signature, SSRF pada router, kredensial RADIUS, upload malware, dan autentikasi realtime: **belum applicable pada kode aktif**, karena endpoint/adapternya tidak tersedia. Kontrol tersebut wajib dievaluasi ketika modul ditambahkan; jangan mengartikan ketiadaan implementasi sebagai lulus integrasi.
+Gateway/webhook signature, SSRF pada router, kredensial RADIUS, upload lampiran biner/malware, dan autentikasi realtime: **belum applicable pada kode aktif**, karena endpoint/adapternya tidak tersedia. Kontrol tersebut wajib dievaluasi ketika modul ditambahkan; jangan mengartikan ketiadaan implementasi sebagai lulus integrasi.
 
 Audit ini tidak memperbaiki seluruh target ASVS L2. [ASVS-CHECKLIST](ASVS-CHECKLIST.md) adalah daftar subset kontrol yang relevan dan status bukti, bukan checklist lengkap standar.
 
@@ -84,3 +84,11 @@ Verifikasi memakai PostgreSQL 16.15 lokal, role aplikasi non-superuser/CREATEDB,
 Temuan TGN-005: worker bulk ikut mengunci joined actor/tenant, menyebabkan satu deadlock terukur pada overlap dengan penerbitan satuan. Scope FOR UPDATE dibatasi ke self; NO KEY UPDATE pada konfigurasi tenant mempertahankan serialisasi tanpa menghalangi FK insert biasa. Retest skenario domain menunjukkan nol deadlock. Fixture deadlock terpisah sengaja menguji retry SQLSTATE dan rollback; berhasil satu retry tanpa audit ganda. Retry tetap maksimal lima dan tidak mengulang error koneksi/SQL lain secara umum.
 
 Konfigurasi PG eksplisit, tidak fallback diam-diam ke SQLite; password variable/file privat, TLS verify-full default dan disable ditolak pada DEBUG=0. Lab hanya loopback dengan secret acak 0600; credential CI fiktif hanya untuk service ephemeral. Parameter timeout dibatasi. Kedua browser smoke tetap memakai SQLite disposable walaupun environment induknya PG; skrip backup SQLite menolak backend PG. Pemindaian 14 paket Python base+PG tidak menemukan advisory saat scan. Kontrol load/capacity, TLS remote, pooling/failover, runtime role least-privilege produksi, backup terenkripsi/offsite dan cutover belum terverifikasi.
+
+## Impor CSV dan username case-insensitive
+
+225 tes pada kedua backend, dua race proses impor tambahan, serta browser memverifikasi upload CSV <=128 KiB/200 record, UTF-8/header ketat dan kontrol karakter; extension diperiksa, MIME tidak dipercaya sebagai validasi isi. Tidak ada lokasi/filename storage yang dipilih pengguna. Byte asli tidak diarsipkan; hanya kolom yang dikenal (dibatasi untuk row invalid) dan snapshot/error privat di database. Kolom tenant, status, password dan nominal tidak diterima. Preview/konfirmasi/report memerlukan capability+creator+tenant; konfirmasi memakai CSRF/review/MFA/current access version, fingerprint, expiry dan revalidasi server.
+
+Semua baris harus valid, konflik saat penyimpanan rollback seluruh impor. Constraint username LOWER per tenant mencegah benturan case di seluruh jalur penambahan; preflight migrasi berhenti jika legacy collision ditemukan tanpa koreksi otomatis. GET tidak membuat customer; replay tidak menggandakan. Hasil pending tidak memalsukan router aktif dan tidak menambah invoice, akun portal atau job. Laporan CSV meng-escape spreadsheet formula; web memakai autoescape. Audit hanya jumlah/status/alasan, tidak mencatat isi CSV/telepon/nama baris.
+
+Retensi batch/PII dan enkripsi database/backup belum otomatis. Tidak ada dukungan Excel/XLSX, lampiran biner, merge/update pelanggan atau importer nominal ledger. Source CSV tetap input tidak dipercaya dan data admin database masih batas kepercayaan. Tidak ada perluasan klaim menjadi seluruh ASVS L2 atau kesiapan produksi.

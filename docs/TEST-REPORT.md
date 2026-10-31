@@ -1,4 +1,4 @@
-# Laporan pengujian — 31 Oktober 2026, WIB
+# Laporan pengujian — 1 November 2026, WIB
 
 Target: checkpoint billing, operasional, pengingat, PSB dan monitoring NAS simulasi TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite dan PostgreSQL 16.15 (psycopg 3.3.6), Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
 
@@ -11,11 +11,11 @@ Target: checkpoint billing, operasional, pengingat, PSB dan monitoring NAS simul
 | `python manage.py check` | pass · no issues |
 | `python manage.py makemigrations --check --dry-run` | pass · no changes detected |
 | `python -m pip check` | pass · no broken requirements |
-| `python manage.py test --verbosity 1` | pass · **195 tes dieksekusi pada SQLite dan 195 pada PostgreSQL**, tanpa skip, tanpa fail/skip/expected-failure |
+| `python manage.py test --verbosity 1` | pass · **225 tes dieksekusi pada SQLite dan 225 pada PostgreSQL**, tanpa fail/skip/expected-failure |
 | `python manage.py collectstatic --noinput` | pass · tiga aset lokal terkumpul |
 | `python scripts/browser_smoke.py` | pass · Chromium sungguhan: login/password toggle, tambah/reload pelanggan, faktur, pembayaran penuh, reversal, PDF, filter/URL kembali, logout, dark mode, menu mobile; **0 browser errors** |
 | `python scripts/security_smoke.py` | pass · server/database sementara, MFA enrollment/challenge, custom role assignment/edit, session revocation, recovery regeneration/rejection, penerbitan 28 faktur massal dengan diskon, replay, worker resume/duplikat/cancel parsial/restore antrean, lalu seluruh alur billing; tanpa mengubah akun demo pengguna |
-| `python scripts/operations_smoke.py` | pass · owner/teknisi/pelanggan, catatan internal tersembunyi, scope tugas, tiket sampai Ditutup, PSB sampai aktivasi/replay, satu customer/invoice/job, provisioning simulasi, edit/reschedule/reset Survei, opt-in pengingat, dedupe, pelunasan sebelum proses, monitoring NAS normal/gagal/stale/nol, NOC scope, 4 viewport dan restore outbox/snapshot |
+| `python scripts/operations_smoke.py` | pass · owner/teknisi/pelanggan, catatan internal tersembunyi, scope tugas, tiket sampai Ditutup, PSB sampai aktivasi/replay, satu customer/invoice/job, provisioning simulasi, edit/reschedule/reset Survei, opt-in pengingat, dedupe, pelunasan sebelum proses, monitoring NAS normal/gagal/stale/nol, NOC scope, impor CSV invalid/preview/MFA/atomic/replay, 4 viewport dan restore outbox/snapshot/impor |
 | Browser responsive checks | pass terbatas · 360/768/1366/1920 px, dashboard/pelanggan/faktur/jaringan/setelan tanpa scroll horizontal seluruh halaman; tabel punya scroll lokal |
 | `python scripts/verify_pdf.py` | pass · A4 **14 halaman**, 100 baris teks panjang, total Rp100.000, label simulasi, markup footer tampil sebagai teks; fixture di-rollback |
 | `python scripts/verify_restore.py` | pass · backup konsisten dan restore ke direktori kosong, integrity_check ok; pelanggan/faktur/total/pembayaran/piutang, state batch/items/tiket/PSB/outbox, versi kebijakan/siklus SLA/jadwal PSB, konfigurasi dan payload snapshot NAS sama |
@@ -31,7 +31,7 @@ Prefix `python` pada tabel berarti interpreter `.venv/bin/python` proyek. Pip-au
 | --- | --- | --- |
 | 1 | Auth/logout/reset/timeout/revocation | pass · rotasi session, POST logout, reset token invalid sesudah dipakai, sesi lama dicabut, idle/absolute expiry; MFA TOTP/recovery/step-up juga lulus; SMTP produksi belum |
 | 2 | Endpoint langsung tanpa izin | pass · kasir/NOC/customer, tidak hanya menu tersembunyi |
-| 3 | Batas tenant/pelanggan | pass subset · detail/edit/payment/search/export/PDF/portal/job; upload/realtime tidak ada |
+| 3 | Batas tenant/pelanggan | pass subset · detail/edit/payment/search/export/PDF/portal/job serta preview/laporan impor privat; realtime belum tersedia |
 | 4 | Search/filter/sort/pagination URL | pass · 10/25/50 backend dan size=25 browser; filter NAS/jatuh tempo belum |
 | 5 | Tambah/ubah pelanggan + reload | pass · HTTP dan browser; duplikat phone/username ditolak |
 | 6 | Retry/concurrency penerbitan | pass lokal · dua worker batch sama/bertumpang tindih/race dengan penerbitan satuan, resume/konfirmasi replay, constraint customer/periode; PostgreSQL dua proses terpisah lulus pada lab |
@@ -41,7 +41,7 @@ Prefix `python` pada tabel berarti interpreter `.venv/bin/python` proyek. Pip-au
 | 10 | Pembayaran bersamaan isolir | simulated · dua urutan pembayaran/job, recheck utang saat eksekusi; race perangkat nyata belum |
 | 11 | Router gagal tidak batalkan bayar | simulated · status failed dan pembayaran lunas bertahan; layanan tidak dipalsukan aktif |
 | 12 | Markup tidak dieksekusi | pass lokal · web/detail dan PDF; portal memakai renderer sama dan otorisasi yang diuji; email faktur belum tersedia |
-| 13 | Upload/impor/ekspor | pass subset · CSV tenant/izin/formula; upload/impor belum tersedia |
+| 13 | Upload/impor/ekspor | pass subset · impor CSV dibatasi ukuran/format/baris/tenant/creator, preview/MFA/atomic; laporan/ekspor formula-safe; lampiran biner belum tersedia |
 | 14 | Demo guard backend/worker | simulated · payment di luar SIMULATION ditolak, worker fail-closed; tidak ada adapter eksternal |
 | 15 | Metrik jelas dan data gagal bukan nol | pass lokal · sumber/tenant/periode/update tersedia; snapshot sesi contoh membedakan nol/unknown/stale/gagal, data router nyata belum tersedia |
 | 16 | UI/accessibility/kontras/fallback | pass subset · screenshots, 4 viewport, password/menu/Escape/return URL, empty/validation states; audit WCAG penuh dan screen reader belum |
@@ -50,7 +50,7 @@ Prefix `python` pada tabel berarti interpreter `.venv/bin/python` proyek. Pip-au
 
 ## Tidak dijalankan / gate rilis
 
-Build/runtime image aplikasi Docker dan Windows PowerShell belum diuji. Container server PostgreSQL lab sudah diuji; itu tidak memverifikasi image aplikasi. GitHub Actions baru ditambahkan; keberhasilan lokal bukan bukti CI remote lulus. Belum ada uji TLS deployment, SMTP nyata, load test, stress multiworker, lab MikroTik/FreeRADIUS/CoA/FastTrack/IPv6, gateway sandbox, upload, migrasi data produksi, payroll, atau penetrasi aplikasi menyeluruh. Seluruh modul pending tercatat di FEATURE-MATRIX. Tidak ada persentase kepatuhan atau klaim production-ready.
+Build/runtime image aplikasi Docker dan Windows PowerShell belum diuji. Container server PostgreSQL lab sudah diuji; itu tidak memverifikasi image aplikasi. GitHub Actions baru ditambahkan; keberhasilan lokal bukan bukti CI remote lulus. Belum ada uji TLS deployment, SMTP nyata, load test, stress multiworker, lab MikroTik/FreeRADIUS/CoA/FastTrack/IPv6, gateway sandbox, upload lampiran biner, migrasi data produksi, payroll, atau penetrasi aplikasi menyeluruh. Seluruh modul pending tercatat di FEATURE-MATRIX. Tidak ada persentase kepatuhan atau klaim production-ready.
 
 ## Kesalahan selama setup yang sudah diperbaiki
 
@@ -103,3 +103,13 @@ Temuan awal: UUID payment pada dua invoice dapat menghasilkan IntegrityError 235
 Verifier membuat pg_dump format custom dengan mode 0600, restore ke database kosong kedua, lalu membandingkan jumlah/hash payload seluruh tabel aplikasi/auth (termasuk through table) sebelum menghapus kedua database. Ini uji backup logis lokal, bukan enkripsi/offsite/PITR/failover. Volume lab dipertahankan saat container terhenti dihapus/dibuat ulang; startup dan migrate --check lulus. Tidak membuktikan snapshot cloud memulihkan volume Docker.
 
 Kedua browser smoke lulus, termasuk saat dipanggil dari launcher PostgreSQL: skrip secara eksplisit memakai SQLite sementara. Pengujian browser bukan Chromium terhadap PostgreSQL; tes HTTP/domain pada PG termasuk dalam 195 tes. PDF/restore SQLite tetap diuji terpisah. Data demo pengguna tetap 33 pelanggan/40 faktur, tanpa fixture/MFA baru dan backend aktif tetap SQLite. Dependensi opsional psycopg/psycopg-binary 3.3.6 serta typing_extensions 4.16.0 dikunci. pip-audit terhadap requirements-postgres.txt (14 package Python termasuk base) tidak menemukan advisory saat scan; tidak mencakup OS atau library native yang dibundel. Job CI PostgreSQL didaftarkan; hasil remote belum diverifikasi.
+
+## Checkpoint impor pelanggan — 1 November 2026 WIB
+
+30 tes baru, **225 tes pada SQLite dan 225 pada PostgreSQL**, lulus tanpa fail/skip/expected-failure. Cakupan: UTF-8/BOM/header reorder/quoted multiline, batas 128 KiB/200 record/kolom, reject encoding/control/header/extension/UUID, form field validation, plan tenant, duplikat file/database/case variant, normalisasi, preview tanpa efek, atomic pending create/replay, rollback saat konflik, fingerprint tamper, harga/data/izin berubah, expiry/MFA/sesi, cancellation/quota, creator+tenant scope termasuk report dan direct POST, CSRF/review, formula-safe CSV/plaintext, summary pagination dan tiga concurrency test. Index username case-insensitive diuji pada direct DB insert.
+
+Browser operations_smoke.py mengunggah CSV invalid (konfirmasi tidak tersedia), lalu CSV dua pelanggan valid; sebelum konfirmasi jumlah pelanggan tetap, sesudah MFA/review tepat dua customer pending ditambah. Replay tetap dua; invoice/job/membership tidak bertambah. Teknisi/pelanggan ditolak dari batch. Upload/list/detail diperiksa pada empat viewport dan bukti baru customer-import-*.png. Kolom hasil sticky mobile dipersempit setelah inspeksi visual dan retest browser lulus. security_smoke.py juga lulus untuk regresi MFA/akses/billing.
+
+PostgreSQL verify_postgres.py menambah dua kasus proses terpisah: dua konfirmasi batch sama menghasilkan satu impor; dua preview bertumpang tindih menghasilkan completed/stale dan satu pelanggan. Total sepuluh skenario proses, ditambah pg_dump/restore yang merekonsiliasi seluruh tabel aplikasi/auth, termasuk batch/row impor. Chromium tetap memakai SQLite sementara; PG HTTP/domain diuji pada backend suite. Tidak ada klaim CI remote selesai.
+
+Migrasi 0007 diuji pada salinan restore dengan probe benturan username: penolakan mempertahankan semua customer dan tidak mencatat migrasi selesai. Setelah probe dibuang pada salinan, migrasi/rekonsiliasi berhasil. Penerapan lokal setelah backup mempertahankan ledger/jumlah/MFA. System/model drift/pip check, static collection, PDF A4 14 halaman dan restore SQLite lulus. Data demo pengguna tidak diisi import/MFA uji. Dependensi tidak berubah dari checkpoint PG; audit 14 package yang dicatat sebelumnya bukan scan baru tanggal ini. Retensi otomatis, impor update/upsert, file spreadsheet/biner dan cutover produksi tetap belum tersedia.

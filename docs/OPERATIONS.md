@@ -100,3 +100,13 @@ verify_postgres.py membuat database terpisah bernama acak, menjalankan migrasi/f
 Lock joined actor/tenant dibatasi ke baris target; pengunci tenant untuk konfigurasi memakai NO KEY UPDATE agar tidak memblokir FK insert biasa. Retry transaksi mengenali SQLSTATE 40001/40P01/55P03 atau SQLite BUSY/LOCKED, maksimal lima percobaan; error lain tidak diulang. UUID pembayaran lintas faktur diputuskan oleh unique constraint/savepoint agar satu transaksi menang dan lainnya menjadi ValidationError. Tidak ada migrasi skema baru pada checkpoint ini; migrasi 0001–0006 diterapkan dari kosong pada lab. Migrasi data SQLite ke PostgreSQL produksi belum dilakukan.
 
 backup.py/verify_restore.py khusus SQLite dan menolak saat PostgreSQL dipilih. Kedua smoke browser memaksa SQLite sementara meskipun dipanggil dari environment PostgreSQL, sehingga tidak menulis ke database PG terkonfigurasi. Browser PostgreSQL/live deployment, beban, pooling, failover, offsite/enkripsi backup dan cutover tetap belum diuji. Lihat POSTGRESQL.md.
+
+## Impor CSV dan migrasi 0007
+
+Migrasi 0007 menambah CustomerImportBatch/Row dan constraint username case-insensitive per ISP untuk semua jalur input pelanggan. Preflight memeriksa benturan LOWER(username); bila ada, migrasi berhenti tanpa menggabung/menghapus data. Operator harus meninjau benturan pada salinan backup dan memutuskan koreksi secara eksplisit. Jangan menghapus constraint untuk melewati pemeriksaan.
+
+Empat proses sesi dihentikan, backup konsisten dibuat, dan migrasi diuji pada hasil restore sementara. Probe duplikat case pada salinan menyebabkan penolakan yang diharapkan tanpa kehilangan baris atau menandai migrasi selesai. Setelah hanya probe uji dihapus, migrasi berhasil dan ledger cocok. Migrasi diterapkan pada database lokal yang tidak memiliki benturan, lalu web dan tiga worker dimulai lagi. Data demo tetap 33 pelanggan/40 faktur dan tanpa batch impor/perangkat MFA uji.
+
+Tidak ada worker baru: konfirmasi maksimal 200 pelanggan berlangsung dalam satu transaksi. Seluruh kesalahan menghalangi konfirmasi; konflik baru saat simpan rollback semua pelanggan/link row. Preview 15 menit, UUID request idempoten dan maksimal 20 preview aktif per pembuat. Status Selesai/Batal/Stale/Expired terminal; tidak memaksa status lewat SQL. File asli tidak diarsipkan; nilai kolom yang dikenal dan laporan row tersimpan privat pada database. Retensi/pruning batch belum otomatis.
+
+Restore SQLite kini membandingkan batch/fingerprint/versi dan payload/status/link row impor. Browser drill memiliki contoh invalid dan completed; PostgreSQL verifier menambah dua race impor (10 total) dan membandingkan seluruh tabel ketika pg_dump/restore. Penagihan/provisioning tetap terpisah. Panduan di CUSTOMER-IMPORT.md.

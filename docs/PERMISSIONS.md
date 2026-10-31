@@ -58,3 +58,9 @@ Worker memeriksa persetujuan konfigurasi terhadap akun aktif, ISP, capability da
 ## Backend database
 
 Pilihan PostgreSQL tidak mengubah capability, tenant scope atau hak portal/teknisi. Role database lab adalah non-superuser dengan CREATEDB agar dapat membuat/menghapus database tes; hak ini bukan role runtime produksi. Secret database hanya dari konfigurasi proses/file privat, tidak ada form web pengatur koneksi. Worker tetap memeriksa actor/tenant/versi persetujuan seperti sebelumnya. Skenario proses diverifikasi dengan role tersebut; akses administrator database tetap batas kepercayaan terpisah dari role aplikasi.
+
+## Impor pelanggan CSV
+
+`import_customers` diberikan ke Owner secara bawaan. Peran kustom memerlukan `customers` dan `edit_customers`; preset Ops yang hanya dapat menambah satuan tidak otomatis boleh impor. NOC/teknisi/pelanggan/preset finansial tidak mendapatnya secara bawaan. Capability yang sama berlaku pada upload, template, list/detail, konfirmasi/batal dan laporan CSV. Batch/rincian/laporan privat untuk pembuat dan ISP; owner lain di ISP sama juga mendapat 404.
+
+Unggah membuat pratinjau saja. Konfirmasi memerlukan CSRF, checkbox review, MFA <=5 menit, versi sesi yang berlaku dan versi akses saat preview. Data/paket diperiksa ulang. Tidak ada pilihan tenant/status layanan/sandi/nominal di CSV. Pelanggan hasil impor tersimpan di ISP dari membership dengan status pending. Tidak membuat akun portal, invoice atau job jaringan. Pelanggan yang sudah tercipta selanjutnya mengikuti scope pelanggan biasa.
