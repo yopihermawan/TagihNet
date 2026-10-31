@@ -29,7 +29,7 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 | HTTPS/HSTS/proxy deployment | applicable | not tested | Konfigurasi DEBUG-off tersedia, target deployment belum ada |
 | Audit actor/tenant/action/correlation | applicable | pass subset | Domain mutations/CSV/jobs dicatat; login/factor failure/step-up/MFA/access events ditambahkan; password-failure/reset audit-event lengkap belum |
 | Audit tamper resistance/retention/alarm | applicable | fail | Database admin bisa mengubah; retensi/alert belum |
-| Encrypted backup / offsite / DR | applicable | fail sebagian | Restore/reconcile lokal pass; enkripsi/offsite/RPO/RTO belum |
+| Encrypted backup / offsite / DR | applicable | pass lokal / fail sebagian | AES-GCM SQLite/PG + authenticated restore/MFA pass; legacy plaintext tetap tersedia, vault/offsite/retensi/PITR/RPO/RTO belum |
 | Dependency vulnerabilities | applicable | pass saat scan | Sebelas runtime package, pip-audit via PyPI; monitoring kontinu belum |
 | Secret scanning | applicable | pass terbatas | Pemeriksaan diff/source manual, generated data/key diabaikan Git; scanner khusus belum |
 | Production capacity/resource limits | applicable | not tested | SQLite/single-node development; load/concurrency multi-process belum |
@@ -47,3 +47,5 @@ Checkpoint monitoring menambah 25 tes (187 total) untuk scope NOC/tenant, izin k
 Checkpoint PostgreSQL: 195 tes pada tiap backend, delapan race dua proses dan pg_dump/pg_restore lokal memperluas bukti transaksi/constraint/retry. UUID silang invoice dan lock relasi diperbaiki setelah reproduksi. Konfigurasi TLS fail-closed diuji pada parser, bukan koneksi HTTPS/TLS remote. 14 package Python base+driver dipindai tanpa advisory saat scan. Lab CREATEDB, Docker volume, backup plaintext dan hasil lokal tidak membuktikan least-privilege produksi, DR, kapasitas atau seluruh ASVS L2.
 
 Checkpoint impor menambah 30 tes (225 pada tiap backend) dan dua race proses PG (10 total). Upload CSV kini applicable dengan parser/limit/input allowlist dan private preview/report, revalidasi/MFA/CSRF serta rollback atomic; formula-safe CSV dan plaintext diuji. Constraint case-insensitive plus preflight migrasi diuji tanpa normalisasi destruktif data lama. Retensi/enkripsi PII dan kontrol file biner tidak dinyatakan selesai.
+
+Checkpoint backup menambah20 tes (245 tiap backend), encrypted SQLite/PG restore dan MFA login/replay drill. AEAD/nonce/AAD, format/limit, wrong key/tamper, no-clobber, private staging dan PG empty-target/single-transaction diuji lokal. Kunci terpisah dipulihkan manual pada fixture. Belum membuktikan pengelolaan vault/rotasi produksi, secure erase/crash cleanup, offsite/PITR/RPO/RTO atau kepatuhan ASVS L2 penuh.

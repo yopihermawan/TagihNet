@@ -11,13 +11,14 @@ Target: checkpoint billing, operasional, pengingat, PSB dan monitoring NAS simul
 | `python manage.py check` | pass · no issues |
 | `python manage.py makemigrations --check --dry-run` | pass · no changes detected |
 | `python -m pip check` | pass · no broken requirements |
-| `python manage.py test --verbosity 1` | pass · **225 tes dieksekusi pada SQLite dan 225 pada PostgreSQL**, tanpa fail/skip/expected-failure |
+| `python manage.py test --verbosity 1` | pass · **245 tes dieksekusi pada SQLite dan 245 pada PostgreSQL**, tanpa fail/skip/expected-failure |
 | `python manage.py collectstatic --noinput` | pass · tiga aset lokal terkumpul |
 | `python scripts/browser_smoke.py` | pass · Chromium sungguhan: login/password toggle, tambah/reload pelanggan, faktur, pembayaran penuh, reversal, PDF, filter/URL kembali, logout, dark mode, menu mobile; **0 browser errors** |
 | `python scripts/security_smoke.py` | pass · server/database sementara, MFA enrollment/challenge, custom role assignment/edit, session revocation, recovery regeneration/rejection, penerbitan 28 faktur massal dengan diskon, replay, worker resume/duplikat/cancel parsial/restore antrean, lalu seluruh alur billing; tanpa mengubah akun demo pengguna |
 | `python scripts/operations_smoke.py` | pass · owner/teknisi/pelanggan, catatan internal tersembunyi, scope tugas, tiket sampai Ditutup, PSB sampai aktivasi/replay, satu customer/invoice/job, provisioning simulasi, edit/reschedule/reset Survei, opt-in pengingat, dedupe, pelunasan sebelum proses, monitoring NAS normal/gagal/stale/nol, NOC scope, impor CSV invalid/preview/MFA/atomic/replay, 4 viewport dan restore outbox/snapshot/impor |
 | Browser responsive checks | pass terbatas · 360/768/1366/1920 px, dashboard/pelanggan/faktur/jaringan/setelan tanpa scroll horizontal seluruh halaman; tabel punya scroll lokal |
 | `python scripts/verify_pdf.py` | pass · A4 **14 halaman**, 100 baris teks panjang, total Rp100.000, label simulasi, markup footer tampil sebagai teks; fixture di-rollback |
+| `python scripts/verify_encrypted_backup.py` | pass · arsip AES-GCM, semua tabel cocok, wrong key/target lama ditolak, restored password+TOTP/CSRF dan replay OTP/recovery diverifikasi |
 | `python scripts/verify_restore.py` | pass · backup konsisten dan restore ke direktori kosong, integrity_check ok; pelanggan/faktur/total/pembayaran/piutang, state batch/items/tiket/PSB/outbox, versi kebijakan/siklus SLA/jadwal PSB, konfigurasi dan payload snapshot NAS sama |
 | `python manage.py run_simulation_worker --once` | simulated · batch pertama 18 confirmed dan satu router seeded gagal; pembayaran tetap tersimpan, kegagalan dijadwalkan backoff |
 | `pip-audit 2.10.1 -r requirements.txt --no-deps --disable-pip --vulnerability-service pypi` | pass saat scan · no known vulnerabilities found untuk sebelas paket runtime; tidak mencakup OS, dev dependencies, atau bug logika |
@@ -46,7 +47,7 @@ Prefix `python` pada tabel berarti interpreter `.venv/bin/python` proyek. Pip-au
 | 15 | Metrik jelas dan data gagal bukan nol | pass lokal · sumber/tenant/periode/update tersedia; snapshot sesi contoh membedakan nol/unknown/stale/gagal, data router nyata belum tersedia |
 | 16 | UI/accessibility/kontras/fallback | pass subset · screenshots, 4 viewport, password/menu/Escape/return URL, empty/validation states; audit WCAG penuh dan screen reader belum |
 | 17 | PDF A4/multipage/nominal/izin | pass · browser PDF, stress test 14 halaman, footer panjang, cross-tenant 404 |
-| 18 | Restore & rekonsiliasi | pass lokal · direktori kosong + jumlah/saldo identik; enkripsi/offsite/RPO/RTO belum |
+| 18 | Restore & rekonsiliasi | pass lokal · SQLite/PG encrypted restore + tabel/saldo identik dan autentikasi MFA terpulihkan; offsite/RPO/RTO/PITR belum |
 
 ## Tidak dijalankan / gate rilis
 
@@ -113,3 +114,13 @@ Browser operations_smoke.py mengunggah CSV invalid (konfirmasi tidak tersedia), 
 PostgreSQL verify_postgres.py menambah dua kasus proses terpisah: dua konfirmasi batch sama menghasilkan satu impor; dua preview bertumpang tindih menghasilkan completed/stale dan satu pelanggan. Total sepuluh skenario proses, ditambah pg_dump/restore yang merekonsiliasi seluruh tabel aplikasi/auth, termasuk batch/row impor. Chromium tetap memakai SQLite sementara; PG HTTP/domain diuji pada backend suite. Tidak ada klaim CI remote selesai.
 
 Migrasi 0007 diuji pada salinan restore dengan probe benturan username: penolakan mempertahankan semua customer dan tidak mencatat migrasi selesai. Setelah probe dibuang pada salinan, migrasi/rekonsiliasi berhasil. Penerapan lokal setelah backup mempertahankan ledger/jumlah/MFA. System/model drift/pip check, static collection, PDF A4 14 halaman dan restore SQLite lulus. Data demo pengguna tidak diisi import/MFA uji. Dependensi tidak berubah dari checkpoint PG; audit 14 package yang dicatat sebelumnya bukan scan baru tanggal ini. Retensi otomatis, impor update/upsert, file spreadsheet/biner dan cutover produksi tetap belum tersedia.
+
+## Checkpoint backup terenkripsi — 1 November 2026 WIB
+
+20 tes baru, **245 pada SQLite dan 245 pada PostgreSQL**, lulus tanpa fail/skip/expected-failure. Cakupan: keygen private/random/no-clobber, pemisahan format kunci MFA, symlink/public/malformed/wrong-length key rejection; multi-chunk AES-GCM roundtrip/nonce unik; wrong key (termasuk ID cocok/material salah), cipher/tag/header tamper, versi/algoritma/tipe/header malformed/duplicate JSON/truncation/limit; publikasi interrupted/parallel/existing/broken symlink; SQLite WAL snapshot, integrity/format/backend checks, no plaintext publication on auth failure, sidecar rejection dan CLI redaction/exit statuses.
+
+verify_encrypted_backup.py membuat seluruh fixture/keys/source/restore sementara. Fingerprint semua tabel identik setelah restore; wrong backup key dan target terisi ditolak. Kunci MFA salah gagal mendekripsi terpisah. Setelah kunci sesi/MFA source disediakan terpisah, password+TOTP login dengan CSRF berhasil; OTP dan recovery yang telah digunakan ditolak, saldo Rp149.750 tetap cocok. Fixture source tidak berubah dan seluruh temporary data dibersihkan. Tidak enroll/reset akun pengguna.
+
+Sepuluh race proses PG tetap lulus. Verifier menambah source MFA encrypted payload, encrypted pg_dump/verify/restore dengan guard endpoint container, pemilik/target kosong dan target berbeda. Wrong key/source/occupied target ditolak; seluruh tabel/hash/MFA plaintext hasil decrypt sesuai setelah restore. Authenticated envelope dengan payload PGDMP malformed menghasilkan pg_restore nonzero dan target tetap tanpa objek publik. Database sumber/original tidak diisi fixture; semua DB sementara dihapus. Single-transaction restore bukan benchmark atau bukti failover/PITR.
+
+Kedua browser regresi tetap lulus, termasuk restore kompatibilitas SQLite. PDF14 halaman, system/model drift/pip checks lulus. Satu backup demo terenkripsi dipertahankan lokal, diverifikasi dan dipulihkan ke direktori sementara; counts/ledger cocok dan source tetap 33 pelanggan/40 faktur tanpa fixture MFA/impor baru. Kunci/arsip mode0600, diabaikan Git; kunci development satu workspace bukan vault. Arsip plaintext lama tetap ada. Tidak ada schema/dependency baru; audit package tetap hasil checkpoint PG. Job backend CI menambah encrypted/MFA drill; remote CI belum diverifikasi. Offsite/retensi/PITR/RPO/RTO/secure erase belum diuji.

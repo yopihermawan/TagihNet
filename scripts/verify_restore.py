@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 
 if os.getenv("TAGIHNET_DB_ENGINE", "sqlite") != "sqlite":
-    raise SystemExit("Skrip ini khusus SQLite. Gunakan pg_dump/pg_restore dan rekonsiliasi PostgreSQL.")
+    raise SystemExit("Drill ini khusus SQLite. Gunakan verify_postgres.py untuk restore PostgreSQL termasuk arsip terenkripsi.")
 
 base = Path(__file__).resolve().parent.parent
 data = Path(os.getenv("TAGIHNET_DATA_DIR", base / "data"))

@@ -64,3 +64,7 @@ Pilihan PostgreSQL tidak mengubah capability, tenant scope atau hak portal/tekni
 `import_customers` diberikan ke Owner secara bawaan. Peran kustom memerlukan `customers` dan `edit_customers`; preset Ops yang hanya dapat menambah satuan tidak otomatis boleh impor. NOC/teknisi/pelanggan/preset finansial tidak mendapatnya secara bawaan. Capability yang sama berlaku pada upload, template, list/detail, konfirmasi/batal dan laporan CSV. Batch/rincian/laporan privat untuk pembuat dan ISP; owner lain di ISP sama juga mendapat 404.
 
 Unggah membuat pratinjau saja. Konfirmasi memerlukan CSRF, checkbox review, MFA <=5 menit, versi sesi yang berlaku dan versi akses saat preview. Data/paket diperiksa ulang. Tidak ada pilihan tenant/status layanan/sandi/nominal di CSV. Pelanggan hasil impor tersimpan di ISP dari membership dengan status pending. Tidak membuat akun portal, invoice atau job jaringan. Pelanggan yang sudah tercipta selanjutnya mengikuti scope pelanggan biasa.
+
+## Backup host administrator
+
+Backup/restore terenkripsi adalah CLI untuk administrator host, bukan capability/menu web. Arsip mencakup seluruh database, seluruh ISP, auth dan MFA ciphertext. Role Owner ISP tidak otomatis mendapat akses host, key file, archive atau Docker socket. Tidak ada endpoint download/restore publik. Kunci backup, sesi, MFA dan password DB dikelola terpisah; backup hanya mengemas database. Database PG restore harus dimiliki role yang melakukan restore dan kosong; hak CREATEDB lab bukan hak runtime produksi.

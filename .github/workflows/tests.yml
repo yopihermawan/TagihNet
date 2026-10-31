@@ -18,6 +18,7 @@ jobs:
       - run: python manage.py test --verbosity 2
       - run: python manage.py migrate --noinput
       - run: python manage.py collectstatic --noinput
+      - run: python scripts/verify_encrypted_backup.py
   postgresql:
     runs-on: ubuntu-latest
     services:

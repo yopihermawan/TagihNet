@@ -35,7 +35,7 @@ Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengatur
 | ID | Severity kontekstual | Bukti / tindakan |
 | --- | --- | --- |
 | TGN-P01 · resolved lokal | Retest pass | MFA operator, enrollment, recovery, step-up, replay dan session revocation diuji. Audit independen dan deployment masih belum |
-| TGN-P02 | Tinggi bila data nyata dipakai | Backup masih plaintext lokal, audit bisa diubah administrator DB, belum retensi/monitoring/offsite. Terapkan enkripsi/key terpisah, kontrol storage dan restore drill produksi |
+| TGN-P02 | Tinggi bila data nyata dipakai | Arsip AES-GCM tersedia lokal dengan kunci terpisah; mode kompatibilitas/arsip lama masih plaintext. Audit bisa diubah admin DB; vault/retensi/monitoring/offsite dan restore target produksi belum diverifikasi |
 | TGN-P03 | Sedang | SQLite tidak memberi row lock `select_for_update`; PostgreSQL kini diuji dengan suite dan dua proses pada lab. Throughput, load/queue terdistribusi dan konfigurasi produksi tetap harus diverifikasi |
 | TGN-P04 | Sedang | Count-then-insert telah diganti update counter bersyarat atomic dan diuji paralel. Risiko tersisa: batas lima percobaan/IP dapat memengaruhi operator di NAT sama; uji beban/edge produksi belum |
 | TGN-P05 | Sedang | Akun demo lokal tersedia dengan password yang didokumentasikan; seed dibatasi development. Dilarang mempublikasikan database seed sebagai layanan produksi |
@@ -92,3 +92,11 @@ Konfigurasi PG eksplisit, tidak fallback diam-diam ke SQLite; password variable/
 Semua baris harus valid, konflik saat penyimpanan rollback seluruh impor. Constraint username LOWER per tenant mencegah benturan case di seluruh jalur penambahan; preflight migrasi berhenti jika legacy collision ditemukan tanpa koreksi otomatis. GET tidak membuat customer; replay tidak menggandakan. Hasil pending tidak memalsukan router aktif dan tidak menambah invoice, akun portal atau job. Laporan CSV meng-escape spreadsheet formula; web memakai autoescape. Audit hanya jumlah/status/alasan, tidak mencatat isi CSV/telepon/nama baris.
 
 Retensi batch/PII dan enkripsi database/backup belum otomatis. Tidak ada dukungan Excel/XLSX, lampiran biner, merge/update pelanggan atau importer nominal ledger. Source CSV tetap input tidak dipercaya dan data admin database masih batas kepercayaan. Tidak ada perluasan klaim menjadi seluruh ASVS L2 atau kesiapan produksi.
+
+## Backup AES-256-GCM dan restore
+
+245 tes pada dua backend dan drill SQLite/PG memverifikasi AEAD streaming standar cryptography, nonce96-bit acak/key256-bit, metadata sebagai AAD, header/size/tipe ketat, no-clobber dan verifikasi tag sebelum publikasi SQLite atau koneksi restore PG. Key ID saja tidak mengautentikasi material kunci salah. Invalid archive/key tidak menimpa DB; PG target terisi/sumber/sistem/role bukan owner ditolak dan pg_restore tidak memakai --clean. Advisory marker mengikat tools container ke endpoint yang dikonfigurasi; helper restore memakai advisory lock untuk serialisasi antarhelper. Tidak ada endpoint web/global backup bypass.
+
+Snapshot/payload plaintext hanya staging privat0600/0700 dan normal cleanup diuji; crash artifacts/secure erase tidak dijamin. Host admin adalah batas kepercayaan; dump dari pemegang kunci dipercaya dan bukan sandbox SQL. Kunci arsip terpisah dari Fernet MFA dan sesi, tidak disertakan dalam archive. Drill menguji MFA setelah restore dengan keys terpisah, password/TOTP/CSRF serta penolakan replay. Tidak ada key/factor/user content di stdout/argv; untuk local PG password berada pada child environment, bukan argv. Kunci development serta archive pada workspace bukan vault/offsite. Legacy plaintext dipertahankan untuk kompatibilitas; retensi, produksi TLS, backup offsite/PITR dan audit anti-tamper tetap terbuka.
+
+Replay drill membuktikan penolakan di database hasil restore. Snapshot lama dapat memulihkan state akses/counter/recovery sebelum perubahan pascabackup; rekonsiliasi transaksi, pencabutan sesi dan tinjauan akses/recovery tetap diperlukan sebelum cutover. Tidak ada klaim replay protection lintas rollback snapshot.

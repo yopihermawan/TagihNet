@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Checkpoint `feature/tagihnet-network-monitoring` menambah monitoring NAS dan snapshot sesi contoh. Checkpoint `feature/tagihnet-postgresql-hardening` menambah backend PostgreSQL opsional dan pengujian transaksi lintas proses. Checkpoint `feature/tagihnet-customer-import` menambah impor CSV pelanggan dengan pratinjau dan konfirmasi atomik. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Checkpoint `feature/tagihnet-network-monitoring` menambah monitoring NAS dan snapshot sesi contoh. Checkpoint `feature/tagihnet-postgresql-hardening` menambah backend PostgreSQL opsional dan pengujian transaksi lintas proses. Checkpoint `feature/tagihnet-customer-import` menambah impor CSV pelanggan dengan pratinjau dan konfirmasi atomik. Checkpoint `feature/tagihnet-encrypted-backups` menambah backup AES-256-GCM dan restore terverifikasi untuk SQLite/PostgreSQL. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Yang bisa digunakan
 
@@ -25,6 +25,7 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 - Edit identitas/paket PSB sebelum Pengerjaan serta jadwal ulang beralasan, dengan versi dan riwayat sebelum/sesudah.
 - Pengingat billing/SLA opt-in: antrean simulasi, deduplikasi persisten, retry terbatas, serta pemeriksaan ulang kondisi dan izin.
 - Preset Teknisi dengan akses hanya pada pekerjaan yang ditugaskan, tanpa daftar pelanggan atau nominal billing.
+- Backup CLI terenkripsi dengan kunci terpisah, autentikasi arsip, penolakan target berisi data, serta restore drill ledger dan MFA.
 - Mode terang/gelap, navigasi mobile, fallback peta eksternal, dan jejak audit.
 
 [FEATURE-MATRIX](docs/FEATURE-MATRIX.md) merinci fungsi yang selesai, terbatas, dan belum dibuat. Gateway pembayaran, MikroTik/RADIUS nyata, scope wilayah geografis, lampiran/kanal notifikasi nyata, hotspot, payroll, dan migrasi produksi belum tersedia. Tidak ada menu palsu untuk modul tersebut.
@@ -161,6 +162,19 @@ python manage.py run_reminder_worker --once --limit 100
 
 Tidak ada WhatsApp/email yang dikirim. Billing satu per faktur/hari WIB; SLA satu per deadline dan siklus penanganan. Worker memeriksa ulang pelunasan/resolusi/izin. Panduan: [REMINDERS-AND-RESCHEDULING](docs/REMINDERS-AND-RESCHEDULING.md).
 
+## Backup terenkripsi
+
+Gunakan kunci backup khusus yang disimpan terpisah dari arsip dan kunci MFA:
+
+```bash
+python scripts/backup.py keygen /lokasi/privat/backup-key.json
+python scripts/backup.py backup /lokasi/arsip/TagihNet.tnbk --key-file /lokasi/privat/backup-key.json
+python scripts/backup.py verify /lokasi/arsip/TagihNet.tnbk --key-file /lokasi/privat/backup-key.json
+TAGIHNET_DATA_DIR=/lokasi/restore-baru python scripts/backup.py restore /lokasi/arsip/TagihNet.tnbk --key-file /lokasi/privat/backup-key.json
+```
+
+Batas payload 1 GiB. Target SQLite harus belum ada beserta sidecarnya. PostgreSQL memakai konfigurasi database eksplisit dan `--target-database` kosong yang berbeda dari sumber; lihat [BACKUPS](docs/BACKUPS.md). Mode tanpa --key-file tetap tersedia sebagai kompatibilitas SQLite **tanpa enkripsi**. Backup tidak menyertakan kunci sesi/MFA. Arsip demo terenkripsi lokal telah dibuat dan direstore ke direktori sementara; penyimpanan offsite/retensi otomatis belum tersedia.
+
 ## Pengujian
 
 ```bash
@@ -171,6 +185,7 @@ python manage.py test --verbosity 2
 python -m pip install -r requirements-dev.txt
 python scripts/verify_pdf.py
 python scripts/verify_restore.py
+python scripts/verify_encrypted_backup.py
 python scripts/security_smoke.py
 python scripts/operations_smoke.py
 ```

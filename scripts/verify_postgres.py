@@ -200,6 +200,10 @@ def verify():
     database_name = "tagihnet_verify_"+uuid.uuid4().hex[:16]
     restore_name = database_name+"_restore"
     restore_created = False
+    encrypted_restore_name = database_name+"_secure"
+    encrypted_restore_created = False
+    broken_restore_name = database_name+"_broken"
+    broken_restore_created = False
     with connection.cursor() as cursor:
         cursor.execute(sql.SQL("CREATE DATABASE {} WITH TEMPLATE template0").format(sql.Identifier(database_name)))
     connection.close()
@@ -307,6 +311,11 @@ def verify():
         assert sorted(result["ok"] for result in results) == ["completed", "stale"]
         assert Customer.objects.filter(tenant=tenant, username="import-process-b").count() == 1
         print("PASS: 2 processes, overlapping imports -> 1 atomic import, 1 stale preview", flush=True)
+        import pyotp
+        from core.models import MFADevice
+        from core.security import encrypt_secret, decrypt_secret
+        fixture_secret = pyotp.random_base32()
+        MFADevice.objects.create(user=actor, encrypted_secret=encrypt_secret(fixture_secret))
         before = database_fingerprint(connection)
         with tempfile.TemporaryDirectory(prefix="tagihnet-pg-restore-") as folder:
             archive = Path(folder)/"backup.dump"
@@ -321,11 +330,57 @@ def verify():
             connection.settings_dict["NAME"] = restore_name
             assert database_fingerprint(connection) == before
         print("PASS: pg_dump/pg_restore into a fresh database; every application/auth table count and payload reconciles", flush=True)
+        with tempfile.TemporaryDirectory(prefix="tagihnet-pg-encrypted-") as folder:
+            import io
+            from core.backup_archive import encrypt_stream, generate_key, read_key
+            key = Path(folder)/"backup-key.json"
+            wrong_key = Path(folder)/"wrong-key.json"
+            encrypted = Path(folder)/"backup.tnbk"
+            generate_key(key)
+            generate_key(wrong_key)
+            def backup_cli(*arguments, expected=0):
+                result = subprocess.run([sys.executable, str(ROOT/"scripts/backup.py"), *map(str, arguments)],
+                    env=os.environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                assert (result.returncode == 0) == (expected == 0), result.stderr
+                assert "Traceback" not in result.stderr
+                return result
+            backup_cli("backup", encrypted, "--key-file", key)
+            backup_cli("verify", encrypted, "--key-file", key)
+            with connection.cursor() as cursor:
+                cursor.execute(sql.SQL("CREATE DATABASE {} WITH TEMPLATE template0").format(sql.Identifier(encrypted_restore_name)))
+            encrypted_restore_created = True
+            backup_cli("restore", encrypted, "--key-file", wrong_key, "--target-database", encrypted_restore_name, expected=1)
+            backup_cli("restore", encrypted, "--key-file", key, "--target-database", database_name, expected=1)
+            backup_cli("restore", encrypted, "--key-file", key, "--target-database", restore_name, expected=1)
+            backup_cli("restore", encrypted, "--key-file", key, "--target-database", encrypted_restore_name)
+            connection.close()
+            connection.settings_dict["NAME"] = encrypted_restore_name
+            assert database_fingerprint(connection) == before
+            assert decrypt_secret(MFADevice.objects.get(user_id=actor.pk).encrypted_secret) == fixture_secret
+            backup_cli("restore", encrypted, "--key-file", key, "--target-database", encrypted_restore_name, expected=1)
+            assert database_fingerprint(connection) == before
+            with connection.cursor() as cursor:
+                cursor.execute(sql.SQL("CREATE DATABASE {} WITH TEMPLATE template0").format(sql.Identifier(broken_restore_name)))
+            broken_restore_created = True
+            invalid = Path(folder)/"invalid-dump.tnbk"
+            encrypt_stream(io.BytesIO(b"PGDMP"+b"\x00"*128), invalid, read_key(key), "postgresql")
+            result = backup_cli("restore", invalid, "--key-file", key, "--target-database", broken_restore_name, expected=1)
+            assert "pg_restore gagal" in result.stderr
+            connection.close()
+            connection.settings_dict["NAME"] = broken_restore_name
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public'")
+                assert cursor.fetchone()[0] == 0
+        print("PASS: encrypted PostgreSQL restore reconciles all tables/MFA payload; wrong key/source/occupied/invalid dump targets rejected", flush=True)
     finally:
         connection.close()
         connection.settings_dict["NAME"] = original_name
         os.environ["TAGIHNET_DB_NAME"] = original_name
         with connection.cursor() as cursor:
+            if broken_restore_created:
+                cursor.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(broken_restore_name)))
+            if encrypted_restore_created:
+                cursor.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(encrypted_restore_name)))
             if restore_created:
                 cursor.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(restore_name)))
             cursor.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(database_name)))
