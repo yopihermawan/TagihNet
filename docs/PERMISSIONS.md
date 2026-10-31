@@ -16,9 +16,11 @@ Sumber enforcement: `core/permissions.py`, `core/views.py:allowed_invoice`, dan 
 | Antrean jaringan | Ya | Tidak | Tidak | Tidak | Ya | Tidak |
 | Setelan billing | Ya | Tidak | Tidak | Tidak | Tidak | Tidak |
 | Audit | Ya | Tidak | Tidak | Tidak | Tidak | Tidak |
-| Editor role / secret / upload / webhook | Belum tersedia untuk semua peran | — | — | — | — | — |
+| Editor akun/peran | Ya, dengan MFA terbaru | Tidak | Tidak | Tidak | Tidak | Tidak |
+| Keamanan akun / MFA | Milik sendiri | Milik sendiri | Milik sendiri | Milik sendiri | Milik sendiri | Milik sendiri |
+| Secret integrasi / upload / webhook | Belum tersedia untuk semua peran | — | — | — | — | — |
 
-Perubahan role berlaku pada request berikutnya dalam sesi yang sama. Membership dibaca dari database, bukan claim pada browser. Pencabutan user `is_active=False`, reset kata sandi, dan logout menggunakan mekanisme Django. Owner belum dapat mengubah role melalui UI; pengelolaan sementara melalui operasi Django shell lokal oleh administrator mesin tepercaya. Jangan membuka shell/admin Django ke pengguna.
+Tabel di atas adalah preset awal. Owner dapat menetapkan peran kustom pada akun operator; capability efektif menggantikan preset pada setiap endpoint dan menu, termasuk PDF. `manage_access` tidak dapat didelegasikan. Owner/customer tidak boleh menerima peran kustom. Izin tulis memerlukan izin baca terkait. Membership dibaca dari database, bukan claim browser. Perubahan akun/role meningkatkan session_version sehingga sesi lama dicabut pada request berikutnya. Pemilik aktif terakhir dilindungi dalam transaksi. Editor membutuhkan MFA terverifikasi dalam 5 menit terakhir. Lihat [AUTHENTICATION](AUTHENTICATION.md).
 
 Scope wilayah/penugasan untuk teknisi/sales belum tersedia; role tersebut belum dapat digunakan. Keuangan/operasional pada checkpoint ini melihat identitas pelanggan satu ISP; minimisasi field lebih lanjut perlu disepakati sebelum produksi. NOC hanya melihat nama pelanggan dalam antrean dan hasil simulasi, tanpa nominal/sandi layanan.
 

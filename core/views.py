@@ -1,11 +1,7 @@
 import csv
-import hashlib
-import time
 import uuid
-from datetime import timedelta
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.views import PasswordResetView
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -17,30 +13,22 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.debug import sensitive_post_parameters
 from .billing import audit, issue_invoice, record_payment, reverse_payment
 from .forms import BillingSettingsForm, CustomerForm, InvoiceForm, PaymentForm
-from .models import AuditEvent, AuthAttempt, Customer, Invoice, NetworkJob, Payment
+from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment
 from .pdf import render_invoice
-from .permissions import require, membership
-
-
-def throttle(request, scope):
-    # REMOTE_ADDR is trusted; never trust an arbitrary X-Forwarded-For header.
-    identity = request.POST.get("username", request.POST.get("email", "")).strip().lower()[:254]
-    keys = [hashlib.sha256(f"{scope}:{item}".encode()).hexdigest()
-            for item in (request.META.get("REMOTE_ADDR", "unknown"), identity)]
-    cutoff = timezone.now() - timedelta(minutes=15)
-    AuthAttempt.objects.filter(created_at__lt=cutoff).delete()
-    if any(AuthAttempt.objects.filter(key=key, created_at__gte=cutoff).count() >= 5 for key in keys):
-        return True
-    AuthAttempt.objects.bulk_create([AuthAttempt(key=key) for key in keys])
-    return False
+from .permissions import require, membership, capabilities
+from .security import complete_login, remember_password, throttle
 
 
 def landing(member):
-    return "portal" if member.role == "customer" else "network" if member.role == "noc" else "dashboard"
+    rights = capabilities(member)
+    return next((route for right, route in [("portal", "portal"), ("dashboard", "dashboard"),
+        ("network", "network"), ("customers", "customers"), ("invoices", "invoices")] if right in rights), "account_security")
 
 
+@sensitive_post_parameters("password")
 def login_view(request):
     if request.user.is_authenticated:
         return redirect(landing(membership(request.user)))
@@ -51,10 +39,13 @@ def login_view(request):
         return response
     form = AuthenticationForm(request, data=request.POST or None)
     if request.method == "POST" and form.is_valid():
-        member = membership(form.get_user())
-        login(request, form.get_user())
-        request.session["started_at"] = time.time()
-        request.session["last_seen"] = time.time()
+        user = form.get_user()
+        member = membership(user)
+        enrolled = MFADevice.objects.filter(user=user).exists()
+        if enrolled or member.role != "customer":
+            remember_password(request, user)
+            return redirect("mfa_challenge" if enrolled else "mfa_setup")
+        complete_login(request, user)
         return redirect(landing(member))
     return render(request, "registration/login.html", {"form": form})
 
@@ -214,7 +205,7 @@ def allowed_invoice(request, pk):
     if not request.user.is_authenticated:
         raise PermissionDenied
     member = membership(request.user)
-    if member.role not in {"owner", "ops", "finance", "cashier", "customer"}:
+    if not ({"invoices", "portal"} & capabilities(member)):
         raise PermissionDenied
     result = Invoice.objects.filter(tenant=member.tenant).select_related("customer", "tenant")
     if member.role == "customer":

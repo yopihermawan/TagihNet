@@ -17,6 +17,7 @@ from core.billing import issue_invoice, record_payment, reverse_payment, totals
 from core.models import AuditEvent, Customer, Invoice, InvoiceLine, Membership, NetworkJob, Payment, Plan, Tenant, month_due
 from core.network import run_job
 from core.pdf import render_invoice
+from .auth_helpers import verified_login, TEST_TOTP_SECRET
 
 
 def fixtures():
@@ -43,7 +44,7 @@ class WorkflowTests(TestCase):
         cls.other_invoice, _ = issue_invoice(cls.tenants[1], cls.customers[1].pk, date(2026, 2, 1), cls.owners[1])
 
     def setUp(self):
-        self.client.force_login(self.owners[0])
+        verified_login(self.client, self.owners[0])
 
     def payment(self, amount=None, key=None):
         return record_payment(self.tenants[0], self.invoice.pk, amount or self.invoice.total,
@@ -56,7 +57,10 @@ class WorkflowTests(TestCase):
         session.save()
         before = session.session_key
         response = client.post("/login/", {"username": "owner0", "password": "Local-test-secret-2026!"})
-        self.assertRedirects(response, "/")
+        self.assertRedirects(response, "/mfa/verify/")
+        self.assertNotIn("_auth_user_id", client.session)
+        import pyotp
+        self.assertRedirects(client.post("/mfa/verify/", {"code": pyotp.TOTP(TEST_TOTP_SECRET).now()}), "/")
         self.assertNotEqual(before, client.session.session_key)
         self.assertEqual(client.get("/logout/").status_code, 405)
         self.assertRedirects(client.post("/logout/"), "/login/")
@@ -71,14 +75,14 @@ class WorkflowTests(TestCase):
 
     def test_csrf_required_for_mutations(self):
         client = Client(enforce_csrf_checks=True)
-        client.force_login(self.owners[0])
+        verified_login(client, self.owners[0])
         self.assertEqual(client.post(f"/invoices/{self.invoice.pk}/pay/", {}).status_code, 403)
         self.assertEqual(client.post("/settings/billing/", {}).status_code, 403)
         self.assertEqual(client.post("/logout/", {}).status_code, 403)
 
     def test_session_idle_and_absolute_timeouts(self):
         for field, age in [("last_seen", 1801), ("started_at", 28801)]:
-            self.client.force_login(self.owners[0])
+            verified_login(self.client, self.owners[0])
             session = self.client.session
             session[field] = time.time() - age
             session.save()

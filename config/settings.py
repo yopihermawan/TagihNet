@@ -1,4 +1,5 @@
 import os
+import base64
 import secrets
 from pathlib import Path
 
@@ -6,7 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = os.getenv("TAGIHNET_DEBUG", "1") == "1"
 SIMULATION = os.getenv("TAGIHNET_SIMULATION", "1") == "1"
 DATA_DIR = Path(os.getenv("TAGIHNET_DATA_DIR", BASE_DIR / "data"))
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
 SECRET_KEY = os.getenv("TAGIHNET_SECRET_KEY", "")
 if not SECRET_KEY:
     if not DEBUG:
@@ -20,6 +21,22 @@ if not SECRET_KEY:
     SECRET_KEY = key_path.read_text().strip()
     if len(SECRET_KEY) < 50:
         raise RuntimeError("Kunci lokal tidak valid; pulihkan data/.secret_key atau gunakan TAGIHNET_SECRET_KEY.")
+MFA_ENCRYPTION_KEY = os.getenv("TAGIHNET_MFA_KEY", "")
+if not MFA_ENCRYPTION_KEY:
+    if not DEBUG:
+        raise RuntimeError("TAGIHNET_MFA_KEY wajib diatur terpisah dari database dan SECRET_KEY saat DEBUG=0.")
+    mfa_key_path = DATA_DIR / ".mfa_key"
+    try:
+        with os.fdopen(os.open(mfa_key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as key_file:
+            key_file.write(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())
+    except FileExistsError:
+        pass
+    MFA_ENCRYPTION_KEY = mfa_key_path.read_text().strip()
+try:
+    if len(base64.b64decode(MFA_ENCRYPTION_KEY, altchars=b"-_", validate=True)) != 32:
+        raise ValueError
+except (ValueError, TypeError):
+    raise RuntimeError("TAGIHNET_MFA_KEY harus berupa kunci Fernet base64 32-byte yang valid.") from None
 ALLOWED_HOSTS = os.getenv("TAGIHNET_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
 INSTALLED_APPS = [
     "django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions",

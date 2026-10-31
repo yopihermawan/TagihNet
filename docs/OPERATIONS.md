@@ -30,7 +30,7 @@ python scripts/verify_restore.py
 TAGIHNET_DATA_DIR=/lokasi/restore-kosong python scripts/backup.py restore /lokasi/privat/backup.sqlite3
 ```
 
-Drill otomatis membandingkan jumlah pelanggan, jumlah faktur, total tagihan, pembayaran setelah reversal, dan piutang. Tidak mengganti data aktif. Backup database tidak mencakup kunci sesi; simpan secret key secara terpisah dan terenkripsi, atau rotasi saat pemulihan untuk mencabut sesi. Email pemulihan development tidak perlu diarsipkan. RPO/RTO produksi belum ditetapkan atau diuji.
+Drill otomatis membandingkan jumlah pelanggan, jumlah faktur, total tagihan, pembayaran setelah reversal, dan piutang. Tidak mengganti data aktif. Backup database tidak mencakup kunci sesi atau kunci MFA. `data/.mfa_key` / TAGIHNET_MFA_KEY harus dipulihkan dari vault terpisah agar TOTP dapat diverifikasi; jangan mengganti kunci enkripsi tanpa re-enkripsi data. Lihat AUTHENTICATION.md. Untuk kunci sesi, simpan secret key secara terpisah dan terenkripsi, atau rotasi saat pemulihan untuk mencabut sesi. Email pemulihan development tidak perlu diarsipkan. RPO/RTO produksi belum ditetapkan atau diuji.
 
 ## Worker dan monitoring
 
@@ -47,12 +47,16 @@ SQLite memiliki retry transaksi untuk konflik lock lokal; itu bukan pengganti lo
 
 ## Secret, TLS, dan deployment berikutnya
 
-- Tetapkan `TAGIHNET_DEBUG=0`, secret key acak minimal 50 karakter, host yang eksplisit, SMTP/TLS, dan cookie Secure. Settings tanpa secret ditolak saat DEBUG off. `check --deploy` harus dijalankan pada konfigurasi target HTTPS.
+- Tetapkan `TAGIHNET_DEBUG=0`, secret key acak minimal 50 karakter, TAGIHNET_MFA_KEY Fernet terpisah, host yang eksplisit, SMTP/TLS, dan cookie Secure. Settings tanpa secret ditolak saat DEBUG off. `check --deploy` harus dijalankan pada konfigurasi target HTTPS.
 - Gunakan server WSGI produksi dan reverse proxy HTTPS yang divalidasi. Jangan mempercayai header forwarded dari internet; konfigurasi proxy harus direview sebelum mengaktifkan redirect/forwarded-proto. Konfigurasi saat ini tidak mempercayai `X-Forwarded-For` untuk rate limit.
-- Jangan publikasikan akun seed. MFA owner, manajemen role, autentikasi gateway, enkripsi backup dan uji target database adalah gate sebelum penggunaan produksi.
+- Jangan publikasikan akun seed. MFA dan editor role telah tersedia lokal; audit independen, autentikasi gateway, enkripsi backup dan uji target database tetap gate produksi.
 - `SIMULATION=0` **tidak** mengaktifkan integrasi nyata. Pencatatan pembayaran/worker produksi ditolak. Tidak ada kunci router/gateway yang diperlukan untuk demo ini. Jangan memasukkan secret ke chat, source, `.env.example`, screenshot, atau setup script.
 - Backup/restore, deployment Windows/Docker, lab MikroTik/FreeRADIUS, webhook sandbox, dan pemulihan HTTPS harus diverifikasi pada infrastruktur sebenarnya sebelum rilis.
 
 ## Aturan domain billing
 
 Satu customer = satu layanan/paket. Faktur bulanan full-month, satu customer/periode, tanpa prorata. Tanggal bisnis WIB dari timestamp UTC (`USE_TZ=True`). Jatuh tempo 29–31 dijepit ke hari terakhir bulan termasuk Februari tahun kabisat. Perubahan paket/pajak/footer berlaku pada faktur baru; snapshot lama tidak diubah. Pajak basis poin, nol eksplisit, pembulatan half-up ke rupiah pada pajak total. Mata uang hanya IDR, integer rupiah. Pembayaran sebagian diizinkan; lebih bayar dan faktur nol ditolak. Reversal penuh tidak menghapus payment. Pembatalan faktur, adjustment parsial, refund gateway, cicilan terjadwal, revenue recognition, dan tutup buku belum tersedia.
+
+## Migrasi checkpoint akses
+
+Migrasi `0002` menambah perangkat MFA, role kustom, limiter atomic, dan versi sesi tanpa menghapus ledger. Sesi lama tidak dianggap terverifikasi dan harus login ulang. Operator tanpa MFA diarahkan ke enrollment setelah password benar. Tidak ada enrollment otomatis atau reset perangkat pengguna saat seed diulang. `reset_mfa` adalah pemulihan offline oleh administrator host setelah verifikasi identitas, bukan fitur reset publik.

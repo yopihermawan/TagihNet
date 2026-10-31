@@ -49,7 +49,14 @@ document.querySelectorAll('[data-confirm]').forEach(button => {
   });
 });
 document.querySelectorAll('form').forEach(form => {
-  form.addEventListener('submit', () => {
+  form.addEventListener('submit', (event) => {
+    if (event.submitter?.name) {
+      const action = document.createElement('input');
+      action.type = 'hidden';
+      action.name = event.submitter.name;
+      action.value = event.submitter.value;
+      form.append(action);
+    }
     // Native constraint validation has already succeeded before submit fires.
     form.querySelectorAll('button[type="submit"], button:not([type])').forEach(button => {
       button.disabled = true;

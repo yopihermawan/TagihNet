@@ -1,4 +1,5 @@
 import calendar
+import uuid
 from datetime import date
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -54,6 +55,18 @@ class Customer(models.Model):
         return f"{self.code} · {self.name}"
 
 
+class AccessRole(models.Model):
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
+    name = models.CharField(max_length=80)
+    capabilities = models.JSONField(default=list)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["tenant", "name"], name="role_name_per_tenant")]
+
+    def __str__(self):
+        return self.name
+
+
 class Membership(models.Model):
     ROLES = [("owner", "Owner ISP"), ("ops", "Admin operasional"), ("finance", "Keuangan"),
              ("cashier", "Kasir"), ("noc", "NOC"), ("customer", "Pelanggan")]
@@ -61,6 +74,27 @@ class Membership(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
     role = models.CharField(max_length=16, choices=ROLES)
     customer = models.ForeignKey(Customer, null=True, blank=True, on_delete=models.PROTECT)
+    access_role = models.ForeignKey(AccessRole, null=True, blank=True, on_delete=models.PROTECT)
+    session_version = models.PositiveIntegerField(default=1)
+
+    @property
+    def access_label(self):
+        return self.access_role.name if self.access_role_id else self.get_role_display()
+
+
+class MFADevice(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    encrypted_secret = models.TextField()
+    last_step = models.BigIntegerField(default=-1)
+    recovery_hashes = models.JSONField(default=list)
+    revision = models.UUIDField(default=uuid.uuid4)
+    created_at = models.DateTimeField(default=timezone.now)
+
+
+class AuthRateBucket(models.Model):
+    key = models.CharField(max_length=64, primary_key=True)
+    attempts = models.PositiveIntegerField(default=0)
+    expires_at = models.DateTimeField()
 
 
 class Invoice(models.Model):

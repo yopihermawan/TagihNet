@@ -1,10 +1,19 @@
 from django.contrib.auth import views as auth
 from django.urls import path
 from core import views
+from core import security_views as security
 
 urlpatterns = [
     path("health/", views.health, name="health"),
     path("login/", views.login_view, name="login"),
+    path("mfa/verify/", security.challenge, name="mfa_challenge"),
+    path("mfa/setup/", security.setup, name="mfa_setup"),
+    path("account/security/", security.account_security, name="account_security"),
+    path("settings/access/", security.access_index, name="access_index"),
+    path("settings/access/roles/new/", security.role_form, name="role_create"),
+    path("settings/access/roles/<int:pk>/", security.role_form, name="role_edit"),
+    path("settings/access/members/new/", security.member_form, name="member_create"),
+    path("settings/access/members/<int:pk>/", security.member_form, name="member_edit"),
     path("logout/", auth.LogoutView.as_view(), name="logout"),
     path("reset/", views.ThrottledPasswordResetView.as_view(), name="password_reset"),
     path("reset/sent/", auth.PasswordResetDoneView.as_view(template_name="registration/reset_done.html"), name="password_reset_done"),

@@ -1,6 +1,6 @@
 # Audit keamanan TagihNet — 31 Oktober 2026
 
-Lingkungan: lokal Linux, Python 3.12.14, Django 5.2.18, SQLite, Chromium; semua data fiktif. Audit hanya pada kode TagihNet yang ditulis untuk checkpoint ini. Observasi KelolaNet dalam brief adalah referensi UI, bukan temuan teknis terkonfirmasi. Tidak ada sertifikasi ASVS atau klaim production-ready.
+Lingkungan: lokal Linux, Python 3.12.14, Django 5.2.18, SQLite, Chromium; semua data fiktif. Audit hanya pada kode TagihNet yang ditulis untuk checkpoint ini. Observasi KelolaNet dalam brief adalah referensi UI, bukan temuan teknis terkonfirmasi. Checkpoint ini melanjutkan fondasi dengan MFA dan editor akses. Tidak ada sertifikasi ASVS atau klaim production-ready.
 
 ## Model ancaman dan batas kepercayaan
 
@@ -20,7 +20,7 @@ Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengatur
 | CSV formula · `customer_export` | Nama `=1+1` diberi prefix apostrof pada ekspor yang berizin | pass |
 | Router gagal / isolir vs bayar · `network.run_job` | Pembayaran bertahan saat adapter gagal; job cek ulang utang, hasil pending/failed/confirmed terpisah; dua urutan race direkonsiliasi | simulated |
 | CSP dan cache · middleware | `default-src self`, tanpa unsafe-inline, frame/object off, nosniff, no-store halaman terautentikasi | pass · HTTP lokal |
-| Dependensi terkunci | `pip-audit 2.10.1` via PyPI terhadap enam paket runtime di requirements.txt: no known vulnerabilities found | pass · sesuai basis advisory saat eksekusi; bukan jaminan bebas bug |
+| Dependensi terkunci | `pip-audit 2.10.1` via PyPI terhadap sebelas paket runtime di requirements.txt: no known vulnerabilities found | pass · sesuai basis advisory saat eksekusi; bukan jaminan bebas bug |
 
 ## Temuan yang diperbaiki selama implementasi
 
@@ -34,13 +34,19 @@ Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengatur
 
 | ID | Severity kontekstual | Bukti / tindakan |
 | --- | --- | --- |
-| TGN-P01 | Tinggi bila dipublikasikan | MFA owner/privilege belum dibuat. Terapkan enrollment/recovery/step-up dan uji; hanya lingkungan lokal saat ini |
+| TGN-P01 · resolved lokal | Retest pass | MFA operator, enrollment, recovery, step-up, replay dan session revocation diuji. Audit independen dan deployment masih belum |
 | TGN-P02 | Tinggi bila data nyata dipakai | Backup masih plaintext lokal, audit bisa diubah administrator DB, belum retensi/monitoring/offsite. Terapkan enkripsi/key terpisah, kontrol storage dan restore drill produksi |
 | TGN-P03 | Sedang | SQLite tidak memberi row lock `select_for_update`; pengujian race hanya lokal dua thread. Pindah dan uji transaksi/queue/locking PostgreSQL serta multiworker sebelum skala produksi |
-| TGN-P04 | Sedang | Throttle DB memakai count lalu insert; burst paralel dapat melampaui batas. NAT bisa membatasi beberapa operator bersama. Gunakan limiter atomic di edge/shared store dan uji concurrency |
+| TGN-P04 | Sedang | Count-then-insert telah diganti update counter bersyarat atomic dan diuji paralel. Risiko tersisa: batas lima percobaan/IP dapat memengaruhi operator di NAT sama; uji beban/edge produksi belum |
 | TGN-P05 | Sedang | Akun demo lokal tersedia dengan password yang didokumentasikan; seed dibatasi development. Dilarang mempublikasikan database seed sebagai layanan produksi |
 | TGN-P06 | Belum dinilai | TLS end-to-end, SMTP produksi, provisioning/rotation secret, Docker runtime, penetrasi aplikasi, dan beban belum diuji. Tidak ada klaim lulus untuk kontrol tersebut |
 
 Gateway/webhook signature, SSRF pada router, kredensial RADIUS, upload malware, dan autentikasi realtime: **belum applicable pada kode aktif**, karena endpoint/adapternya tidak tersedia. Kontrol tersebut wajib dievaluasi ketika modul ditambahkan; jangan mengartikan ketiadaan implementasi sebagai lulus integrasi.
 
 Audit ini tidak memperbaiki seluruh target ASVS L2. [ASVS-CHECKLIST](ASVS-CHECKLIST.md) adalah daftar subset kontrol yang relevan dan status bukti, bukan checklist lengkap standar.
+
+## Verifikasi checkpoint akses
+
+66 tes backend mencakup MFA terenkripsi, OTP/recovery replay paralel, expiry pending login, revocation di antara faktor dan pembuatan session, limiter atomic, role tenant, direct PDF, step-up, dan last-owner race. Browser terisolasi menguji QR enrollment, custom role assignment, pencabutan sesi, regenerasi recovery dan penolakan kode lama; tidak ada QR/secret/kode disimpan ke bukti visual. Scope teknisi/wilayah, WebAuthn, dan rotasi key enkripsi terotomasi belum tersedia.
+
+Audit dependency awal checkpoint ini menemukan advisory `PYSEC-2026-3552` pada cryptography 49.0.0. Paket diperbarui menjadi 50.0.0 sebelum commit; retest suite/browser dan pemindaian runtime dilakukan pada versi perbaikan. Advisory yang terduplikasi dalam output awal dihitung sebagai satu identitas advisory, bukan dua temuan independen.

@@ -1,4 +1,4 @@
-# Matriks fitur — checkpoint fondasi
+# Matriks fitur — checkpoint fondasi dan akses
 
 Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubungi layanan nyata. Tidak ada klaim seluruh brief selesai.
 
@@ -10,7 +10,7 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Pelanggan | Satu paket/layanan, cari/filter/sort/URL/pagination, tambah/ubah/detail, deteksi duplikat, CSV | 2 · implemented |
 | Filter NAS/jatuh tempo; drawer bertab | NAS belum dimodelkan; detail berupa halaman, URL daftar dipertahankan di sessionStorage | 3 · pending |
 | Multi-tenant | Membership satu ISP per akun; tenant dari login, dua tenant seed, objek/PDF/CSV terbatasi | 2 · implemented |
-| Role dan cakupan | Enam preset enforced backend; admin operasional tersedia di model. Teknisi/sales, area penugasan, editor izin belum dibuat | 2 · limited |
+| Role dan cakupan | Enam preset dan peran kustom tenant; owner membuat/mengubah akun dan izin, sesi dicabut, owner terakhir dilindungi. Teknisi/sales dan scope wilayah belum | 2 · limited |
 | Faktur | Bulanan full month, tanggal akhir bulan, snapshot harga/pajak/diskon, constraint satu pelanggan/periode | 2 · implemented |
 | Massal/otomatisasi/prorata | Belum tersedia; tidak ada tombol massal yang menyesatkan | 3 · pending |
 | Pembayaran | Integer rupiah, sebagian/penuh, overpay ditolak, UUID idempotensi persisten, reversal penuh | 2 · simulated |
@@ -27,8 +27,9 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Upload/impor | Endpoint tidak tersedia; ekspor pelanggan dibatasi izin dan 10.000 baris | 4 · limited |
 | Audit | Pelaku/tenant/target/aksi/detail/correlation ID; read-only via aplikasi | 2 · implemented; WORM/retensi pending |
 | Auth | CSRF, hashing PBKDF2 Django, rate limit DB, reset sekali pakai, idle/absolute expiry | 2 · implemented |
-| MFA, editor role, self-service profile | Belum tersedia; blocker deployment berprivilege | 5 · pending |
+| MFA dan editor role | TOTP wajib operator, QR lokal, secret Fernet, recovery sekali pakai, step-up, editor akun/peran owner | 2 · implemented lokal |
+| Profil mandiri, scope wilayah/penugasan | Belum tersedia | 4 · pending |
 | Backup/restore | SQLite consistent backup + restore/reconcile drill ke direktori kosong | 2 · implemented; enkripsi/offsite pending |
 | Rilis produksi | TLS, SMTP, secret vault, database/queue multiworker, beban, lab, penetration test | 5 · pending |
 
-Langkah implementasi berikutnya: MFA dan pengelolaan role dengan pengujian eskalasi; migrasi PostgreSQL dan pengujian race lintas proses; penerbitan massal dengan preview; adapter gateway sandbox terverifikasi; router/RADIUS lab. Cakupan lanjutan mengikuti urutan brief, tanpa mengubah status fitur pending menjadi selesai.
+Langkah implementasi berikutnya: migrasi PostgreSQL dan pengujian race lintas proses; penerbitan massal dengan preview; adapter gateway sandbox terverifikasi; router/RADIUS lab. Cakupan lanjutan mengikuti urutan brief, tanpa mengubah status fitur pending menjadi selesai.

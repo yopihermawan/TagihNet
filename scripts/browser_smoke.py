@@ -15,7 +15,8 @@ password = os.environ["TAGIHNET_DEMO_PASSWORD"]
 evidence = Path(__file__).resolve().parent.parent / "docs" / "evidence"
 evidence.mkdir(exist_ok=True)
 with sync_playwright() as driver:
-    browser = driver.chromium.launch(executable_path=os.getenv("CHROMIUM_PATH", "/usr/bin/chromium"), headless=True)
+    browser = driver.chromium.launch(executable_path=os.getenv("CHROMIUM_PATH") or
+        ("/usr/bin/chromium" if Path("/usr/bin/chromium").exists() else None), headless=True)
     context = browser.new_context(viewport={"width": 1366, "height": 1000}, reduced_motion="reduce")
     page = context.new_page()
     failures = []
@@ -30,6 +31,15 @@ with sync_playwright() as driver:
     expect(page.get_by_label("Kata sandi", exact=True)).to_have_attribute("type", "text")
     page.get_by_role("button", name="Sembunyikan", exact=True).click()
     page.get_by_role("button", name="Masuk ke workspace").click()
+    page.wait_for_url(lambda url: url != base + "/login/")
+    if "/mfa/verify/" in page.url:
+        factor = os.environ.get("TAGIHNET_MFA_CODE")
+        if not factor:
+            raise RuntimeError("MFA aktif. Set TAGIHNET_MFA_CODE ke kode OTP baru atau kode pemulihan sekali pakai.")
+        page.get_by_label("Kode authenticator atau kode pemulihan").fill(factor)
+        page.get_by_role("button", name="Verifikasi dan masuk").click()
+    elif "/mfa/setup/" in page.url:
+        raise RuntimeError("Daftarkan MFA owner terlebih dahulu, atau jalankan scripts/security_smoke.py untuk uji terisolasi.")
     page.wait_for_url(base + "/")
     expect(page.get_by_text("Mode simulasi", exact=True)).to_be_visible()
     page.screenshot(path=str(evidence / "dashboard-desktop.png"), full_page=True)
