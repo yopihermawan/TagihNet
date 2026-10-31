@@ -1,0 +1,6 @@
+Pemulihan akun TagihNet
+
+Buka tautan berikut untuk mengatur kata sandi baru. Tautan berlaku 30 menit dan hanya dapat dipakai sekali.
+{{ protocol }}://{{ domain }}{% url 'password_reset_confirm' uidb64=uid token=token %}
+
+Abaikan email ini jika Anda tidak mengajukan permintaan.

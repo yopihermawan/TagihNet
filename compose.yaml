@@ -1,0 +1,14 @@
+services:
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      TAGIHNET_DEBUG: "1"
+      TAGIHNET_SIMULATION: "1"
+      TAGIHNET_ALLOWED_HOSTS: "localhost,127.0.0.1"
+    volumes:
+      - tagihnet-data:/app/data
+    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000 --noreload"
+volumes:
+  tagihnet-data:

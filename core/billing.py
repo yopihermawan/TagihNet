@@ -1,0 +1,99 @@
+"""Money and ledger mutations. All amounts are integer rupiah; no network I/O."""
+import time
+import uuid
+from functools import wraps
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.db import OperationalError, transaction
+from django.utils import timezone
+from .models import AuditEvent, Customer, Invoice, InvoiceLine, NetworkJob, Payment, PaymentReversal, Tenant, month_due
+
+
+def retry_locked(function):
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        for attempt in range(5):
+            try:
+                return function(*args, **kwargs)
+            except OperationalError as exc:
+                if "locked" not in str(exc).lower() or attempt == 4:
+                    raise
+                time.sleep(0.04 * (2 ** attempt))
+    return wrapped
+
+
+def audit(tenant, actor, action, target, detail="", correlation_id=None):
+    return AuditEvent.objects.create(tenant=tenant, actor=actor, action=action, target=str(target),
+                                     detail=detail, correlation_id=correlation_id or uuid.uuid4())
+
+
+def totals(price, discount, tax_bp):
+    if not all(type(value) is int for value in (price, discount, tax_bp)):
+        raise ValidationError("Nominal harus berupa integer rupiah.")
+    if not 1 <= price <= 100000000 or not 0 <= discount < price or not 0 <= tax_bp <= 10000:
+        raise ValidationError("Harga, diskon, atau pajak di luar batas.")
+    net = price - discount
+    tax = (net * tax_bp + 5000) // 10000
+    return net + tax, tax
+
+
+@retry_locked
+@transaction.atomic
+def issue_invoice(tenant, customer_id, period, actor, discount=0, correlation_id=None):
+    customer = Customer.objects.select_for_update().select_related("plan").get(tenant=tenant, pk=customer_id)
+    if customer.plan.tenant_id != tenant.pk:
+        raise ValidationError("Paket tidak berada pada ISP yang sama.")
+    if period.day != 1:
+        raise ValidationError("Periode harus tanggal pertama bulan layanan.")
+    existing = Invoice.objects.filter(tenant=tenant, customer=customer, period=period).first()
+    if existing:
+        if existing.discount != discount:
+            raise ValidationError("Faktur periode ini sudah terbit dengan diskon berbeda.")
+        return existing, False
+    tenant = Tenant.objects.get(pk=tenant.pk)
+    total, tax = totals(customer.plan.price, discount, tenant.tax_bp)
+    invoice = Invoice.objects.create(tenant=tenant, customer=customer, period=period,
+        due_date=month_due(period, tenant.due_day), customer_name=customer.name,
+        customer_address=customer.address, subtotal=customer.plan.price, discount=discount,
+        tax_bp=tenant.tax_bp, tax_amount=tax, total=total, footer=tenant.invoice_footer)
+    InvoiceLine.objects.create(invoice=invoice, description=f"{customer.plan.name} · {customer.plan.speed_mbps} Mbps · {period:%m/%Y}", unit_price=customer.plan.price)
+    audit(tenant, actor, "invoice.issued", invoice.pk, invoice.number, correlation_id)
+    return invoice, True
+
+
+@retry_locked
+@transaction.atomic
+def record_payment(tenant, invoice_id, amount, event_key, actor, note="", correlation_id=None):
+    if not settings.SIMULATION:
+        raise ValidationError("Adapter pembayaran produksi belum tersedia. Pencatatan ini hanya untuk simulasi.")
+    invoice = Invoice.objects.select_for_update().get(tenant=tenant, pk=invoice_id)
+    # Serialize all billing and worker actions through this customer's row.
+    Customer.objects.select_for_update().get(pk=invoice.customer_id, tenant=tenant)
+    existing = Payment.objects.filter(tenant=tenant, event_key=event_key).first()
+    if existing:
+        if existing.invoice_id != invoice.pk or existing.amount != amount:
+            raise ValidationError("Kunci idempotensi telah digunakan untuk pembayaran berbeda.")
+        return existing, False
+    if type(amount) is not int or amount <= 0 or amount > invoice.balance:
+        raise ValidationError("Nominal harus positif dan tidak melebihi sisa tagihan.")
+    payment = Payment.objects.create(tenant=tenant, invoice=invoice, amount=amount, event_key=event_key,
+                                     recorded_by=actor, note=note)
+    NetworkJob.objects.create(tenant=tenant, customer=invoice.customer)
+    audit(tenant, actor, "payment.simulated", payment.pk, f"{invoice.number}; Rp{amount}", correlation_id)
+    return payment, True
+
+
+@retry_locked
+@transaction.atomic
+def reverse_payment(tenant, payment_id, reason, actor, correlation_id=None):
+    if not settings.SIMULATION:
+        raise ValidationError("Reversal pada fondasi ini hanya tersedia dalam simulasi.")
+    payment = Payment.objects.select_for_update().select_related("invoice").get(tenant=tenant, pk=payment_id)
+    Customer.objects.select_for_update().get(tenant=tenant, pk=payment.invoice.customer_id)
+    if len(reason.strip()) < 10 or len(reason) > 250:
+        raise ValidationError("Alasan koreksi harus 10–250 karakter.")
+    reversal, created = PaymentReversal.objects.get_or_create(payment=payment, defaults={"reason": reason, "recorded_by": actor})
+    if created:
+        NetworkJob.objects.create(tenant=tenant, customer=payment.invoice.customer)
+        audit(tenant, actor, "payment.reversed", payment.pk, reason, correlation_id)
+    return reversal
