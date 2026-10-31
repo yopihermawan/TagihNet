@@ -23,7 +23,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-security-") as temporary:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
     base = f"http://127.0.0.1:{port}"
-    env = {**os.environ, "TAGIHNET_DATA_DIR": temporary, "TAGIHNET_DEMO_PASSWORD": password,
+    env = {**os.environ, "TAGIHNET_DB_ENGINE": "sqlite", "TAGIHNET_DATA_DIR": temporary, "TAGIHNET_DEMO_PASSWORD": password,
            "TAGIHNET_DEBUG": "1", "TAGIHNET_SIMULATION": "1"}
     for command in [["migrate", "--noinput"], ["seed_demo"]]:
         subprocess.run([sys.executable, "manage.py", *command], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)

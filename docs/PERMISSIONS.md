@@ -54,3 +54,7 @@ Edit identitas/paket dan jadwal ulang PSB menggunakan `installations`, bukan `fi
 `network` memberi akses list/detail/history dan POST pengambilan snapshot yang dibatasi interval. Owner/NOC memilikinya secara bawaan. NOC tidak boleh membuat/mengubah konfigurasi. `manage_monitoring` tersedia untuk Owner atau role kustom dengan prasyarat `network`; penyimpanan memerlukan MFA <=5 menit dan versi sesi/form yang berlaku. Semua lookup perangkat/snapshot mengambil tenant dari membership, bukan POST.
 
 Worker memeriksa persetujuan konfigurasi terhadap akun aktif, ISP, capability dan session_version. Perubahan izin menahan pengambilan; ringkasan langsung mengecualikan snapshotnya sebelum worker berjalan. Simpan ulang konfigurasi dengan MFA memulai versi baru. Teknisi/pelanggan/preset finansial tidak mendapat akses monitoring secara bawaan. Tidak ada secret router atau endpoint target jaringan yang dapat dimasukkan.
+
+## Backend database
+
+Pilihan PostgreSQL tidak mengubah capability, tenant scope atau hak portal/teknisi. Role database lab adalah non-superuser dengan CREATEDB agar dapat membuat/menghapus database tes; hak ini bukan role runtime produksi. Secret database hanya dari konfigurasi proses/file privat, tidak ada form web pengatur koneksi. Worker tetap memeriksa actor/tenant/versi persetujuan seperti sebelumnya. Skenario proses diverifikasi dengan role tersebut; akses administrator database tetap batas kepercayaan terpisah dari role aplikasi.

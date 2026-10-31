@@ -10,7 +10,7 @@ from .permissions import CAPABILITIES, CAPABILITY_LABELS
 
 def owner_for_update(actor):
     initial = Membership.objects.get(user=actor)
-    tenant = Tenant.objects.select_for_update().get(pk=initial.tenant_id)
+    tenant = Tenant.objects.select_for_update(no_key=True).get(pk=initial.tenant_id)
     member = Membership.objects.select_for_update().get(user=actor, tenant=tenant)
     if not member.user.is_active or member.role != "owner":
         raise PermissionDenied
@@ -49,7 +49,7 @@ def save_role(actor, name, rights, role_id=None, correlation_id=None):
 @transaction.atomic
 def save_member(actor, target_id, role, access_role_id, customer_id, active, correlation_id=None):
     owner = owner_for_update(actor)
-    target = Membership.objects.select_for_update().select_related("user").get(pk=target_id, tenant=owner.tenant)
+    target = Membership.objects.select_for_update(of=("self",)).select_related("user").get(pk=target_id, tenant=owner.tenant)
     if role not in CAPABILITIES:
         raise ValidationError("Preset peran tidak valid.")
     if role in {"owner", "customer", "technician"} and access_role_id:

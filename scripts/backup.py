@@ -8,6 +8,9 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("action", choices=["backup", "restore"])
 parser.add_argument("archive", type=Path)
 args = parser.parse_args()
+if os.getenv("TAGIHNET_DB_ENGINE", "sqlite") != "sqlite":
+    raise SystemExit("Skrip ini khusus SQLite. Gunakan pg_dump/pg_restore dan rekonsiliasi PostgreSQL.")
+
 base = Path(__file__).resolve().parent.parent
 data = Path(os.getenv("TAGIHNET_DATA_DIR", base / "data"))
 database = data / "tagihnet.sqlite3"

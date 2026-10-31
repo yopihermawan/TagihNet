@@ -18,6 +18,50 @@ jobs:
       - run: python manage.py test --verbosity 2
       - run: python manage.py migrate --noinput
       - run: python manage.py collectstatic --noinput
+  postgresql:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938
+        env:
+          POSTGRES_PASSWORD: TagihNet-Ephemeral-CI-Admin-2026
+        ports:
+          - 5432:5432
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      TAGIHNET_DB_ENGINE: postgresql
+      TAGIHNET_DB_HOST: 127.0.0.1
+      TAGIHNET_DB_PORT: '5432'
+      TAGIHNET_DB_NAME: tagihnet_ci
+      TAGIHNET_DB_USER: tagihnet_app
+      TAGIHNET_DB_PASSWORD: TagihNet-Ephemeral-CI-App-2026
+      TAGIHNET_DB_SSLMODE: disable
+      TAGIHNET_DEBUG: '1'
+      TAGIHNET_SIMULATION: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements-postgres.txt
+      - name: Create non-superuser lab role
+        run: |
+          python - <<'PY'
+          import os, psycopg
+          from psycopg import sql
+          with psycopg.connect(host='127.0.0.1', user='postgres', dbname='postgres', sslmode='disable',
+                  password='TagihNet-Ephemeral-CI-Admin-2026', autocommit=True) as connection:
+              connection.execute(sql.SQL('CREATE ROLE tagihnet_app LOGIN CREATEDB NOSUPERUSER NOCREATEROLE PASSWORD {}')
+                  .format(sql.Literal(os.environ['TAGIHNET_DB_PASSWORD'])))
+              connection.execute('CREATE DATABASE tagihnet_ci OWNER tagihnet_app')
+          PY
+      - run: python -m pip check
+      - run: python manage.py test --verbosity 1 --noinput
+      - name: Verify real processes and PostgreSQL restore
+        env:
+          TAGIHNET_PG_TOOLS_CONTAINER: ${{ job.services.postgres.id }}
+        run: python scripts/verify_postgres.py
   browser:
     runs-on: ubuntu-latest
     steps:

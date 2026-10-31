@@ -1,6 +1,6 @@
 # Laporan pengujian — 31 Oktober 2026, WIB
 
-Target: checkpoint billing, operasional, pengingat, PSB dan monitoring NAS simulasi TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite, Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
+Target: checkpoint billing, operasional, pengingat, PSB dan monitoring NAS simulasi TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite dan PostgreSQL 16.15 (psycopg 3.3.6), Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
 
 ## Eksekusi dan bukti
 
@@ -11,7 +11,7 @@ Target: checkpoint billing, operasional, pengingat, PSB dan monitoring NAS simul
 | `python manage.py check` | pass · no issues |
 | `python manage.py makemigrations --check --dry-run` | pass · no changes detected |
 | `python -m pip check` | pass · no broken requirements |
-| `python manage.py test --verbosity 1` | pass · **187 tes dieksekusi**, tanpa fail/skip/expected-failure |
+| `python manage.py test --verbosity 1` | pass · **195 tes dieksekusi pada SQLite dan 195 pada PostgreSQL**, tanpa skip, tanpa fail/skip/expected-failure |
 | `python manage.py collectstatic --noinput` | pass · tiga aset lokal terkumpul |
 | `python scripts/browser_smoke.py` | pass · Chromium sungguhan: login/password toggle, tambah/reload pelanggan, faktur, pembayaran penuh, reversal, PDF, filter/URL kembali, logout, dark mode, menu mobile; **0 browser errors** |
 | `python scripts/security_smoke.py` | pass · server/database sementara, MFA enrollment/challenge, custom role assignment/edit, session revocation, recovery regeneration/rejection, penerbitan 28 faktur massal dengan diskon, replay, worker resume/duplikat/cancel parsial/restore antrean, lalu seluruh alur billing; tanpa mengubah akun demo pengguna |
@@ -34,7 +34,7 @@ Prefix `python` pada tabel berarti interpreter `.venv/bin/python` proyek. Pip-au
 | 3 | Batas tenant/pelanggan | pass subset · detail/edit/payment/search/export/PDF/portal/job; upload/realtime tidak ada |
 | 4 | Search/filter/sort/pagination URL | pass · 10/25/50 backend dan size=25 browser; filter NAS/jatuh tempo belum |
 | 5 | Tambah/ubah pelanggan + reload | pass · HTTP dan browser; duplikat phone/username ditolak |
-| 6 | Retry/concurrency penerbitan | pass lokal · dua worker batch sama/bertumpang tindih/race dengan penerbitan satuan, resume/konfirmasi replay, constraint customer/periode; multi-process PostgreSQL belum |
+| 6 | Retry/concurrency penerbitan | pass lokal · dua worker batch sama/bertumpang tindih/race dengan penerbitan satuan, resume/konfirmasi replay, constraint customer/periode; PostgreSQL dua proses terpisah lulus pada lab |
 | 7 | Rupiah/tax/discount/akhir bulan | pass subset · integer, half-up, Februari/leap year/tanggal31; prorata belum tersedia |
 | 8 | Webhook tidak sah/nominal/order | not tested · gateway/webhook belum diimplementasikan; path webhook tidak tersedia |
 | 9 | Callback replay/out-of-order | pass subset simulated · pencatatan UUID persisten, mismatch ditolak, dua thread satu ledger; event lifecycle gateway belum |
@@ -50,7 +50,7 @@ Prefix `python` pada tabel berarti interpreter `.venv/bin/python` proyek. Pip-au
 
 ## Tidak dijalankan / gate rilis
 
-Docker build/runtime dan Windows PowerShell belum diuji. GitHub Actions baru ditambahkan; keberhasilan lokal bukan bukti CI remote lulus. Belum ada uji TLS deployment, SMTP nyata, load test, stress multiworker, lab MikroTik/FreeRADIUS/CoA/FastTrack/IPv6, gateway sandbox, upload, migrasi data produksi, payroll, atau penetrasi aplikasi menyeluruh. Seluruh modul pending tercatat di FEATURE-MATRIX. Tidak ada persentase kepatuhan atau klaim production-ready.
+Build/runtime image aplikasi Docker dan Windows PowerShell belum diuji. Container server PostgreSQL lab sudah diuji; itu tidak memverifikasi image aplikasi. GitHub Actions baru ditambahkan; keberhasilan lokal bukan bukti CI remote lulus. Belum ada uji TLS deployment, SMTP nyata, load test, stress multiworker, lab MikroTik/FreeRADIUS/CoA/FastTrack/IPv6, gateway sandbox, upload, migrasi data produksi, payroll, atau penetrasi aplikasi menyeluruh. Seluruh modul pending tercatat di FEATURE-MATRIX. Tidak ada persentase kepatuhan atau klaim production-ready.
 
 ## Kesalahan selama setup yang sudah diperbaiki
 
@@ -91,3 +91,15 @@ Migrasi 0005 telah diterapkan dengan backup sebelum migrasi. PDF 14 halaman, res
 Browser operations_smoke.py kini juga menguji Owner membuat NAS opt-in → snapshot normal → pengulangan tanpa duplikasi → gagal sambil mempertahankan histori → kedaluwarsa → nol yang berasal dari snapshot berhasil. Ringkasan unknown vs nol diperiksa. NOC dapat membaca tanpa konfigurasi atau nominal finansial. List/detail/form diuji 360/768/1366/1920 tanpa overflow seluruh halaman; empat screenshot baru tidak menyimpan faktor MFA. Restore membandingkan konfigurasi dan payload snapshot. Semua memakai server/database sementara. security_smoke.py dijalankan ulang dan lulus untuk MFA/akses/billing massal serta billing browser.
 
 Satu assertion regresi awal mendeteksi teks peringatan data router yang berubah. Pesan dashboard disesuaikan agar tetap menyatakan data sesi router nyata belum tersedia, lalu seluruh 187 tes lulus; assertion lama dipertahankan. Migrasi 0006 diuji pada restore salinan sebelum database lokal; jumlah dan total ledger cocok. System/model drift/pip check, collectstatic, PDF 14 halaman dan restore drill lulus. Collector kosong lokal tidak membuat NAS/snapshot. Data pengguna tetap 33 pelanggan/40 faktur dan tanpa NAS, poll atau perangkat MFA uji. Dependensi runtime tidak berubah, audit package pada tabel tetap hasil checkpoint akses. Polling perangkat nyata, trafik, PostgreSQL multi-process, retensi dan CI remote belum diverifikasi.
+
+## Checkpoint PostgreSQL dan transaksi lintas proses
+
+195 tes lulus pada SQLite dan 195 pada PostgreSQL 16.15, tanpa fail/skip/expected-failure. Delapan tes konfigurasi baru memeriksa default SQLite, pilihan eksplisit PG, field/port/nama/password wajib, file password, tanpa fallback, TLS verify-full dan larangan disable di DEBUG=0. Model drift/system/pip check lulus, migrasi 0001–0006 dari kosong di PG berhasil. Role aplikasi lab non-superuser dan memiliki CREATEDB khusus tes.
+
+verify_postgres.py menjalankan delapan skenario dua proses Python berbeda pada database baru: faktur bulanan sama; payment replay; UUID yang sama pada dua faktur/pelanggan; worker bulk melawan penerbitan satuan dengan overlap lock yang dipaksakan; pembayaran melawan job jaringan dan rekonsiliasi; worker reminder ganda; aktivasi PSB ganda; deadlock buatan yang menguji retry serta rollback. Skenario bulk setelah perbaikan memeriksa counter deadlock PostgreSQL tetap nol; fixture deadlock terakhir sengaja membuat satu deadlock, berhasil dengan satu retry, dan tepat dua audit yang committed. Total ini terpisah dari 195 tes, bukan 195 tambahan.
+
+Temuan awal: UUID payment pada dua invoice dapat menghasilkan IntegrityError 23505; diganti get_or_create dengan savepoint dan pemeriksaan payload pemenang, menghasilkan satu diterima/satu ValidationError. Penguncian joined actor/tenant pada worker bulk menghasilkan satu deadlock terukur; lock dibatasi ke self dan pengunci konfigurasi tenant menggunakan NO KEY UPDATE. Retry memakai SQLSTATE, bukan pencocokan substring error. Retest proses dan kedua suite lulus.
+
+Verifier membuat pg_dump format custom dengan mode 0600, restore ke database kosong kedua, lalu membandingkan jumlah/hash payload seluruh tabel aplikasi/auth (termasuk through table) sebelum menghapus kedua database. Ini uji backup logis lokal, bukan enkripsi/offsite/PITR/failover. Volume lab dipertahankan saat container terhenti dihapus/dibuat ulang; startup dan migrate --check lulus. Tidak membuktikan snapshot cloud memulihkan volume Docker.
+
+Kedua browser smoke lulus, termasuk saat dipanggil dari launcher PostgreSQL: skrip secara eksplisit memakai SQLite sementara. Pengujian browser bukan Chromium terhadap PostgreSQL; tes HTTP/domain pada PG termasuk dalam 195 tes. PDF/restore SQLite tetap diuji terpisah. Data demo pengguna tetap 33 pelanggan/40 faktur, tanpa fixture/MFA baru dan backend aktif tetap SQLite. Dependensi opsional psycopg/psycopg-binary 3.3.6 serta typing_extensions 4.16.0 dikunci. pip-audit terhadap requirements-postgres.txt (14 package Python termasuk base) tidak menemukan advisory saat scan; tidak mencakup OS atau library native yang dibundel. Job CI PostgreSQL didaftarkan; hasil remote belum diverifikasi.

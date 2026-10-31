@@ -35,6 +35,7 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | MFA dan editor role | TOTP wajib operator, QR lokal, secret Fernet, recovery sekali pakai, step-up, editor akun/peran owner | 2 · implemented lokal |
 | Profil mandiri, scope wilayah geografis | Penugasan teknisi tersedia; profil mandiri dan batas wilayah geografis belum tersedia | 4 · pending |
 | Backup/restore | SQLite consistent backup + restore/reconcile drill ke direktori kosong | 2 · implemented; enkripsi/offsite pending |
-| Rilis produksi | TLS, SMTP, secret vault, database/queue multiworker, beban, lab, penetration test | 5 · pending |
+| Backend PostgreSQL | Opsional, role non-superuser lab, 195 tes pada dua backend, 8 race proses + pg_dump/pg_restore | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
+| Rilis produksi | TLS, SMTP, secret vault, queue/capacity multiworker, beban, lab perangkat, penetration test | 5 · pending |
 
-Langkah implementasi berikutnya: migrasi PostgreSQL dan pengujian race lintas proses; adapter gateway sandbox terverifikasi; router/RADIUS lab. Cakupan lanjutan mengikuti urutan brief, tanpa mengubah status fitur pending menjadi selesai.
+Dukungan PostgreSQL dan race dua proses kini diuji lokal; perpindahan data/kapasitas produksi masih pending. Langkah berikutnya mencakup adapter gateway sandbox terverifikasi, router/RADIUS lab dan modul tersisa sesuai brief. Cakupan lanjutan mengikuti urutan brief, tanpa mengubah status fitur pending menjadi selesai.

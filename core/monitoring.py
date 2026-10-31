@@ -36,7 +36,7 @@ def consent_valid(device):
 @transaction.atomic
 def save_device(actor, values, version, verified_at, access_version, device_id=None):
     member = manager(actor)
-    Tenant.objects.select_for_update().get(pk=member.tenant_id)
+    Tenant.objects.select_for_update(no_key=True).get(pk=member.tenant_id)
     member = manager(actor)
     if member.session_version != access_version or not 0 <= time.time()-verified_at <= 300:
         raise PermissionDenied("MFA terbaru diperlukan untuk menyimpan monitoring.")

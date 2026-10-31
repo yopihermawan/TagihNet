@@ -16,7 +16,7 @@ root = Path(__file__).resolve().parent.parent
 evidence = root / "docs/evidence"
 password = "Isolated-operations-password-2026!"
 with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
-    env = {**os.environ, "TAGIHNET_DATA_DIR": directory, "TAGIHNET_DEMO_PASSWORD": password,
+    env = {**os.environ, "TAGIHNET_DB_ENGINE": "sqlite", "TAGIHNET_DATA_DIR": directory, "TAGIHNET_DEMO_PASSWORD": password,
            "TAGIHNET_DEBUG": "1", "TAGIHNET_SIMULATION": "1"}
     for args in [["migrate", "--noinput"], ["seed_demo"]]:
         subprocess.run([sys.executable, "manage.py", *args], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)

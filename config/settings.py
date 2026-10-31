@@ -2,6 +2,7 @@ import os
 import base64
 import secrets
 from pathlib import Path
+from .database import database_config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = os.getenv("TAGIHNET_DEBUG", "1") == "1"
@@ -56,8 +57,7 @@ TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIR
                   "django.contrib.messages.context_processors.messages", "core.context.shell",
               ]}}]
 WSGI_APPLICATION = "config.wsgi.application"
-DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": DATA_DIR / "tagihnet.sqlite3",
-                         "OPTIONS": {"timeout": 20}}}
+DATABASES = {"default": database_config(os.environ, DATA_DIR, DEBUG)}
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 12}},

@@ -2,7 +2,7 @@
 
 ## Lingkup runtime
 
-Checkpoint ini disiapkan untuk Linux, Python 3.12, Django 5.2, dan satu file SQLite. Semua integrasi berjalan simulasi. Docker/Windows disediakan sebagai konfigurasi pengembangan, belum diverifikasi eksekusinya. Jangan expose Django runserver ke internet atau menganggap konfigurasi ini production-ready.
+Checkpoint ini disiapkan untuk Linux, Python 3.12, Django 5.2, dan satu file SQLite. Semua integrasi berjalan simulasi. Image aplikasi Docker/Windows disediakan sebagai konfigurasi pengembangan, belum diverifikasi eksekusinya; server PostgreSQL lab dalam Docker telah diuji terpisah. Jangan expose Django runserver ke internet atau menganggap konfigurasi ini production-ready.
 
 ## Instalasi berulang
 
@@ -88,3 +88,15 @@ Migrasi 0006 menambah MonitoringDevice/MonitoringPoll, unique constraint perangk
 Tidak ada worker kelima. `run_simulation_worker` sekarang memanggil collector monitoring setelah rekonsiliasi. `collect_monitoring --limit 100` hanya satu putaran NAS enabled yang jatuh tempo, urut waktu terlama; limit 1–500. Tiap NAS maksimal satu snapshot per 60 detik pada versi yang sama. Kegagalan dijadwalkan 60 detik kemudian; tidak memakai batas 3 percobaan milik job perubahan layanan. Persetujuan yang berubah menghasilkan blocked dan next_poll_at kosong, sehingga perlu konfigurasi/MFA baru sebelum lanjut. `--once` worker jaringan atau command collector keluar nonzero pada monitoring failed/blocked. Loop worker mencatat kegagalan lalu tetap berjalan.
 
 Maksimal 50 NAS per ISP dan 100 sesi per snapshot. Simulasi saja, tanpa alamat, password, HTTP/API router atau trafik nyata. Riwayat belum dipangkas otomatis; perlu kebijakan retensi sebelum penggunaan jangka panjang. Restore SQL membandingkan konfigurasi/versi/jadwal NAS dan seluruh payload/status/waktu snapshot, di samping state/ledger lama. Uji browser menggunakan database sementara berisi snapshot sukses, gagal, stale dan kosong untuk drill tersebut. Panduan di NETWORK-MONITORING.md.
+
+## Backend PostgreSQL opsional
+
+`TAGIHNET_DB_ENGINE=postgresql` memilih PostgreSQL secara eksplisit; default tetap SQLite. Instal requirements-postgres.txt. Parameter NAME/USER/HOST/password wajib; konfigurasi tidak lengkap ditolak tanpa fallback. Password dari variabel atau file privat, bukan keduanya. verify-full default; disable hanya DEBUG=1 lab. Connect timeout 5 detik, lock timeout 5 detik dan statement timeout 30 detik. Tidak ada connection pooling yang diklaim.
+
+Lab postgres_lab.py memakai image PostgreSQL 16.15 terkunci digest, port loopback, role aplikasi non-superuser/CREATEDB dan password acak file 0600 pada data/postgres-lab. Role CREATEDB khusus tes; role produksi tidak boleh mewarisi hak ini. start/status/stop/run memeriksa label container; pembuatan ulang container menggunakan volume berlabel milik lab dan tidak menghapusnya. Stop/start dan hapus container terhenti → recreate dengan volume dipertahankan sudah diuji. Snapshot cloud tidak menjamin volume/container Docker; simpan backup di luar Docker dan jangan menganggap snapshot sebagai backup PostgreSQL.
+
+verify_postgres.py membuat database terpisah bernama acak, menjalankan migrasi/fixture fiktif, delapan race dua proses dan backup/restore ke database kedua. Seluruh tabel aplikasi/auth beserta payload dibandingkan, lalu kedua database dihapus. Data SQLite dan database asal tidak ditulis fixture/migrasi oleh verifier. Skrip mensyaratkan PostgreSQL DEBUG/SIMULATION dan role non-superuser dengan CREATEDB. pg_dump/pg_restore dijalankan dari container lab atau client lokal yang sesuai versi server. Arsip sementara 0600 belum terenkripsi.
+
+Lock joined actor/tenant dibatasi ke baris target; pengunci tenant untuk konfigurasi memakai NO KEY UPDATE agar tidak memblokir FK insert biasa. Retry transaksi mengenali SQLSTATE 40001/40P01/55P03 atau SQLite BUSY/LOCKED, maksimal lima percobaan; error lain tidak diulang. UUID pembayaran lintas faktur diputuskan oleh unique constraint/savepoint agar satu transaksi menang dan lainnya menjadi ValidationError. Tidak ada migrasi skema baru pada checkpoint ini; migrasi 0001–0006 diterapkan dari kosong pada lab. Migrasi data SQLite ke PostgreSQL produksi belum dilakukan.
+
+backup.py/verify_restore.py khusus SQLite dan menolak saat PostgreSQL dipilih. Kedua smoke browser memaksa SQLite sementara meskipun dipanggil dari environment PostgreSQL, sehingga tidak menulis ke database PG terkonfigurasi. Browser PostgreSQL/live deployment, beban, pooling, failover, offsite/enkripsi backup dan cutover tetap belum diuji. Lihat POSTGRESQL.md.

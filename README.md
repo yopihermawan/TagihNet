@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Checkpoint `feature/tagihnet-network-monitoring` menambah monitoring NAS dan snapshot sesi contoh. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Checkpoint `feature/tagihnet-network-monitoring` menambah monitoring NAS dan snapshot sesi contoh. Checkpoint `feature/tagihnet-postgresql-hardening` menambah backend PostgreSQL opsional dan pengujian transaksi lintas proses. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Yang bisa digunakan
 
@@ -30,10 +30,10 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 
 ## Stack dan struktur
 
-Python 3.12+, Django **5.2 LTS**, SQLite untuk satu mesin pengembangan, template HTML/CSS/JavaScript tanpa build frontend, dan ReportLab untuk PDF. Django dipilih karena autentikasi, ORM, migrasi, validasi, dan CSRF bawaannya. PDF digambar dari teks lokal; tidak memakai browser atau mengambil URL eksternal.
+Python 3.12+, Django **5.2 LTS**, SQLite sebagai default pengembangan dan PostgreSQL opsional yang diuji lokal, template HTML/CSS/JavaScript tanpa build frontend, dan ReportLab untuk PDF. Django dipilih karena autentikasi, ORM, migrasi, validasi, dan CSRF bawaannya. PDF digambar dari teks lokal; tidak memakai browser atau mengambil URL eksternal.
 
 ```text
-config/                  pengaturan, URL, WSGI
+config/                  pengaturan, pilihan database, URL, WSGI
 core/models.py           tenant, pelanggan, faktur, ledger, audit, antrean
 core/billing.py          transaksi domain dan hitungan integer rupiah
 core/bulk_billing.py     preview, persetujuan snapshot, worker massal per baris
@@ -115,6 +115,20 @@ docker compose down
 
 Volume `tagihnet-data` mempertahankan database. `docker compose down -v` menghapusnya; jangan gunakan bila ingin menyimpan data. Image berjalan sebagai user non-root; port hanya diikat ke localhost. Dockerfile dan konfigurasi Windows disediakan, tetapi belum dieksekusi pada checkpoint Linux ini.
 
+## PostgreSQL opsional
+
+SQLite tetap default dan data demo tidak dipindahkan. Lab PostgreSQL Linux/Docker terpisah memakai role aplikasi non-superuser dan password acak privat:
+
+```bash
+python -m pip install -r requirements-postgres.txt
+python scripts/postgres_lab.py start
+python scripts/postgres_lab.py run manage.py migrate --noinput
+python scripts/postgres_lab.py run manage.py test --verbosity 1 --noinput
+python scripts/postgres_lab.py run scripts/verify_postgres.py
+```
+
+`run` hanya mengatur environment untuk subprocess itu. Verifikasi membuat database sementara sendiri dan menghapusnya setelah delapan skenario lintas proses serta pg_dump/pg_restore. Snapshot cloud tidak menjamin container/volume Docker ikut pulih. Panduan konfigurasi TLS, kredensial, restart, backup dan batas bukti: [POSTGRESQL](docs/POSTGRESQL.md).
+
 ## Monitoring NAS simulasi
 
 Buka **Monitoring simulasi**. Owner menambah NAS, memilih skenario dan menyetujui pengambilan dengan MFA terbaru. Tidak ada alamat router, secret, atau perangkat nyata yang dihubungi. Pengambilan berjalan melalui worker jaringan yang sama, tanpa proses tambahan:
@@ -175,7 +189,7 @@ Variabel tersedia di [.env.example](.env.example). Aplikasi membaca **environmen
 - **Status pembayaran lunas tetapi layanan belum aktif:** jalankan worker; lihat antrean/gagal. Data seed memiliki satu router simulasi sengaja tidak terjangkau.
 - **Batch menunggu worker:** jalankan `run_billing_worker`. Batch stale/expired/blocked perlu ditinjau lewat pratinjau baru; jangan mengubah snapshot/status langsung di database.
 - **Pengingat kosong/tertahan:** pastikan kebijakan opt-in dan worker aktif; perubahan izin pemberi persetujuan memerlukan simpan ulang dengan MFA terbaru. Gagal tiga kali tetap terminal untuk kunci deduplikasi tersebut.
-- **Database busy:** ulangi request dengan kunci idempotensi yang sama. SQLite untuk pengembangan; uji PostgreSQL serta lock/queue terdistribusi sebelum skala produksi.
+- **Database busy:** ulangi request dengan kunci idempotensi yang sama. SQLite dan PostgreSQL lab sudah diuji; uji kapasitas/queue/infrastruktur target tetap diperlukan sebelum skala produksi.
 - **Email reset tidak terkirim:** pada development, lihat file privat di `data/emails/`. SMTP/TLS harus dikonfigurasi dan diuji untuk deployment.
 - **Monitoring belum ada data segar:** buat dan aktifkan NAS simulasi dengan MFA, lalu ambil snapshot atau jalankan worker jaringan. Data >120 detik, gagal diambil, versi lama atau izin berubah dikecualikan dari ringkasan. Perangkat nyata tetap belum terhubung.
 

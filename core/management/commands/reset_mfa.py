@@ -18,7 +18,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if not 20 <= len(options["reason"].strip()) <= 250:
             raise CommandError("Alasan verifikasi identitas wajib 20–250 karakter; jangan sertakan secret.")
-        member = Membership.objects.select_for_update().select_related("user").filter(
+        member = Membership.objects.select_for_update(of=("self",)).select_related("user").filter(
             user__username=options["username"], user_id=options["confirm_user_id"]).first()
         if not member:
             raise CommandError("Username dan ID konfirmasi tidak cocok. Tidak ada perubahan.")

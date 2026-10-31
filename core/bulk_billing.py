@@ -125,7 +125,8 @@ def cancel_batch(actor, batch_id):
 @transaction.atomic
 def process_next(batch_id):
     # One row per transaction. Crash/restart cannot lose completed progress.
-    batch = BillingBatch.objects.select_for_update().select_related("created_by", "tenant").get(pk=batch_id)
+    # Lock the job, not its joined actor/tenant; their FK locks can deadlock invoice writers.
+    batch = BillingBatch.objects.select_for_update(of=("self",)).select_related("created_by", "tenant").get(pk=batch_id)
     if batch.status not in {"queued", "processing"}:
         return False
     try:

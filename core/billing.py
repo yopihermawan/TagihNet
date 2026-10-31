@@ -17,7 +17,13 @@ def retry_locked(function):
             try:
                 return function(*args, **kwargs)
             except OperationalError as exc:
-                if "locked" not in str(exc).lower() or attempt == 4:
+                cause = exc.__cause__
+                state = getattr(cause, "sqlstate", None)
+                sqlite_code = getattr(cause, "sqlite_errorcode", 0)
+                retryable = (state in {"40001", "40P01", "55P03"} or (sqlite_code & 255) in {5, 6}
+                    or (state is None and str(exc).lower().startswith(
+                        ("database is locked", "database table is locked", "database schema is locked"))))
+                if not retryable or attempt == 4:
                     raise
                 time.sleep(0.04 * (2 ** attempt))
     return wrapped
@@ -73,7 +79,7 @@ def write_snapshot_invoice(tenant, customer, period, snapshot, actor, correlatio
 @retry_locked
 @transaction.atomic
 def issue_invoice(tenant, customer_id, period, actor, discount=0, correlation_id=None):
-    customer = Customer.objects.select_for_update().select_related("plan").get(tenant=tenant, pk=customer_id)
+    customer = Customer.objects.select_for_update(of=("self",)).select_related("plan").get(tenant=tenant, pk=customer_id)
     if customer.plan.tenant_id != tenant.pk:
         raise ValidationError("Paket tidak berada pada ISP yang sama.")
     if period.day != 1:
@@ -103,8 +109,14 @@ def record_payment(tenant, invoice_id, amount, event_key, actor, note="", correl
         return existing, False
     if type(amount) is not int or amount <= 0 or amount > invoice.balance:
         raise ValidationError("Nominal harus positif dan tidak melebihi sisa tagihan.")
-    payment = Payment.objects.create(tenant=tenant, invoice=invoice, amount=amount, event_key=event_key,
-                                     recorded_by=actor, note=note)
+    # A shared event key can race across different customers, whose row locks are independent.
+    # get_or_create contains the unique-key insert in a savepoint and returns the winner.
+    payment, created = Payment.objects.get_or_create(tenant=tenant, event_key=event_key,
+        defaults={"invoice": invoice, "amount": amount, "recorded_by": actor, "note": note})
+    if not created:
+        if payment.invoice_id != invoice.pk or payment.amount != amount:
+            raise ValidationError("Kunci idempotensi telah digunakan untuk pembayaran berbeda.")
+        return payment, False
     NetworkJob.objects.create(tenant=tenant, customer=invoice.customer)
     audit(tenant, actor, "payment.simulated", payment.pk, f"{invoice.number}; Rp{amount}", correlation_id)
     return payment, True
@@ -115,7 +127,7 @@ def record_payment(tenant, invoice_id, amount, event_key, actor, note="", correl
 def reverse_payment(tenant, payment_id, reason, actor, correlation_id=None):
     if not settings.SIMULATION:
         raise ValidationError("Reversal pada fondasi ini hanya tersedia dalam simulasi.")
-    payment = Payment.objects.select_for_update().select_related("invoice").get(tenant=tenant, pk=payment_id)
+    payment = Payment.objects.select_for_update(of=("self",)).select_related("invoice").get(tenant=tenant, pk=payment_id)
     Customer.objects.select_for_update().get(tenant=tenant, pk=payment.invoice.customer_id)
     if len(reason.strip()) < 10 or len(reason) > 250:
         raise ValidationError("Alasan koreksi harus 10–250 karakter.")

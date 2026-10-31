@@ -37,7 +37,7 @@ def policy_authorized(policy):
 @transaction.atomic
 def save_policy(actor, values, version, verified_at, access_version):
     member = manager(actor)
-    Tenant.objects.select_for_update().get(pk=member.tenant_id)
+    Tenant.objects.select_for_update(no_key=True).get(pk=member.tenant_id)
     member = manager(actor)
     if member.session_version != access_version or not 0 <= time.time() - verified_at <= 300:
         raise PermissionDenied("Verifikasi MFA terbaru diperlukan untuk kebijakan pengingat.")
@@ -155,7 +155,7 @@ def process_reminder(reminder_id):
             reminder.next_attempt_at = local.replace(hour=policy.billing_hour, minute=0, second=0, microsecond=0)
             reminder.save(update_fields=["next_attempt_at"])
             return reminder
-        invoice = Invoice.objects.select_for_update().select_related("customer").filter(pk=reminder.invoice_id, tenant=reminder.tenant).first()
+        invoice = Invoice.objects.select_for_update(of=("self",)).select_related("customer").filter(pk=reminder.invoice_id, tenant=reminder.tenant).first()
         if not invoice:
             return finish(reminder, policy, "skipped", "Objek faktur tidak tersedia dalam ISP ini.", now)
         if invoice.customer.tenant_id != reminder.tenant_id:
