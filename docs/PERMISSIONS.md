@@ -9,6 +9,7 @@ Sumber enforcement: `core/permissions.py`, `core/views.py:allowed_invoice`, dan 
 | Tambah/ubah pelanggan | Ya | Ya | Tidak | Tidak | Tidak | Tidak |
 | Daftar/detail faktur | Ya | Ya | Ya | Ya | Tidak | Milik sendiri |
 | Terbitkan faktur/diskon | Ya | Ya | Tidak | Tidak | Tidak | Tidak |
+| Pratinjau/konfirmasi/batal faktur massal | Ya, batch milik sendiri | Peran kustom bulk_issue diperlukan | Peran kustom bulk_issue diperlukan | Peran kustom bulk_issue diperlukan | Peran kustom bulk_issue diperlukan | Tidak |
 | Catat pembayaran simulasi | Ya | Tidak | Ya | Ya | Tidak | Tidak |
 | Reversal penuh + alasan | Ya | Tidak | Ya | Tidak | Tidak | Tidak |
 | PDF | ISP sendiri | ISP sendiri | ISP sendiri | ISP sendiri | Tidak | Milik sendiri |
@@ -25,3 +26,7 @@ Tabel di atas adalah preset awal. Owner dapat menetapkan peran kustom pada akun 
 Scope wilayah/penugasan untuk teknisi/sales belum tersedia; role tersebut belum dapat digunakan. Keuangan/operasional pada checkpoint ini melihat identitas pelanggan satu ISP; minimisasi field lebih lanjut perlu disepakati sebelum produksi. NOC hanya melihat nama pelanggan dalam antrean dan hasil simulasi, tanpa nominal/sandi layanan.
 
 Worker tidak menerima tenant dari request pengguna; tiap job menyimpan tenant dan mengambil pelanggan dengan pasangan tenant+ID. Job silang tenant ditolak oleh lookup. Tidak ada cache bisnis bersama atau realtime pada fondasi ini. Database/shell administrator tetap batas kepercayaan; constraint lintas relasi yang lebih ketat dan audit tahan manipulasi perlu ditambahkan sebelum deployment.
+
+## Batas penerbitan massal
+
+`bulk_issue` adalah capability terpisah dari `issue`; prasyarat role kustom: `issue`, `invoices`, `customers`. Batch bersifat privat untuk pembuat dan tenant. Konfirmasi membutuhkan MFA <=5 menit dan versi sesi masih berlaku. Worker memeriksa kembali izin, user aktif dan session_version sebelum setiap baris; perubahan akses memblokir sisa pekerjaan. Lihat BULK-BILLING.md. Kepemilikan batch tidak mengubah izin biasa atas faktur yang sudah terbit.

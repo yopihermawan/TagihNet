@@ -156,6 +156,45 @@ class InvoiceLine(models.Model):
         return self.quantity * self.unit_price
 
 
+class BillingBatch(models.Model):
+    STATES = [("preview", "Pratinjau"), ("queued", "Menunggu worker"), ("processing", "Diproses"),
+              ("completed", "Selesai"), ("stale", "Data berubah"), ("expired", "Kedaluwarsa"),
+              ("blocked", "Dihentikan untuk ditinjau"), ("cancelled", "Dibatalkan")]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    period = models.DateField()
+    filters = models.JSONField(default=dict)
+    discount = models.PositiveIntegerField(default=0)
+    fingerprint = models.CharField(max_length=64)
+    status = models.CharField(max_length=16, choices=STATES, default="preview")
+    authorization_version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField()
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    reason = models.CharField(max_length=250, blank=True)
+    correlation_id = models.UUIDField(default=uuid.uuid4)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["status", "created_at"], name="billing_batch_queue")]
+
+
+class BillingBatchItem(models.Model):
+    batch = models.ForeignKey(BillingBatch, related_name="items", on_delete=models.PROTECT)
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT)
+    snapshot = models.JSONField()
+    status = models.CharField(max_length=12, choices=[("pending", "Akan diterbitkan"), ("created", "Diterbitkan"),
+                                                   ("skipped", "Sudah ada · dilewati")], default="pending")
+    invoice = models.ForeignKey(Invoice, null=True, blank=True, on_delete=models.PROTECT)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [models.UniqueConstraint(fields=["batch", "customer"], name="customer_once_per_batch")]
+
+
 class Payment(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
     invoice = models.ForeignKey(Invoice, related_name="payments", on_delete=models.PROTECT)

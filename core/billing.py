@@ -1,6 +1,7 @@
 """Money and ledger mutations. All amounts are integer rupiah; no network I/O."""
 import time
 import uuid
+from datetime import date
 from functools import wraps
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -37,6 +38,38 @@ def totals(price, discount, tax_bp):
     return net + tax, tax
 
 
+def invoice_snapshot(tenant, customer, period, discount=0):
+    if customer.tenant_id != tenant.pk or customer.plan.tenant_id != tenant.pk:
+        raise ValidationError("Paket dan pelanggan harus berada pada ISP yang sama.")
+    if period.day != 1:
+        raise ValidationError("Periode harus tanggal pertama bulan layanan.")
+    total, tax = totals(customer.plan.price, discount, tenant.tax_bp)
+    return {"schema": 1, "tenant_id": tenant.pk, "customer_id": customer.pk,
+        "plan_id": customer.plan_id, "service_state": customer.service_state, "period": period.isoformat(),
+        "invoice": {"due_date": month_due(period, tenant.due_day).isoformat(), "customer_name": customer.name,
+            "customer_address": customer.address, "subtotal": customer.plan.price, "discount": discount,
+            "tax_bp": tenant.tax_bp, "tax_amount": tax, "total": total, "footer": tenant.invoice_footer},
+        "line": {"description": f"{customer.plan.name} · {customer.plan.speed_mbps} Mbps · {period:%m/%Y}",
+                 "quantity": 1, "unit_price": customer.plan.price}}
+
+
+def write_snapshot_invoice(tenant, customer, period, snapshot, actor, correlation_id=None):
+    """Internal writer; caller holds transaction. Snapshot must originate from server-side preview."""
+    if (snapshot["schema"] != 1 or snapshot["tenant_id"] != tenant.pk or customer.tenant_id != tenant.pk
+            or snapshot["customer_id"] != customer.pk or snapshot["period"] != period.isoformat()):
+        raise ValidationError("Snapshot faktur tidak sesuai cakupan.")
+    values = snapshot["invoice"].copy()
+    line = snapshot["line"].copy()
+    total, tax = totals(values["subtotal"], values["discount"], values["tax_bp"])
+    if values["total"] != total or values["tax_amount"] != tax or line["quantity"] != 1 or line["unit_price"] != values["subtotal"]:
+        raise ValidationError("Snapshot nominal tidak konsisten.")
+    values["due_date"] = date.fromisoformat(values["due_date"])
+    invoice = Invoice.objects.create(tenant=tenant, customer=customer, period=period, **values)
+    InvoiceLine.objects.create(invoice=invoice, **line)
+    audit(tenant, actor, "invoice.issued", invoice.pk, invoice.number, correlation_id)
+    return invoice
+
+
 @retry_locked
 @transaction.atomic
 def issue_invoice(tenant, customer_id, period, actor, discount=0, correlation_id=None):
@@ -51,13 +84,7 @@ def issue_invoice(tenant, customer_id, period, actor, discount=0, correlation_id
             raise ValidationError("Faktur periode ini sudah terbit dengan diskon berbeda.")
         return existing, False
     tenant = Tenant.objects.get(pk=tenant.pk)
-    total, tax = totals(customer.plan.price, discount, tenant.tax_bp)
-    invoice = Invoice.objects.create(tenant=tenant, customer=customer, period=period,
-        due_date=month_due(period, tenant.due_day), customer_name=customer.name,
-        customer_address=customer.address, subtotal=customer.plan.price, discount=discount,
-        tax_bp=tenant.tax_bp, tax_amount=tax, total=total, footer=tenant.invoice_footer)
-    InvoiceLine.objects.create(invoice=invoice, description=f"{customer.plan.name} · {customer.plan.speed_mbps} Mbps · {period:%m/%Y}", unit_price=customer.plan.price)
-    audit(tenant, actor, "invoice.issued", invoice.pk, invoice.number, correlation_id)
+    invoice = write_snapshot_invoice(tenant, customer, period, invoice_snapshot(tenant, customer, period, discount), actor, correlation_id)
     return invoice, True
 
 

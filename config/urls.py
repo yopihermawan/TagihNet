@@ -2,6 +2,7 @@ from django.contrib.auth import views as auth
 from django.urls import path
 from core import views
 from core import security_views as security
+from core import bulk_views as bulk
 
 urlpatterns = [
     path("health/", views.health, name="health"),
@@ -27,6 +28,11 @@ urlpatterns = [
     path("customers/<int:pk>/edit/", views.customer_form, name="customer_edit"),
     path("invoices/", views.invoices, name="invoices"),
     path("invoices/new/", views.invoice_create, name="invoice_create"),
+    path("invoices/batches/", bulk.batch_list, name="billing_batches"),
+    path("invoices/batches/new/", bulk.batch_create, name="billing_batch_create"),
+    path("invoices/batches/<uuid:pk>/", bulk.batch_detail, name="billing_batch_detail"),
+    path("invoices/batches/<uuid:pk>/confirm/", bulk.batch_confirm, name="billing_batch_confirm"),
+    path("invoices/batches/<uuid:pk>/cancel/", bulk.batch_cancel, name="billing_batch_cancel"),
     path("invoices/<int:pk>/", views.invoice_detail, name="invoice_detail"),
     path("invoices/<int:pk>/pdf/", views.invoice_pdf, name="invoice_pdf"),
     path("invoices/<int:pk>/pay/", views.payment_create, name="payment_create"),

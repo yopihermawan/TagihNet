@@ -41,7 +41,7 @@ python manage.py run_simulation_worker
 
 Worker memproses maksimal 100 job per batch, cek ulang sisa tagihan yang overdue, lalu adapter simulasi. Backoff kegagalan 30, 60, 120 detik; setelah tiga percobaan, job tetap `failed`. Job confirmed tidak dieksekusi ulang. Pembayaran tidak menunggu worker. Tidak ada klaim sesi PPP nyata terputus/aktif. UI menampilkan pending/failed dan status layanan terpisah. Belum ada email/alert eksternal atau supervisor; deployment memerlukan keduanya.
 
-SQLite memiliki retry transaksi untuk konflik lock lokal; itu bukan pengganti lock/queue terdistribusi. Untuk multiworker produksi, gunakan PostgreSQL/outbox/claim job, transaction locking lintas proses, rekonsiliasi periodik, serta pengujian beban dan race pada konfigurasi target. Tidak ada scheduler faktur/pengingat otomatis pada checkpoint ini.
+SQLite memiliki retry transaksi untuk konflik lock lokal; itu bukan pengganti lock/queue terdistribusi. Untuk multiworker produksi, gunakan PostgreSQL/outbox/claim job, transaction locking lintas proses, rekonsiliasi periodik, serta pengujian beban dan race pada konfigurasi target. Worker penerbitan massal tersedia melalui `run_billing_worker`, tetapi hanya memproses batch yang telah dikonfirmasi dengan MFA; tidak membuat persetujuan sendiri. Tidak ada scheduler faktur/pengingat otomatis pada checkpoint ini.
 
 `GET /health/` menjalankan `SELECT 1` dan hanya mengembalikan status/mode. Audit memuat ID korelasi, actor, tenant, action, target dan detail terpilih tanpa password/cookie. Log worker hanya ID/status/attempts. Retensi audit/attempts/email lokal harus dikonfigurasi; log append-only via aplikasi belum tahan perubahan administrator database.
 
@@ -60,3 +60,9 @@ Satu customer = satu layanan/paket. Faktur bulanan full-month, satu customer/per
 ## Migrasi checkpoint akses
 
 Migrasi `0002` menambah perangkat MFA, role kustom, limiter atomic, dan versi sesi tanpa menghapus ledger. Sesi lama tidak dianggap terverifikasi dan harus login ulang. Operator tanpa MFA diarahkan ke enrollment setelah password benar. Tidak ada enrollment otomatis atau reset perangkat pengguna saat seed diulang. `reset_mfa` adalah pemulihan offline oleh administrator host setelah verifikasi identitas, bukan fitur reset publik.
+
+## Worker faktur massal dan migrasi 0003
+
+Sebelum migrasi 0003 lokal, backup konsisten dibuat di direktori privat `data/backups/`. Migrasi menambah BillingBatch/BillingBatchItem/index/constraint tanpa mengubah ledger lama. Jalankan `python manage.py run_billing_worker` sebagai proses terpisah dari web dan worker jaringan. `--once --limit 100` memproses satu putaran maksimal 10 batch antre/processing; batas 1–500 baris per batch. Proses dapat dihentikan dan diulang tanpa menggandakan invoice. Validasi atau perubahan hak pembuat memblokir sisa batch; jangan memaksa status melalui SQL.
+
+Backup/restore kini juga membandingkan jumlah batch, state batch dan jumlah item per status. Uji browser melakukan drill pada antrean parsial, selain rekonsiliasi saldo. Restorasi autentikasi tetap membutuhkan kunci MFA terpisah. Scheduler, supervisor produksi, kapasitas PostgreSQL/multi-process, dan alert eksternal masih belum diverifikasi. Detail status dan pemulihan ada di BULK-BILLING.md.

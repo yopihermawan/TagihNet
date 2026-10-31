@@ -1,6 +1,6 @@
 # Laporan pengujian — 31 Oktober 2026, WIB
 
-Target: checkpoint fondasi dan akses TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite, Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
+Target: checkpoint fondasi, akses dan faktur massal TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite, Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
 
 ## Eksekusi dan bukti
 
@@ -11,13 +11,13 @@ Target: checkpoint fondasi dan akses TagihNet, Linux cloud, Python 3.12.14, Djan
 | `python manage.py check` | pass · no issues |
 | `python manage.py makemigrations --check --dry-run` | pass · no changes detected |
 | `python -m pip check` | pass · no broken requirements |
-| `python manage.py test --verbosity 1` | pass · **66 tes dieksekusi**, tanpa fail/skip/expected-failure |
+| `python manage.py test --verbosity 1` | pass · **95 tes dieksekusi**, tanpa fail/skip/expected-failure |
 | `python manage.py collectstatic --noinput` | pass · tiga aset lokal terkumpul |
 | `python scripts/browser_smoke.py` | pass · Chromium sungguhan: login/password toggle, tambah/reload pelanggan, faktur, pembayaran penuh, reversal, PDF, filter/URL kembali, logout, dark mode, menu mobile; **0 browser errors** |
-| `python scripts/security_smoke.py` | pass · server/database sementara, MFA enrollment/challenge, custom role assignment/edit, session revocation, recovery regeneration/rejection, lalu seluruh alur billing; tanpa mengubah akun demo pengguna |
+| `python scripts/security_smoke.py` | pass · server/database sementara, MFA enrollment/challenge, custom role assignment/edit, session revocation, recovery regeneration/rejection, penerbitan 28 faktur massal dengan diskon, replay, worker resume/duplikat/cancel parsial/restore antrean, lalu seluruh alur billing; tanpa mengubah akun demo pengguna |
 | Browser responsive checks | pass terbatas · 360/768/1366/1920 px, dashboard/pelanggan/faktur/jaringan/setelan tanpa scroll horizontal seluruh halaman; tabel punya scroll lokal |
 | `python scripts/verify_pdf.py` | pass · A4 **14 halaman**, 100 baris teks panjang, total Rp100.000, label simulasi, markup footer tampil sebagai teks; fixture di-rollback |
-| `python scripts/verify_restore.py` | pass · backup konsisten dan restore ke direktori kosong, integrity_check ok; pelanggan/faktur/total/pembayaran/piutang sama |
+| `python scripts/verify_restore.py` | pass · backup konsisten dan restore ke direktori kosong, integrity_check ok; pelanggan/faktur/total/pembayaran/piutang dan state batch/items sama |
 | `python manage.py run_simulation_worker --once` | simulated · batch pertama 18 confirmed dan satu router seeded gagal; pembayaran tetap tersimpan, kegagalan dijadwalkan backoff |
 | `pip-audit 2.10.1 -r requirements.txt --no-deps --disable-pip --vulnerability-service pypi` | pass saat scan · no known vulnerabilities found untuk sebelas paket runtime; tidak mencakup OS, dev dependencies, atau bug logika |
 | `manage.py check --deploy` dengan DEBUG off dan secret sesi/MFA/host sementara | warning konfigurasi · W021: HSTS preload false. Ini disengaja sampai domain/HTTPS siap, tidak ada klaim deployment HTTPS sudah diverifikasi |
@@ -33,7 +33,7 @@ Prefix `python` pada tabel berarti interpreter `.venv/bin/python` proyek. Pip-au
 | 3 | Batas tenant/pelanggan | pass subset · detail/edit/payment/search/export/PDF/portal/job; upload/realtime tidak ada |
 | 4 | Search/filter/sort/pagination URL | pass · 10/25/50 backend dan size=25 browser; filter NAS/jatuh tempo belum |
 | 5 | Tambah/ubah pelanggan + reload | pass · HTTP dan browser; duplikat phone/username ditolak |
-| 6 | Retry/concurrency penerbitan | pass lokal · dua thread dan retry, constraint customer/periode; multi-process PostgreSQL belum |
+| 6 | Retry/concurrency penerbitan | pass lokal · dua worker batch sama/bertumpang tindih/race dengan penerbitan satuan, resume/konfirmasi replay, constraint customer/periode; multi-process PostgreSQL belum |
 | 7 | Rupiah/tax/discount/akhir bulan | pass subset · integer, half-up, Februari/leap year/tanggal31; prorata belum tersedia |
 | 8 | Webhook tidak sah/nominal/order | not tested · gateway/webhook belum diimplementasikan; path webhook tidak tersedia |
 | 9 | Callback replay/out-of-order | pass subset simulated · pencatatan UUID persisten, mismatch ditolak, dua thread satu ledger; event lifecycle gateway belum |
@@ -60,3 +60,9 @@ Bootstrap pertama gagal karena chmod pada file object dan kemudian migrasi core 
 29 tes baru dan penyesuaian fixture session MFA mempertahankan pemeriksaan billing terdahulu tanpa mematikan MFA/CSRF/rate limit. Test domain memakai session berstatus MFA sah; alur password/OTP sesungguhnya diverifikasi terpisah melalui HTTP dan browser. Race awal pada fixture pre-read membership diperbaiki dengan menyiapkan ID sebelum thread dimulai; assertion last-owner tetap dijalankan terhadap dua transaksi paralel. Percobaan browser awal mencapai batas percobaan ketika login berulang terlalu banyak; skenario disusun agar pemeriksaan kode lama dilakukan melalui step-up dan seluruh limiter tetap aktif. Pemindaian menemukan advisory cryptography 49.0.0, diperbaiki ke 50.0.0 sebelum retest akhir.
 
 Migration 0002 dan backup/restore diuji dengan saldo/jumlah faktur tetap cocok. Kunci MFA tidak termasuk backup database; pemulihan TOTP membutuhkan kunci terpisah yang sesuai. Tidak ada enrollment/reset MFA pada akun demo pengguna selama pengujian browser terisolasi.
+
+## Checkpoint faktur massal
+
+29 pengujian baru menambah cakupan pratinjau tanpa efek finansial, stale/expiry, harga/snapshot/diskon, batas 500/filter, hak terpisah bulk_issue, privasi tenant/pembuat, MFA/CSRF/step-up-return, antrean/replay, rollback per baris, izin dicabut, resume/retry, pembatalan parsial, serta dua worker/race dengan faktur satuan. Total suite kini 95 tes lulus tanpa skip/fail. Peringatan pagination awal pada queryset annotate diperbaiki dengan urutan created_at/id eksplisit.
+
+Browser memverifikasi 28 invoice baru senilai Rp6.310.000 dari pratinjau diskon Rp5.000 per pelanggan, worker satu baris lalu resume, replay konfirmasi/worker, 28 faktur periode lama dilewati, dan satu faktur tetap ada sesudah sisa batch dibatalkan. Empat viewport juga mencakup list/form/detail batch. Restore drill pada database sementara saat status processing membandingkan state batch/item selain ledger; bukti di BULK-BILLING.md dan UX-AUDIT.md. Dependensi tidak berubah dari checkpoint akses; hasil pip-audit pada tabel adalah hasil pemindaian checkpoint akses, bukan pemindaian baru untuk kode billing ini.

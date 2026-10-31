@@ -32,3 +32,9 @@ Target WCAG 2.2 AA memerlukan audit lanjutan semua pasangan kontras, zoom/reflow
 ## Checkpoint akses
 
 MFA menambahkan QR lokal dan fallback kunci manual, faktor kedua sebelum workspace, kode pemulihan yang tampil sekali, serta verifikasi ulang sebelum perubahan akses. Akun & peran hanya muncul untuk owner. [Akses desktop](evidence/access-desktop.png), [akses mobile](evidence/access-mobile.png), [keamanan akun](evidence/account-security.png), dan [tantangan MFA](evidence/mfa-challenge.png) memakai data fiktif; QR, secret, dan recovery codes tidak direkam. Empat viewport diuji untuk akun/peran/form/security selain layar billing.
+
+## Checkpoint faktur massal
+
+Tindakan massal dipisahkan dari Buat faktur satuan. Preview menunjukkan jumlah pelanggan, nominal baru, invoice terbit dan dilewati, dengan rincian harga/diskon/pajak/jatuh tempo dan checkbox persetujuan. Status menunggu/diproses/selesai/dibatalkan tampil berbeda; pengguna dapat memuat ulang progres dan membatalkan sisa pekerjaan tanpa menghapus invoice. Stale/expiry meminta preview baru.
+
+Bukti: [preview desktop](evidence/bulk-preview-desktop.png), [preview mobile](evidence/bulk-preview-mobile.png), [selesai](evidence/bulk-completed-desktop.png). Browser memeriksa 360/768/1366/1920 px tanpa luapan halaman; tabel memakai gulir lokal. Caption filter berbahasa Indonesia dan tombol Buat pratinjau menjelaskan bahwa belum ada invoice terbit. WCAG/screen-reader penuh tetap belum diverifikasi.

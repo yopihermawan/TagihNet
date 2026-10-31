@@ -7,6 +7,7 @@ from django.db import IntegrityError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.debug import sensitive_post_parameters, sensitive_variables
 from django.views.decorators.http import require_http_methods
+from django.utils.http import url_has_allowed_host_and_scheme
 from .access import create_member, save_member, save_role
 from .billing import audit
 from .models import AccessRole, MFADevice, Membership
@@ -111,14 +112,20 @@ def account_security(request):
                 request.session["mfa_verified_at"] = time.time()
                 audit(request.user.membership.tenant, request.user, "auth.stepup", request.user.pk, correlation_id=request.correlation_id)
                 messages.success(request, "Verifikasi ulang berhasil. Aksi sensitif tersedia selama 5 menit.")
+                return_to = request.session.pop("stepup_return", "")
+                if return_to.startswith("/invoices/batches/") and url_has_allowed_host_and_scheme(
+                        return_to, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+                    return redirect(return_to)
                 return redirect("access_index" if membership(request.user).role == "owner" else landing(membership(request.user)))
     return render(request, "security/account.html", {"form": form, "device": device,
                   "remaining": len(device.recovery_hashes) if device else 0})
 
 
-def recent_factor(request):
+def recent_factor(request, return_to=None):
     verified = request.session.get("mfa_verified_at", 0)
     if not 0 <= time.time() - verified <= 300:
+        if return_to:
+            request.session["stepup_return"] = return_to
         messages.info(request, "Verifikasi ulang diperlukan sebelum mengubah akses. Formulir belum disimpan.")
         return False
     return True

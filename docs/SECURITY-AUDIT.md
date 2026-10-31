@@ -1,6 +1,6 @@
 # Audit keamanan TagihNet — 31 Oktober 2026
 
-Lingkungan: lokal Linux, Python 3.12.14, Django 5.2.18, SQLite, Chromium; semua data fiktif. Audit hanya pada kode TagihNet yang ditulis untuk checkpoint ini. Observasi KelolaNet dalam brief adalah referensi UI, bukan temuan teknis terkonfirmasi. Checkpoint ini melanjutkan fondasi dengan MFA dan editor akses. Tidak ada sertifikasi ASVS atau klaim production-ready.
+Lingkungan: lokal Linux, Python 3.12.14, Django 5.2.18, SQLite, Chromium; semua data fiktif. Audit hanya pada kode TagihNet yang ditulis untuk checkpoint ini. Observasi KelolaNet dalam brief adalah referensi UI, bukan temuan teknis terkonfirmasi. Checkpoint kini mencakup MFA/editor akses dan penerbitan massal dengan persetujuan snapshot. Tidak ada sertifikasi ASVS atau klaim production-ready.
 
 ## Model ancaman dan batas kepercayaan
 
@@ -50,3 +50,9 @@ Audit ini tidak memperbaiki seluruh target ASVS L2. [ASVS-CHECKLIST](ASVS-CHECKL
 66 tes backend mencakup MFA terenkripsi, OTP/recovery replay paralel, expiry pending login, revocation di antara faktor dan pembuatan session, limiter atomic, role tenant, direct PDF, step-up, dan last-owner race. Browser terisolasi menguji QR enrollment, custom role assignment, pencabutan sesi, regenerasi recovery dan penolakan kode lama; tidak ada QR/secret/kode disimpan ke bukti visual. Scope teknisi/wilayah, WebAuthn, dan rotasi key enkripsi terotomasi belum tersedia.
 
 Audit dependency awal checkpoint ini menemukan advisory `PYSEC-2026-3552` pada cryptography 49.0.0. Paket diperbarui menjadi 50.0.0 sebelum commit; retest suite/browser dan pemindaian runtime dilakukan pada versi perbaikan. Advisory yang terduplikasi dalam output awal dihitung sebagai satu identitas advisory, bukan dua temuan independen.
+
+## Retest penerbitan massal
+
+95 tes total dan browser lokal memverifikasi endpoint bulk_issue terpisah, scope pembuat+tenant, POST/CSRF, review checkbox, MFA terbaru dan safe return sesudah step-up, snapshot server-side, deteksi perubahan sebelum konfirmasi, worker authorization version, rollback savepoint, cancellation serta concurrency/deduplikasi. Konfirmasi hanya mengantrekan; GET/preview tidak menerbitkan. Nominal/tenant/pelanggan dari POST konfirmasi tidak dipakai. Tidak ada renderer HTML baru atau akses jaringan eksternal. Bulk audit menggunakan correlation ID batch.
+
+Snapshot yang telah disetujui tetap berlaku bila setelan berubah sesudah konfirmasi; kebijakan ini ditampilkan dan diuji. Data yang berubah sebelum konfirmasi mewajibkan pratinjau baru. Risiko yang tetap terbuka: database administrator dapat memodifikasi snapshot/audit, SQLite hanya diverifikasi lokal dengan thread, belum ada load test/admission control global atau PostgreSQL lintas proses. Batas 500 pelanggan per job dan 1–500 baris per putaran bukan jaminan kapasitas produksi.

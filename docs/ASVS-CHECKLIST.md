@@ -21,7 +21,7 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 | Upload/import validation | not applicable | not applicable | Tidak ada endpoint upload/impor |
 | CSV formula injection | applicable | pass | Prefix sel berisiko + tenant/permission export tests |
 | Payment webhook signature/freshness/order | not applicable | not applicable | Endpoint tidak tersedia, gateway belum diimplementasikan |
-| Ledger constraints/idempotency/reversal | applicable | pass lokal | Unique period/event, integer rupiah, partial/reject overpay, concurrency tests |
+| Ledger constraints/idempotency/reversal | applicable | pass lokal | Unique period/event, integer rupiah, partial/reject overpay; single/bulk race, approved snapshots, stale/expiry, queue/resume/cancel dan concurrency tests |
 | Job race / consistency | applicable | simulated | Recheck debt, retry/backoff, failure preserves payment; lab nyata belum |
 | SSRF / router allowlist / network secrets | not applicable | not applicable | Tidak ada adapter network I/O atau URL-fetch publik |
 | Production secret storage/rotation | applicable | not tested | Secret env + key lokal 0600; MFA key terpisah, Fernet encrypted TOTP; vault/rotation belum |
@@ -35,3 +35,5 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 | Production capacity/resource limits | applicable | not tested | SQLite/single-node development; load/concurrency multi-process belum |
 
 Sumber bukti terulang: `core/tests/`, `scripts/browser_smoke.py`, `scripts/security_smoke.py`, `scripts/verify_pdf.py`, `scripts/verify_restore.py`. Detail perintah dan hasil ada di [TEST-REPORT](TEST-REPORT.md).
+
+Checkpoint massal menambah 29 tes (95 total). Batas data preview, hak bulk_issue terpisah, konfirmasi MFA/CSRF, per-creator tenant scope dan recheck worker diverifikasi lokal; itu tidak memperluas klaim menjadi seluruh ASVS L2. Penjadwalan unattended, notifikasi, integrasi gateway/router dan multi-process database masih memerlukan kontrol tersendiri.

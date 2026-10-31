@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 import pyotp
 from playwright.sync_api import sync_playwright, expect
+from bulk_browser import verify_bulk_billing
 
 root = Path(__file__).resolve().parent.parent
 password = "Isolated-browser-password-2026!"
@@ -66,6 +67,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-security-") as temporary:
                 return secret, codes
 
             owner_secret, owner_codes = enroll(page, "owner", password)
+            verify_bulk_billing(page, base, env, root, sys.executable, evidence)
             page.goto(base + "/settings/access/roles/new/")
             page.get_by_label("Nama peran").fill("Pembaca pelanggan")
             page.get_by_label("Lihat pelanggan", exact=True).check()

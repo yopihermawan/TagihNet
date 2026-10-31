@@ -1,4 +1,4 @@
-# Matriks fitur — checkpoint fondasi dan akses
+# Matriks fitur — checkpoint fondasi, akses, dan faktur massal
 
 Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubungi layanan nyata. Tidak ada klaim seluruh brief selesai.
 
@@ -12,7 +12,8 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Multi-tenant | Membership satu ISP per akun; tenant dari login, dua tenant seed, objek/PDF/CSV terbatasi | 2 · implemented |
 | Role dan cakupan | Enam preset dan peran kustom tenant; owner membuat/mengubah akun dan izin, sesi dicabut, owner terakhir dilindungi. Teknisi/sales dan scope wilayah belum | 2 · limited |
 | Faktur | Bulanan full month, tanggal akhir bulan, snapshot harga/pajak/diskon, constraint satu pelanggan/periode | 2 · implemented |
-| Massal/otomatisasi/prorata | Belum tersedia; tidak ada tombol massal yang menyesatkan | 3 · pending |
+| Penerbitan massal | Preview <=500 pelanggan, stale/expiry, MFA, snapshot persetujuan, worker per baris, deduplikasi/resume/cancel | 3 · implemented lokal |
+| Scheduler/pengingat/prorata | Penerbitan terjadwal tanpa konfirmasi per batch, kanal pengingat, prorata belum tersedia | 3 · pending |
 | Pembayaran | Integer rupiah, sebagian/penuh, overpay ditolak, UUID idempotensi persisten, reversal penuh | 2 · simulated |
 | Gateway/webhook | Endpoint gateway tidak didaftarkan; tidak ada signature/settlement produksi | 3 · pending |
 | PDF | ReportLab lokal, A4 multipage, total/snapshot/label simulasi, footer plain text | 2 · implemented |
@@ -32,4 +33,4 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Backup/restore | SQLite consistent backup + restore/reconcile drill ke direktori kosong | 2 · implemented; enkripsi/offsite pending |
 | Rilis produksi | TLS, SMTP, secret vault, database/queue multiworker, beban, lab, penetration test | 5 · pending |
 
-Langkah implementasi berikutnya: migrasi PostgreSQL dan pengujian race lintas proses; penerbitan massal dengan preview; adapter gateway sandbox terverifikasi; router/RADIUS lab. Cakupan lanjutan mengikuti urutan brief, tanpa mengubah status fitur pending menjadi selesai.
+Langkah implementasi berikutnya: migrasi PostgreSQL dan pengujian race lintas proses; adapter gateway sandbox terverifikasi; router/RADIUS lab. Cakupan lanjutan mengikuti urutan brief, tanpa mengubah status fitur pending menjadi selesai.

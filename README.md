@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; kelanjutannya di `feature/tagihnet-access-security` menambahkan MFA dan editor akses. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses, dan `feature/tagihnet-bulk-billing` menambahkan penerbitan massal dengan pratinjau. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Yang bisa digunakan
 
@@ -15,6 +15,7 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 - Dashboard yang menghitung data dari ledger, disertai definisi metrik, periode, cakupan, serta waktu pembaruan WIB.
 - Cari/filter/sort pelanggan, pagination server-side 10/25/50 yang tersimpan di URL, tambah/ubah/detail, dan ekspor CSV berizin.
 - Satu layanan/paket per pelanggan; faktur bulanan idempoten, snapshot harga/pajak, diskon, pembayaran sebagian, penolakan lebih bayar, dan reversal penuh dengan histori.
+- Faktur massal: pratinjau maksimal 500 pelanggan, MFA konfirmasi, snapshot disetujui, worker resumable, duplikat dilewati, serta pembatalan sisa pekerjaan.
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.
 - Antrean rekonsiliasi jaringan **simulasi** dengan pengecekan ulang tunggakan, backoff, dan maksimal tiga percobaan. Pembayaran tetap tercatat bila adapter gagal.
 - Mode terang/gelap, navigasi mobile, fallback peta eksternal, dan jejak audit.
@@ -29,6 +30,7 @@ Python 3.12+, Django **5.2 LTS**, SQLite untuk satu mesin pengembangan, template
 config/                  pengaturan, URL, WSGI
 core/models.py           tenant, pelanggan, faktur, ledger, audit, antrean
 core/billing.py          transaksi domain dan hitungan integer rupiah
+core/bulk_billing.py     preview, persetujuan snapshot, worker massal per baris
 core/network.py          adapter simulasi dan rekonsiliasi
 core/permissions.py      izin deny-by-default
 core/security.py         MFA, enkripsi, recovery, limiter atomic
@@ -70,6 +72,16 @@ python manage.py run_simulation_worker          # loop; Ctrl+C untuk berhenti
 python manage.py run_simulation_worker --once
 ```
 
+Jalankan worker billing di terminal terpisah untuk batch yang dikonfirmasi:
+
+```bash
+python manage.py run_billing_worker
+# atau satu putaran, maksimal 100 baris per batch secara default:
+python manage.py run_billing_worker --once --limit 100
+```
+
+Alur lengkap dan aturan stale/expiry, snapshot, izin, serta pembatalan ada di [BULK-BILLING](docs/BULK-BILLING.md). Preset Owner mendapat izin massal; operator lain memerlukan peran kustom dengan `bulk_issue`.
+
 Gunakan URL lokal hanya saat menjalankan sendiri; lingkungan onboarding tidak menyediakan preview web publik.
 
 ## Windows PowerShell
@@ -88,6 +100,7 @@ py -3.12 -m venv .venv
 docker compose up --build -d
 docker compose exec web python manage.py seed_demo
 docker compose exec web python manage.py run_simulation_worker --once
+docker compose exec web python manage.py run_billing_worker --once
 docker compose down
 ```
 
@@ -106,7 +119,7 @@ python scripts/verify_restore.py
 python scripts/security_smoke.py
 ```
 
-`security_smoke.py` menjalankan server/database sementara, menguji enrollment MFA/peran/revocation/recovery, lalu alur billing browser lengkap. Akun demo pengguna tidak diubah; direktori sementara dihapus setelah selesai. Chromium diperlukan. Bukti visual tidak merekam QR, secret, atau kode pemulihan.
+`security_smoke.py` menjalankan server/database sementara, menguji enrollment MFA/peran/revocation/recovery, penerbitan massal/worker/resume/duplikat/pembatalan, lalu alur billing browser lengkap. Restore drill SQL juga memeriksa antrean batch parsial. Akun demo pengguna tidak diubah; direktori sementara dihapus setelah selesai. Chromium diperlukan. Bukti visual tidak merekam QR, secret, atau kode pemulihan.
 
 Untuk uji browser terhadap instance development yang sedang berjalan, daftarkan MFA owner terlebih dahulu dan gunakan kata sandi serta OTP baru/kode pemulihan aktual. Skrip menolak host non-lokal, menambahkan satu pelanggan uji berlabel `Uji Browser`, dan melakukan transaksi **simulasi**. Bukti visual disimpan di `docs/evidence/`.
 
@@ -126,6 +139,7 @@ Variabel tersedia di [.env.example](.env.example). Aplikasi membaca **environmen
 - **Login ditolak setelah percobaan berulang:** tunggu 15 menit; batas awal lima percobaan per identitas/IP, termasuk percobaan sukses. Jangan menonaktifkan rate limit untuk deployment.
 - **Kata sandi seed berbeda:** menjalankan seed ulang tidak mengubah kata sandi. Gunakan `python manage.py changepassword owner` secara lokal.
 - **Status pembayaran lunas tetapi layanan belum aktif:** jalankan worker; lihat antrean/gagal. Data seed memiliki satu router simulasi sengaja tidak terjangkau.
+- **Batch menunggu worker:** jalankan `run_billing_worker`. Batch stale/expired/blocked perlu ditinjau lewat pratinjau baru; jangan mengubah snapshot/status langsung di database.
 - **Database busy:** ulangi request dengan kunci idempotensi yang sama. SQLite untuk pengembangan; uji PostgreSQL serta lock/queue terdistribusi sebelum skala produksi.
 - **Email reset tidak terkirim:** pada development, lihat file privat di `data/emails/`. SMTP/TLS harus dikonfigurasi dan diuji untuk deployment.
 - **Sesi online tidak ada:** adapter monitoring nyata belum dibuat; UI sengaja menampilkan “belum tersedia”.
