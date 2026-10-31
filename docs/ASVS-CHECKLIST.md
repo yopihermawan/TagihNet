@@ -14,7 +14,7 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 | Secure/HttpOnly/SameSite cookies | applicable | pass konfigurasi / not tested HTTPS | HttpOnly/Lax; Secure dan SSL redirect saat DEBUG off, TLS deployment belum diuji |
 | CSRF pada cookie auth | applicable | pass | Django middleware, POST tanpa token 403 |
 | Deny-by-default action/object/tenant | applicable | pass subset | Tes role, IDOR lintas ISP, portal same-tenant customer, CSV/PDF/job |
-| Field dan assignment scope | applicable | pass subset | Allowlist ModelForm, server price; teknisi/sales belum tersedia |
+| Field dan assignment scope | applicable | pass subset | Allowlist ModelForm, server price; Teknisi scope penugasan tersedia; sales/wilayah geografis belum tersedia |
 | Privilege escalation / last owner | applicable | pass lokal | Owner-only editor, custom-cap allowlist/dependency, last-owner demotion/deactivation dan race, role changes revoke sessions |
 | Validation/SQL injection/output encoding | applicable | pass subset | ORM parameterized, form limit/allowlist, markup footer test; fuzzing lengkap belum |
 | PDF sandbox / resource fetch | applicable | pass desain + tes | ReportLab teks lokal; tidak ada file/URL fetch atau HTML browser |
@@ -37,3 +37,5 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 Sumber bukti terulang: `core/tests/`, `scripts/browser_smoke.py`, `scripts/security_smoke.py`, `scripts/verify_pdf.py`, `scripts/verify_restore.py`. Detail perintah dan hasil ada di [TEST-REPORT](TEST-REPORT.md).
 
 Checkpoint massal menambah 29 tes (95 total). Batas data preview, hak bulk_issue terpisah, konfirmasi MFA/CSRF, per-creator tenant scope dan recheck worker diverifikasi lokal; itu tidak memperluas klaim menjadi seluruh ASVS L2. Penjadwalan unattended, notifikasi, integrasi gateway/router dan multi-process database masih memerlukan kontrol tersendiri.
+
+Checkpoint operasional menambah 34 tes (129 total) untuk scope penugasan, privacy komentar, state/version/replay, SLA snapshot dan quote aktivasi atomik/MFA. Bukti pada SUPPORT-AND-INSTALLATIONS.md. Tidak ada klaim bahwa upload, live router, gateway, PostgreSQL multi-process atau seluruh ASVS L2 telah selesai.

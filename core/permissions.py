@@ -4,12 +4,13 @@ from django.core.exceptions import PermissionDenied
 from .models import Membership
 
 CAPABILITIES = {
-    "owner": {"dashboard", "customers", "edit_customers", "invoices", "issue", "bulk_issue", "pay", "reverse", "network", "settings", "audit", "export", "manage_access"},
-    "ops": {"dashboard", "customers", "edit_customers", "invoices", "issue", "export"},
+    "owner": {"dashboard", "customers", "edit_customers", "invoices", "issue", "bulk_issue", "pay", "reverse", "network", "settings", "audit", "export", "manage_access", "tickets", "installations", "activate_installations"},
+    "ops": {"dashboard", "customers", "edit_customers", "invoices", "issue", "export", "tickets", "installations"},
     "finance": {"dashboard", "customers", "invoices", "pay", "reverse", "export"},
     "cashier": {"dashboard", "invoices", "pay"},
     "noc": {"network"},
     "customer": {"portal"},
+    "technician": {"field_work"},
 }
 
 CAPABILITY_LABELS = {
@@ -19,10 +20,12 @@ CAPABILITY_LABELS = {
     "reverse": "Reversal pembayaran", "network": "Lihat antrean jaringan",
     "settings": "Ubah setelan billing", "audit": "Lihat audit", "export": "Ekspor pelanggan",
     "bulk_issue": "Terbitkan faktur massal",
+    "tickets": "Kelola tiket gangguan", "installations": "Kelola PSB",
+    "activate_installations": "Aktivasi PSB dan faktur awal",
 }
 
 def capabilities(member):
-    if member.role in {"owner", "customer"} or not member.access_role_id:
+    if member.role in {"owner", "customer", "technician"} or not member.access_role_id:
         return CAPABILITIES[member.role].copy()
     if member.access_role.tenant_id != member.tenant_id:
         raise PermissionDenied
@@ -37,7 +40,7 @@ def membership(user):
         raise PermissionDenied
     if member.role == "customer" and (not member.customer_id or member.customer.tenant_id != member.tenant_id):
         raise PermissionDenied
-    if member.access_role_id and (member.access_role.tenant_id != member.tenant_id or member.role in {"owner", "customer"}):
+    if member.access_role_id and (member.access_role.tenant_id != member.tenant_id or member.role in {"owner", "customer", "technician"}):
         raise PermissionDenied
     return member
 

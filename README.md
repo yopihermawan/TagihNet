@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses, dan `feature/tagihnet-bulk-billing` menambahkan penerbitan massal dengan pratinjau. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Yang bisa digunakan
 
@@ -18,9 +18,12 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 - Faktur massal: pratinjau maksimal 500 pelanggan, MFA konfirmasi, snapshot disetujui, worker resumable, duplikat dilewati, serta pembatalan sisa pekerjaan.
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.
 - Antrean rekonsiliasi jaringan **simulasi** dengan pengecekan ulang tunggakan, backoff, dan maksimal tiga percobaan. Pembayaran tetap tercatat bila adapter gagal.
+- Tiket gangguan/portal, prioritas/kategori/SLA snapshot, komentar publik/internal, penugasan dan timeline.
+- PSB prospek → terpasang → aktivasi berizin/MFA, satu pelanggan/faktur awal/provisioning job, dengan status jaringan terpisah.
+- Preset Teknisi dengan akses hanya pada pekerjaan yang ditugaskan, tanpa daftar pelanggan atau nominal billing.
 - Mode terang/gelap, navigasi mobile, fallback peta eksternal, dan jejak audit.
 
-[FEATURE-MATRIX](docs/FEATURE-MATRIX.md) merinci fungsi yang selesai, terbatas, dan belum dibuat. Gateway pembayaran, MikroTik/RADIUS nyata, scope wilayah/penugasan, tiket/PSB, hotspot, payroll, dan migrasi produksi belum tersedia. Tidak ada menu palsu untuk modul tersebut.
+[FEATURE-MATRIX](docs/FEATURE-MATRIX.md) merinci fungsi yang selesai, terbatas, dan belum dibuat. Gateway pembayaran, MikroTik/RADIUS nyata, scope wilayah geografis, lampiran/notifikasi tiket, penjadwalan ulang PSB, hotspot, payroll, dan migrasi produksi belum tersedia. Tidak ada menu palsu untuk modul tersebut.
 
 ## Stack dan struktur
 
@@ -31,6 +34,7 @@ config/                  pengaturan, URL, WSGI
 core/models.py           tenant, pelanggan, faktur, ledger, audit, antrean
 core/billing.py          transaksi domain dan hitungan integer rupiah
 core/bulk_billing.py     preview, persetujuan snapshot, worker massal per baris
+core/operations.py       tiket, scope penugasan, SLA, PSB dan aktivasi atomik
 core/network.py          adapter simulasi dan rekonsiliasi
 core/permissions.py      izin deny-by-default
 core/security.py         MFA, enkripsi, recovery, limiter atomic
@@ -117,6 +121,7 @@ python -m pip install -r requirements-dev.txt
 python scripts/verify_pdf.py
 python scripts/verify_restore.py
 python scripts/security_smoke.py
+python scripts/operations_smoke.py
 ```
 
 `security_smoke.py` menjalankan server/database sementara, menguji enrollment MFA/peran/revocation/recovery, penerbitan massal/worker/resume/duplikat/pembatalan, lalu alur billing browser lengkap. Restore drill SQL juga memeriksa antrean batch parsial. Akun demo pengguna tidak diubah; direktori sementara dihapus setelah selesai. Chromium diperlukan. Bukti visual tidak merekam QR, secret, atau kode pemulihan.
@@ -130,7 +135,7 @@ export CHROMIUM_PATH=/usr/bin/chromium   # sesuaikan lokasi executable
 python scripts/browser_smoke.py
 ```
 
-[TEST-REPORT](docs/TEST-REPORT.md) memuat hasil yang benar-benar dijalankan. Backend dan browser MFA/billing terisolasi didaftarkan pada GitHub Actions; PDF/restore juga dapat dijalankan mandiri. Keberhasilan CI remote belum dikonfirmasi.
+[TEST-REPORT](docs/TEST-REPORT.md) memuat hasil yang benar-benar dijalankan. Backend serta browser MFA/billing dan operasional terisolasi didaftarkan pada GitHub Actions; PDF/restore juga dapat dijalankan mandiri. Keberhasilan CI remote belum dikonfirmasi.
 
 ## Konfigurasi dan troubleshooting
 
@@ -145,3 +150,9 @@ Variabel tersedia di [.env.example](.env.example). Aplikasi membaca **environmen
 - **Sesi online tidak ada:** adapter monitoring nyata belum dibuat; UI sengaja menampilkan “belum tersedia”.
 
 Lihat [OPERATIONS](docs/OPERATIONS.md), [SECURITY-AUDIT](docs/SECURITY-AUDIT.md), [ASVS-CHECKLIST](docs/ASVS-CHECKLIST.md), [PERMISSIONS](docs/PERMISSIONS.md), dan [UX-AUDIT](docs/UX-AUDIT.md) sebelum melanjutkan implementasi atau deployment.
+
+## Tiket, teknisi, dan PSB
+
+Buka menu **Tiket gangguan** atau **Pasang baru (PSB)**. Owner/Admin operasional mengelola pekerjaan; buat akun preset Teknisi melalui Akun & peran sebelum menugaskan. Teknisi wajib MFA dan hanya melihat tugas sendiri. Pelanggan portal dapat membuat/mengomentari tiketnya; catatan internal tidak ditampilkan.
+
+PSB tidak membuat pelanggan/faktur sampai tahap Terpasang dan aktivasi disetujui akun berizin dengan MFA terbaru. Status customer awal Menunggu provisioning; invoice belum otomatis lunas dan router nyata tidak diubah. `operations_smoke.py` menguji alur pada server/database sementara tanpa mengubah akun/data demo pengguna. Panduan lengkap dan batas SLA, lampiran, rescheduling serta integrasi: [SUPPORT-AND-INSTALLATIONS](docs/SUPPORT-AND-INSTALLATIONS.md).

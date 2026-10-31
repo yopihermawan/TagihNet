@@ -25,7 +25,8 @@ from .security import complete_login, remember_password, throttle
 def landing(member):
     rights = capabilities(member)
     return next((route for right, route in [("portal", "portal"), ("dashboard", "dashboard"),
-        ("network", "network"), ("customers", "customers"), ("invoices", "invoices")] if right in rights), "account_security")
+        ("network", "network"), ("customers", "customers"), ("invoices", "invoices"),
+        ("field_work", "ticket_list"), ("tickets", "ticket_list"), ("installations", "installation_list")] if right in rights), "account_security")
 
 
 @sensitive_post_parameters("password")
@@ -96,7 +97,7 @@ def customer_query(request):
     if query:
         result = result.filter(Q(name__icontains=query) | Q(code__icontains=query) | Q(username__icontains=query) | Q(phone__icontains=query))
     state = request.GET.get("state", "")
-    if state in {"active", "isolated"}:
+    if state in {"active", "isolated", "pending"}:
         result = result.filter(service_state=state)
     plan = request.GET.get("plan", "")
     if plan.isdigit():

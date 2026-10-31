@@ -21,12 +21,24 @@ Sumber enforcement: `core/permissions.py`, `core/views.py:allowed_invoice`, dan 
 | Keamanan akun / MFA | Milik sendiri | Milik sendiri | Milik sendiri | Milik sendiri | Milik sendiri | Milik sendiri |
 | Secret integrasi / upload / webhook | Belum tersedia untuk semua peran | — | — | — | — | — |
 
-Tabel di atas adalah preset awal. Owner dapat menetapkan peran kustom pada akun operator; capability efektif menggantikan preset pada setiap endpoint dan menu, termasuk PDF. `manage_access` tidak dapat didelegasikan. Owner/customer tidak boleh menerima peran kustom. Izin tulis memerlukan izin baca terkait. Membership dibaca dari database, bukan claim browser. Perubahan akun/role meningkatkan session_version sehingga sesi lama dicabut pada request berikutnya. Pemilik aktif terakhir dilindungi dalam transaksi. Editor membutuhkan MFA terverifikasi dalam 5 menit terakhir. Lihat [AUTHENTICATION](AUTHENTICATION.md).
+Tabel di atas adalah preset awal. Owner dapat menetapkan peran kustom pada akun operator; capability efektif menggantikan preset pada setiap endpoint dan menu, termasuk PDF. `manage_access` tidak dapat didelegasikan. Owner/customer/teknisi tidak boleh menerima peran kustom. Izin tulis memerlukan izin baca terkait. Membership dibaca dari database, bukan claim browser. Perubahan akun/role meningkatkan session_version sehingga sesi lama dicabut pada request berikutnya. Pemilik aktif terakhir dilindungi dalam transaksi. Editor membutuhkan MFA terverifikasi dalam 5 menit terakhir. Lihat [AUTHENTICATION](AUTHENTICATION.md).
 
-Scope wilayah/penugasan untuk teknisi/sales belum tersedia; role tersebut belum dapat digunakan. Keuangan/operasional pada checkpoint ini melihat identitas pelanggan satu ISP; minimisasi field lebih lanjut perlu disepakati sebelum produksi. NOC hanya melihat nama pelanggan dalam antrean dan hasil simulasi, tanpa nominal/sandi layanan.
+Preset Teknisi kini tersedia dengan akses hanya pada tiket/PSB yang ditugaskan. Scope wilayah geografis dan role Sales masih belum tersedia. Keuangan/operasional pada checkpoint ini melihat identitas pelanggan satu ISP; minimisasi field lebih lanjut perlu disepakati sebelum produksi. NOC hanya melihat nama pelanggan dalam antrean dan hasil simulasi, tanpa nominal/sandi layanan.
 
 Worker tidak menerima tenant dari request pengguna; tiap job menyimpan tenant dan mengambil pelanggan dengan pasangan tenant+ID. Job silang tenant ditolak oleh lookup. Tidak ada cache bisnis bersama atau realtime pada fondasi ini. Database/shell administrator tetap batas kepercayaan; constraint lintas relasi yang lebih ketat dan audit tahan manipulasi perlu ditambahkan sebelum deployment.
 
 ## Batas penerbitan massal
 
 `bulk_issue` adalah capability terpisah dari `issue`; prasyarat role kustom: `issue`, `invoices`, `customers`. Batch bersifat privat untuk pembuat dan tenant. Konfirmasi membutuhkan MFA <=5 menit dan versi sesi masih berlaku. Worker memeriksa kembali izin, user aktif dan session_version sebelum setiap baris; perubahan akses memblokir sisa pekerjaan. Lihat BULK-BILLING.md. Kepemilikan batch tidak mengubah izin biasa atas faktur yang sudah terbit.
+
+## Operasional dan preset Teknisi
+
+| Aksi | Owner | Ops preset | Teknisi | Pelanggan portal | Preset lain |
+| --- | --- | --- | --- | --- | --- |
+| Kelola tiket ISP | Ya | Ya | Tugas sendiri: status/komentar; tidak triase/menutup | Milik sendiri: buat/baca/komentar publik | Butuh role kustom tickets |
+| Kelola PSB ISP | Ya | Ya | Tugas sendiri: tahap/catatan; tidak cancel/assign/aktivasi | Tidak | Butuh role kustom installations |
+| Aktivasi PSB/customer/invoice awal | Ya + MFA terbaru | Tidak bawaan | Tidak | Tidak | Butuh activate_installations dan prasyarat |
+| Catatan internal tiket | Ya | Ya | Hanya tiket ditugaskan | Tidak pernah dibaca/ditulis | Sesuai tickets |
+| Target SLA | Sesuai settings | Tidak bawaan | Tidak | Tidak | Sesuai settings |
+
+Batch dan scope invoice tidak berubah. Peran Teknisi tidak dapat diberi custom role untuk menghindari scope global yang tidak disengaja. State mutation memakai versi dan UUID replay; komentar publik/internal difilter pada backend. Detail aktivasi dan keterbatasan data minimum ada di SUPPORT-AND-INSTALLATIONS.md. Tabel preset awal di atas tetap berlaku untuk fungsi billing; teknisi tidak mendapat fungsi finansial tersebut.

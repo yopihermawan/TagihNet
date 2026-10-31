@@ -26,7 +26,8 @@ def save_role(actor, name, rights, role_id=None, correlation_id=None):
         raise PermissionDenied("Izin di luar kewenangan pemilik.")
     dependencies = {"edit_customers": {"customers"}, "issue": {"customers", "invoices"},
         "pay": {"invoices"}, "reverse": {"invoices"}, "export": {"customers"},
-        "bulk_issue": {"issue", "invoices", "customers"}}
+        "bulk_issue": {"issue", "invoices", "customers"},
+        "activate_installations": {"installations", "edit_customers", "issue", "invoices", "customers"}}
     for capability, prerequisites in dependencies.items():
         if capability in rights and not prerequisites <= rights:
             raise ValidationError(f"Izin {capability} memerlukan: {', '.join(sorted(prerequisites))}.")
@@ -50,8 +51,8 @@ def save_member(actor, target_id, role, access_role_id, customer_id, active, cor
     target = Membership.objects.select_for_update().select_related("user").get(pk=target_id, tenant=owner.tenant)
     if role not in CAPABILITIES:
         raise ValidationError("Preset peran tidak valid.")
-    if role in {"owner", "customer"} and access_role_id:
-        raise ValidationError("Owner dan pelanggan tidak boleh memakai peran kustom.")
+    if role in {"owner", "customer", "technician"} and access_role_id:
+        raise ValidationError("Owner, pelanggan, dan teknisi memakai preset dengan scope khusus; peran kustom tidak tersedia.")
     if access_role_id:
         AccessRole.objects.get(pk=access_role_id, tenant=owner.tenant)
     if role == "customer":

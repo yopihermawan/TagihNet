@@ -3,6 +3,7 @@ from django.urls import path
 from core import views
 from core import security_views as security
 from core import bulk_views as bulk
+from core import operation_views as operations
 
 urlpatterns = [
     path("health/", views.health, name="health"),
@@ -41,4 +42,18 @@ urlpatterns = [
     path("settings/billing/", views.billing_settings, name="billing_settings"),
     path("audit/", views.audit_log, name="audit"),
     path("portal/", views.portal, name="portal"),
+    path("operations/tickets/", operations.ticket_list, name="ticket_list"),
+    path("operations/tickets/new/", operations.ticket_create, name="ticket_create"),
+    path("operations/tickets/<int:pk>/", operations.ticket_detail, name="ticket_detail"),
+    path("operations/tickets/<int:pk>/comment/", operations.ticket_comment, name="ticket_comment"),
+    path("operations/tickets/<int:pk>/status/", operations.ticket_status, name="ticket_status"),
+    path("operations/tickets/<int:pk>/manage/", operations.ticket_manage, name="ticket_manage"),
+    path("operations/installations/", operations.installation_list, name="installation_list"),
+    path("operations/installations/new/", operations.installation_create, name="installation_create"),
+    path("operations/installations/<int:pk>/", operations.installation_detail, name="installation_detail"),
+    path("operations/installations/<int:pk>/status/", operations.installation_status, name="installation_status"),
+    path("operations/installations/<int:pk>/comment/", operations.installation_comment, name="installation_comment"),
+    path("operations/installations/<int:pk>/assign/", operations.installation_assign, name="installation_assign"),
+    path("operations/installations/<int:pk>/activate/", operations.installation_activate, name="installation_activate"),
+    path("operations/sla/", operations.sla_settings, name="sla_settings"),
 ]

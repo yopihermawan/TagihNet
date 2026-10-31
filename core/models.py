@@ -14,6 +14,10 @@ class Tenant(models.Model):
     tax_bp = models.PositiveIntegerField(default=0, validators=[MaxValueValidator(10000)])
     invoice_footer = models.TextField(max_length=1000, default="Terima kasih telah mempercayakan koneksi Anda kepada kami.")
     due_day = models.PositiveSmallIntegerField(default=20, validators=[MinValueValidator(1), MaxValueValidator(31)])
+    sla_low_hours = models.PositiveSmallIntegerField(default=72, validators=[MinValueValidator(1), MaxValueValidator(720)])
+    sla_normal_hours = models.PositiveSmallIntegerField(default=24, validators=[MinValueValidator(1), MaxValueValidator(720)])
+    sla_high_hours = models.PositiveSmallIntegerField(default=8, validators=[MinValueValidator(1), MaxValueValidator(720)])
+    sla_urgent_hours = models.PositiveSmallIntegerField(default=2, validators=[MinValueValidator(1), MaxValueValidator(720)])
 
     def __str__(self):
         return self.name
@@ -39,7 +43,7 @@ class Customer(models.Model):
     area = models.CharField(max_length=80)
     username = models.SlugField(max_length=64)
     plan = models.ForeignKey(Plan, on_delete=models.PROTECT)
-    service_state = models.CharField(max_length=16, choices=[("active", "Aktif"), ("isolated", "Diisolir")], default="active")
+    service_state = models.CharField(max_length=16, choices=[("active", "Aktif"), ("isolated", "Diisolir"), ("pending", "Menunggu provisioning")], default="active")
     router_available = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -69,7 +73,7 @@ class AccessRole(models.Model):
 
 class Membership(models.Model):
     ROLES = [("owner", "Owner ISP"), ("ops", "Admin operasional"), ("finance", "Keuangan"),
-             ("cashier", "Kasir"), ("noc", "NOC"), ("customer", "Pelanggan")]
+             ("cashier", "Kasir"), ("noc", "NOC"), ("customer", "Pelanggan"), ("technician", "Teknisi")]
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
     role = models.CharField(max_length=16, choices=ROLES)
@@ -227,6 +231,97 @@ class NetworkJob(models.Model):
     result = models.CharField(max_length=250, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
     run_after = models.DateTimeField(default=timezone.now)
+
+
+class Ticket(models.Model):
+    PRIORITIES = [("low", "Rendah"), ("normal", "Normal"), ("high", "Tinggi"), ("urgent", "Mendesak")]
+    CATEGORIES = [("connection", "Koneksi"), ("billing", "Penagihan"), ("installation", "Pemasangan"), ("other", "Lainnya")]
+    STATES = [("open", "Terbuka"), ("in_progress", "Dalam penanganan"), ("waiting_customer", "Menunggu pelanggan"),
+              ("resolved", "Terselesaikan"), ("closed", "Ditutup")]
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    assigned_to = models.ForeignKey(Membership, null=True, blank=True, on_delete=models.PROTECT)
+    request_key = models.UUIDField()
+    fingerprint = models.CharField(max_length=64)
+    title = models.CharField(max_length=140)
+    description = models.TextField(max_length=4000)
+    priority = models.CharField(max_length=16, choices=PRIORITIES, default="normal")
+    category = models.CharField(max_length=16, choices=CATEGORIES)
+    status = models.CharField(max_length=20, choices=STATES, default="open")
+    version = models.PositiveIntegerField(default=1)
+    sla_policy = models.JSONField()
+    sla_due_at = models.DateTimeField()
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-updated_at", "-pk"]
+        constraints = [models.UniqueConstraint(fields=["tenant", "request_key"], name="ticket_request_per_tenant")]
+
+    @property
+    def number(self):
+        return f"TN-T-{self.pk:05d}"
+
+    @property
+    def sla_label(self):
+        if self.resolved_at:
+            return "Selesai tepat SLA" if self.resolved_at <= self.sla_due_at else "Selesai melewati SLA"
+        return "Melewati SLA" if timezone.now() > self.sla_due_at else "Dalam SLA"
+
+
+class Installation(models.Model):
+    STATES = [("prospect", "Prospek"), ("survey", "Survei"), ("scheduled", "Terjadwal"), ("installing", "Pengerjaan"),
+              ("installed", "Terpasang"), ("activated", "Teraktivasi administrasi"), ("cancelled", "Dibatalkan")]
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    request_key = models.UUIDField()
+    fingerprint = models.CharField(max_length=64)
+    name = models.CharField(max_length=100)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=20)
+    username = models.SlugField(max_length=64)
+    address = models.CharField(max_length=250)
+    area = models.CharField(max_length=80)
+    plan = models.ForeignKey(Plan, on_delete=models.PROTECT)
+    assigned_to = models.ForeignKey(Membership, null=True, blank=True, on_delete=models.PROTECT)
+    scheduled_for = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=16, choices=STATES, default="prospect")
+    version = models.PositiveIntegerField(default=1)
+    customer = models.OneToOneField(Customer, null=True, blank=True, on_delete=models.PROTECT)
+    invoice = models.OneToOneField(Invoice, null=True, blank=True, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-updated_at", "-pk"]
+        constraints = [models.UniqueConstraint(fields=["tenant", "request_key"], name="installation_request_per_tenant")]
+
+    @property
+    def number(self):
+        return f"TN-PSB-{self.pk:05d}"
+
+
+class WorkEvent(models.Model):
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
+    ticket = models.ForeignKey(Ticket, null=True, blank=True, related_name="events", on_delete=models.PROTECT)
+    installation = models.ForeignKey(Installation, null=True, blank=True, related_name="events", on_delete=models.PROTECT)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    kind = models.CharField(max_length=24)
+    body = models.TextField(max_length=4000)
+    internal = models.BooleanField(default=True)
+    request_key = models.UUIDField(null=True, blank=True)
+    signature = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "request_key"], name="work_event_request_per_tenant"),
+            models.CheckConstraint(condition=(Q(ticket__isnull=False, installation__isnull=True)
+                | Q(ticket__isnull=True, installation__isnull=False)), name="one_work_event_target"),
+        ]
 
 
 class AuditEvent(models.Model):

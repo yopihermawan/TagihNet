@@ -1,6 +1,6 @@
 # Laporan pengujian — 31 Oktober 2026, WIB
 
-Target: checkpoint fondasi, akses dan faktur massal TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite, Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
+Target: checkpoint billing dan operasional TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite, Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
 
 ## Eksekusi dan bukti
 
@@ -11,10 +11,11 @@ Target: checkpoint fondasi, akses dan faktur massal TagihNet, Linux cloud, Pytho
 | `python manage.py check` | pass · no issues |
 | `python manage.py makemigrations --check --dry-run` | pass · no changes detected |
 | `python -m pip check` | pass · no broken requirements |
-| `python manage.py test --verbosity 1` | pass · **95 tes dieksekusi**, tanpa fail/skip/expected-failure |
+| `python manage.py test --verbosity 1` | pass · **129 tes dieksekusi**, tanpa fail/skip/expected-failure |
 | `python manage.py collectstatic --noinput` | pass · tiga aset lokal terkumpul |
 | `python scripts/browser_smoke.py` | pass · Chromium sungguhan: login/password toggle, tambah/reload pelanggan, faktur, pembayaran penuh, reversal, PDF, filter/URL kembali, logout, dark mode, menu mobile; **0 browser errors** |
 | `python scripts/security_smoke.py` | pass · server/database sementara, MFA enrollment/challenge, custom role assignment/edit, session revocation, recovery regeneration/rejection, penerbitan 28 faktur massal dengan diskon, replay, worker resume/duplikat/cancel parsial/restore antrean, lalu seluruh alur billing; tanpa mengubah akun demo pengguna |
+| `python scripts/operations_smoke.py` | pass · owner/teknisi/pelanggan, catatan internal tersembunyi, scope tugas, tiket sampai Ditutup, PSB sampai aktivasi/replay, satu customer/invoice/job, provisioning simulasi, 4 viewport dan restore state |
 | Browser responsive checks | pass terbatas · 360/768/1366/1920 px, dashboard/pelanggan/faktur/jaringan/setelan tanpa scroll horizontal seluruh halaman; tabel punya scroll lokal |
 | `python scripts/verify_pdf.py` | pass · A4 **14 halaman**, 100 baris teks panjang, total Rp100.000, label simulasi, markup footer tampil sebagai teks; fixture di-rollback |
 | `python scripts/verify_restore.py` | pass · backup konsisten dan restore ke direktori kosong, integrity_check ok; pelanggan/faktur/total/pembayaran/piutang dan state batch/items sama |
@@ -66,3 +67,11 @@ Migration 0002 dan backup/restore diuji dengan saldo/jumlah faktur tetap cocok. 
 29 pengujian baru menambah cakupan pratinjau tanpa efek finansial, stale/expiry, harga/snapshot/diskon, batas 500/filter, hak terpisah bulk_issue, privasi tenant/pembuat, MFA/CSRF/step-up-return, antrean/replay, rollback per baris, izin dicabut, resume/retry, pembatalan parsial, serta dua worker/race dengan faktur satuan. Total suite kini 95 tes lulus tanpa skip/fail. Peringatan pagination awal pada queryset annotate diperbaiki dengan urutan created_at/id eksplisit.
 
 Browser memverifikasi 28 invoice baru senilai Rp6.310.000 dari pratinjau diskon Rp5.000 per pelanggan, worker satu baris lalu resume, replay konfirmasi/worker, 28 faktur periode lama dilewati, dan satu faktur tetap ada sesudah sisa batch dibatalkan. Empat viewport juga mencakup list/form/detail batch. Restore drill pada database sementara saat status processing membandingkan state batch/item selain ledger; bukti di BULK-BILLING.md dan UX-AUDIT.md. Dependensi tidak berubah dari checkpoint akses; hasil pip-audit pada tabel adalah hasil pemindaian checkpoint akses, bukan pemindaian baru untuk kode billing ini.
+
+## Checkpoint tiket dan PSB
+
+34 tes operasional baru menambah cakupan SLA snapshot/prioritas/reopen, komentar publik/internal dan plaintext, scope tenant/customer/teknisi, reassignment (termasuk race HTTP), versi/replay/status, jadwal/penugasan, cancel, duplicate identitas, signed quote/expiry/MFA, rollback atomik dan dua aktivasi bersamaan. Total terakhir: 129 tes lulus tanpa skip/fail.
+
+Browser operations_smoke.py pada database sementara membuktikan alur owner membuat/menugaskan tiket → teknisi menangani → pelanggan menulis komentar tanpa membaca catatan internal → resolusi/penutupan; lalu PSB survei/jadwal/pengerjaan/terpasang → owner quote bertanda tangan/MFA → tepat satu pelanggan/invoice/job meski replay → provisioning simulasi. Empat viewport mencakup list/form/detail/SLA. Restore membandingkan state operasional dan ledger. Foto tidak menyimpan faktor MFA. Akun/data demo pengguna tidak ditambah tiket/PSB/enrollment dari pengujian ini.
+
+Lampiran, notifikasi/SLA escalation, edit/rescheduling PSB, scope wilayah geografis, kalender jam kerja dan PostgreSQL multi-process belum tersedia/diuji. CI baru didaftarkan untuk browser operasional; hasil lokal tidak membuktikan CI remote lulus. Dependensi runtime tidak berubah dari checkpoint akses.

@@ -2,6 +2,7 @@ from datetime import date
 from django import forms
 from django.core.exceptions import ValidationError
 from .models import Customer, Tenant
+from .validation import normalize_phone
 
 class CustomerForm(forms.ModelForm):
     class Meta:
@@ -17,14 +18,7 @@ class CustomerForm(forms.ModelForm):
         self.fields["plan"].queryset = tenant.plan_set.all()
 
     def clean_phone(self):
-        phone = self.cleaned_data["phone"].strip().replace(" ", "").replace("-", "")
-        if phone.startswith("+62"):
-            phone = "0" + phone[3:]
-        elif phone.startswith("62"):
-            phone = "0" + phone[2:]
-        if not phone.isdigit() or not 10 <= len(phone) <= 15:
-            raise ValidationError("Gunakan nomor telepon Indonesia, 10–15 digit.")
-        return phone
+        return normalize_phone(self.cleaned_data["phone"])
 
 class InvoiceForm(forms.Form):
     customer = forms.ModelChoiceField(queryset=Customer.objects.none(), label="Pelanggan")

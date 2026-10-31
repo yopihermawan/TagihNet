@@ -7,16 +7,19 @@
 <body><a class="skip-link" href="#main">Lewati navigasi</a>
 {% if user.is_authenticated and member %}
 <aside class="sidebar" id="sidebar" aria-label="Navigasi utama">
-  <a class="brand" href="{% if member.role == 'noc' %}/network/{% elif member.role == 'customer' %}/portal/{% else %}/{% endif %}"><img src="{% static 'brand.svg' %}" width="34" height="34" alt=""><span>Tagih<span class="brand-accent">Net</span><small>ISP WORKSPACE</small></span></a>
+  <a class="brand" href="{% url 'login' %}"><img src="{% static 'brand.svg' %}" width="34" height="34" alt=""><span>Tagih<span class="brand-accent">Net</span><small>ISP WORKSPACE</small></span></a>
   <div class="workspace"><span class="workspace-icon">{{ tenant.name|first }}</span><span><strong>{{ tenant.name }}</strong><small>{{ member.access_label }}</small></span><span aria-hidden="true">⌄</span></div>
   <p class="nav-label">WORKSPACE</p><nav>
   {% if 'dashboard' in capabilities %}<a href="/" class="nav-link {% if request.path == '/' %}selected{% endif %}"><span aria-hidden="true">{% icon 'dashboard' %}</span> Ringkasan</a>{% endif %}
   {% if 'customers' in capabilities %}<a href="/customers/" class="nav-link {% if '/customers/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'customers' %}</span> Pelanggan & layanan</a>{% endif %}
   {% if 'invoices' in capabilities %}<a href="/invoices/" class="nav-link {% if '/invoices/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'invoice' %}</span> Penagihan</a>{% endif %}
   {% if 'network' in capabilities %}<a href="/network/" class="nav-link {% if '/network/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'network' %}</span> Jaringan</a>{% endif %}
-  {% if 'portal' in capabilities %}<a href="/portal/" class="nav-link selected"><span aria-hidden="true">{% icon 'home' %}</span> Layanan saya</a>{% endif %}
+  {% if 'portal' in capabilities %}<a href="/portal/" class="nav-link {% if request.path == '/portal/' %}selected{% endif %}"><span aria-hidden="true">{% icon 'home' %}</span> Layanan saya</a>{% endif %}
+  {% if 'tickets' in capabilities or 'field_work' in capabilities or 'portal' in capabilities %}<p class="nav-label">OPERASIONAL</p><a href="{% url 'ticket_list' %}" class="nav-link {% if '/operations/tickets/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'invoice' %}</span> {% if member.role == 'customer' %}Tiket bantuan{% else %}Tiket gangguan{% endif %}</a>{% endif %}
+  {% if 'installations' in capabilities or 'field_work' in capabilities %}<a href="{% url 'installation_list' %}" class="nav-link {% if '/operations/installations/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'network' %}</span> Pasang baru (PSB)</a>{% endif %}
   {% if 'settings' in capabilities or 'audit' in capabilities %}<p class="nav-label">PENGELOLAAN</p>{% endif %}
   {% if 'settings' in capabilities %}<a href="/settings/billing/" class="nav-link {% if '/settings/billing/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'settings' %}</span> Setelan billing</a>{% endif %}
+  {% if 'settings' in capabilities %}<a href="{% url 'sla_settings' %}" class="nav-link {% if '/operations/sla/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'clock' %}</span> Target SLA tiket</a>{% endif %}
   {% if 'audit' in capabilities %}<a href="/audit/" class="nav-link {% if '/audit/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'clock' %}</span> Jejak audit</a>{% endif %}
   {% if 'manage_access' in capabilities %}<a href="/settings/access/" class="nav-link {% if '/settings/access/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'customers' %}</span> Akun & peran</a>{% endif %}
   <a href="/account/security/" class="nav-link {% if '/account/security/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'settings' %}</span> Keamanan akun</a>

@@ -17,8 +17,12 @@ def reconcile(path):
         batches = db.execute("SELECT COUNT(*) FROM core_billingbatch").fetchone()[0]
         batch_items = dict(db.execute("SELECT status, COUNT(*) FROM core_billingbatchitem GROUP BY status").fetchall())
         batch_states = dict(db.execute("SELECT status, COUNT(*) FROM core_billingbatch GROUP BY status").fetchall())
+        ticket_states = dict(db.execute("SELECT status, COUNT(*) FROM core_ticket GROUP BY status").fetchall())
+        installation_states = dict(db.execute("SELECT status, COUNT(*) FROM core_installation GROUP BY status").fetchall())
+        work_events = db.execute("SELECT COUNT(*) FROM core_workevent").fetchone()[0]
         return {"customers": customers, "invoices": invoices, "invoiced_rupiah": total, "paid_rupiah": paid,
-                "receivable_rupiah": total-paid, "billing_batches": batches, "batch_states": batch_states, "batch_items": batch_items}
+                "receivable_rupiah": total-paid, "billing_batches": batches, "batch_states": batch_states, "batch_items": batch_items,
+                "ticket_states": ticket_states, "installation_states": installation_states, "work_events": work_events}
 before = reconcile(data / "tagihnet.sqlite3")
 with tempfile.TemporaryDirectory(prefix="tagihnet-restore-") as directory:
     archive = Path(directory) / "backup.sqlite3"
