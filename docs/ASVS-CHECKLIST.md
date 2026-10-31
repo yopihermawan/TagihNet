@@ -39,3 +39,5 @@ Sumber bukti terulang: `core/tests/`, `scripts/browser_smoke.py`, `scripts/secur
 Checkpoint massal menambah 29 tes (95 total). Batas data preview, hak bulk_issue terpisah, konfirmasi MFA/CSRF, per-creator tenant scope dan recheck worker diverifikasi lokal; itu tidak memperluas klaim menjadi seluruh ASVS L2. Penjadwalan unattended, notifikasi, integrasi gateway/router dan multi-process database masih memerlukan kontrol tersendiri.
 
 Checkpoint operasional menambah 34 tes (129 total) untuk scope penugasan, privacy komentar, state/version/replay, SLA snapshot dan quote aktivasi atomik/MFA. Bukti pada SUPPORT-AND-INSTALLATIONS.md. Tidak ada klaim bahwa upload, live router, gateway, PostgreSQL multi-process atau seluruh ASVS L2 telah selesai.
+
+Checkpoint pengingat/jadwal ulang menambah 33 tes (162 total) untuk otorisasi/dependensi role, opt-in/MFA/CSRF, recheck kondisi dan izin worker, deduplikasi persisten/concurrency, retry terbatas, plaintext receipt, serta versi/replay perubahan PSB. Pengiriman eksternal tetap tidak applicable karena adapter hanya mencatat simulasi tanpa I/O. Tidak memperluas klaim menjadi kepatuhan ASVS L2 penuh.

@@ -15,9 +15,11 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 from .billing import audit
 from .models import Customer, Installation, Membership, Plan, Ticket
 from .operation_forms import (ActivationConfirmationForm, ActivationForm, CommentForm, InstallationAssignmentForm,
-    InstallationCreationForm, InstallationTransitionForm, SLASettingsForm, TicketCreationForm, TicketManageForm, TicketTransitionForm)
+    InstallationCreationForm, InstallationEditForm, InstallationRescheduleForm, InstallationTransitionForm,
+    SLASettingsForm, TicketCreationForm, TicketManageForm, TicketTransitionForm)
 from .operations import (INSTALLATION_TRANSITIONS, TICKET_TRANSITIONS, activate_installation, activation_quote, add_comment,
-    assign_installation, create_installation, create_ticket, manage_ticket, member_for, transition_installation,
+    assign_installation, create_installation, create_ticket, edit_installation, manage_ticket, member_for,
+    reschedule_installation, transition_installation,
     transition_ticket, visible_installations, visible_tickets)
 from .permissions import capabilities, require
 from .security_views import recent_factor
@@ -213,6 +215,8 @@ def installation_response(request, order, transition_form=None, comment_form=Non
     return render(request, "operations/installation_detail.html", {"order": order, "status_form": transition_form,
         "comment_form": comment_form or CommentForm(customer=True, initial={"request_key": uuid.uuid4()}),
         "can_transition": bool(choices), "can_assign": "installations" in capabilities(member) and order.status not in {"activated", "cancelled"},
+        "can_edit": "installations" in capabilities(member) and order.status in {"prospect", "survey", "scheduled"},
+        "can_reschedule": "installations" in capabilities(member) and order.status == "scheduled",
         "can_activate": "activate_installations" in capabilities(member) and order.status == "installed",
         "page": paginate(request, order.events.select_related("actor").order_by("-created_at", "-pk"))}, status=status)
 
@@ -276,6 +280,49 @@ def installation_assign(request, pk):
             return redirect("installation_detail", pk=pk)
     return render(request, "core/form.html", {"form": form, "title": "Penugasan teknisi PSB", "back": reverse("installation_detail", args=[pk]),
         "description": "Teknisi hanya dapat mengakses pekerjaan yang ditugaskan. Buat akun preset Teknisi melalui Akun & peran jika daftar kosong."})
+
+
+@require("installations")
+@scope_stability
+@require_http_methods(["GET", "POST"])
+def installation_edit(request, pk):
+    order = get_object_or_404(visible_installations(member_for(request.user)), pk=pk)
+    initial = {field: getattr(order, field) for field in ["name", "email", "phone", "username", "address", "area"]}
+    initial.update(plan=order.plan_id, version=order.version, request_key=uuid.uuid4())
+    form = InstallationEditForm(request.POST or None, tenant=request.member.tenant, initial=initial)
+    if request.method == "POST" and form.is_valid():
+        data = dict(form.cleaned_data)
+        key, version, reason = data.pop("request_key"), data.pop("version"), data.pop("reason")
+        data["plan_id"] = data.pop("plan").pk
+        try:
+            edit_installation(request.user, pk, data, reason, version, key)
+        except (ValidationError, IntegrityError, OperationalError) as exc:
+            feedback(form, exc)
+        else:
+            messages.success(request, "Data PSB disimpan. Periksa kembali tahap dan jadwal pemasangannya.")
+            return redirect("installation_detail", pk=pk)
+    return render(request, "core/form.html", {"form": form, "title": "Ubah data PSB", "back": reverse("installation_detail", args=[pk]),
+        "description": "Hanya sebelum Pengerjaan. Jika PSB sudah Terjadwal, perubahan identitas/paket mengembalikannya ke Survei dan membatalkan jadwal lama. Riwayat sebelum/sesudah tersimpan internal."})
+
+
+@require("installations")
+@scope_stability
+@require_http_methods(["GET", "POST"])
+def installation_reschedule(request, pk):
+    order = get_object_or_404(visible_installations(member_for(request.user)), pk=pk)
+    form = InstallationRescheduleForm(request.POST or None, initial={"scheduled_for": order.scheduled_for,
+        "version": order.version, "request_key": uuid.uuid4()})
+    if request.method == "POST" and form.is_valid():
+        data = form.cleaned_data
+        try:
+            reschedule_installation(request.user, pk, data["scheduled_for"], data["reason"], data["version"], data["request_key"])
+        except (ValidationError, IntegrityError, OperationalError) as exc:
+            feedback(form, exc)
+        else:
+            messages.success(request, "Jadwal baru disimpan. Teknisi melihat penugasan yang telah diperbarui.")
+            return redirect("installation_detail", pk=pk)
+    return render(request, "core/form.html", {"form": form, "title": "Jadwalkan ulang PSB", "back": reverse("installation_detail", args=[pk]),
+        "description": "Hanya pada tahap Terjadwal dengan teknisi aktif. Pilih waktu mendatang; alasan dan jadwal lama/baru dicatat tanpa mengubah pelanggan atau faktur."})
 
 
 @require("activate_installations")

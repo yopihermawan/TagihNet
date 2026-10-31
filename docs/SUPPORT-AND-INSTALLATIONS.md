@@ -46,7 +46,7 @@ Pengajuan PSB menyimpan calon pelanggan, email/telepon, username layanan, lokasi
 
 Alur: **Prospek → Survei → Terjadwal → Pengerjaan → Terpasang → Teraktivasi administrasi**. Menjadwalkan perlu teknisi aktif dan waktu mendatang dalam WIB. Setiap perpindahan memerlukan catatan minimal 10 karakter dan versi form yang masih berlaku. Perubahan penugasan hanya dilakukan staff berizin, bukan teknisi. Pembatalan sebelum aktivasi memerlukan alasan dan menjadi terminal; tidak membuat/menghapus customer atau invoice.
 
-Catatan lapangan PSB hanya internal untuk staff berizin/teknisi yang ditugaskan. Tidak ada portal prospek publik. Pengubahan identitas/paket prospek serta penjadwalan ulang setelah tahap Terjadwal belum tersedia; jika data tidak sesuai, batalkan pengajuan yang belum diaktivasi dan buat pengajuan benar. Ini tidak membatalkan transaksi finansial yang sudah terbit.
+Catatan lapangan PSB hanya internal untuk staff berizin/teknisi yang ditugaskan. Tidak ada portal prospek publik. Akun berizin installations dapat mengubah identitas/paket pada Prospek, Survei atau Terjadwal. Perubahan saat Terjadwal membatalkan jadwal lama dan kembali ke Survei. Penjadwalan ulang tersedia pada Terjadwal dengan teknisi aktif dan waktu mendatang. Alasan, versi dan riwayat sebelum/sesudah wajib; tidak mengubah ledger. Identitas/paket terkunci mulai Pengerjaan. Panduan: [REMINDERS-AND-RESCHEDULING](REMINDERS-AND-RESCHEDULING.md).
 
 ## Aktivasi administrasi
 
@@ -67,3 +67,9 @@ Migrasi `0004` menambah SLA, role teknisi, status layanan pending, Ticket/Instal
 Bukti visual: [teknisi menangani tiket](evidence/technician-ticket-desktop.png), [tiket pelanggan mobile](evidence/customer-ticket-mobile.png), [tiket ditutup](evidence/ticket-closed-desktop.png), [persetujuan aktivasi](evidence/psb-activation-preview.png), [PSB teraktivasi](evidence/psb-activated-desktop.png). Semua data fiktif dan tidak merekam QR/secret/kode pemulihan.
 
 Masih belum terverifikasi: runtime Windows/Docker, PostgreSQL lintas proses, kapasitas produksi, integrasi router/RADIUS/payment nyata, upload, notifikasi otomatis, dan audit aksesibilitas lengkap. Modul ini tidak membuat seluruh aplikasi production-ready.
+
+## Tambahan pengingat simulasi
+
+Migrasi 0005 menambah siklus SLA dan outbox pengingat. Reopen dari Terselesaikan meningkatkan siklus tanpa mengatur ulang waktu SLA; pergantian prioritas menghasilkan deadline baru. Keduanya memberi kunci deduplikasi SLA baru. Komentar tidak membuat pengingat baru. Kebijakan opt-in/MFA dan worker terpisah dijelaskan di REMINDERS-AND-RESCHEDULING.md. Tidak ada kanal notifikasi nyata atau eskalasi otomatis ke pihak lain.
+
+Hasil 129 tes di atas adalah checkpoint operasional sebelumnya. Suite terbaru berisi 162 tes; browser operations_smoke.py juga menguji edit/reschedule/reset Survei, opt-in pengingat, deduplikasi, pelunasan sebelum proses dan restore outbox pada database sementara.

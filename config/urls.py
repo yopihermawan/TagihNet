@@ -4,6 +4,7 @@ from core import views
 from core import security_views as security
 from core import bulk_views as bulk
 from core import operation_views as operations
+from core import reminder_views as reminders
 
 urlpatterns = [
     path("health/", views.health, name="health"),
@@ -56,4 +57,9 @@ urlpatterns = [
     path("operations/installations/<int:pk>/assign/", operations.installation_assign, name="installation_assign"),
     path("operations/installations/<int:pk>/activate/", operations.installation_activate, name="installation_activate"),
     path("operations/sla/", operations.sla_settings, name="sla_settings"),
+    path("operations/installations/<int:pk>/edit/", operations.installation_edit, name="installation_edit"),
+    path("operations/installations/<int:pk>/reschedule/", operations.installation_reschedule, name="installation_reschedule"),
+    path("operations/reminders/", reminders.reminder_list, name="reminder_list"),
+    path("operations/reminders/settings/", reminders.reminder_settings, name="reminder_settings"),
+    path("operations/reminders/<int:pk>/", reminders.reminder_detail, name="reminder_detail"),
 ]

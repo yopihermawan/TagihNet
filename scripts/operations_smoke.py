@@ -116,6 +116,12 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             page.get_by_role("button", name="Buat PSB", exact=True).click()
             expect(page.get_by_role("heading", name="Ruang Koneksi Fiktif", exact=True)).to_be_visible()
             order_url = page.url
+            page.get_by_role("link", name="Ubah data PSB", exact=True).click()
+            page.get_by_label("Alamat pemasangan").fill("Jl. Pemasangan Fiktif No. 11")
+            page.get_by_label("Alasan perubahan").fill("Alamat diperbaiki sesuai survei awal pelanggan.")
+            page.get_by_role("button", name="Simpan", exact=True).click()
+            page.wait_for_url(order_url)
+            expect(page.get_by_text("Data PSB disimpan.", exact=False)).to_be_visible()
             field.goto(order_url)
             for status in ["survey", "scheduled", "installing", "installed"]:
                 field.get_by_label("Tahap berikutnya").select_option(status)
@@ -124,6 +130,26 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
                     schedule = datetime.now(ZoneInfo("Asia/Jakarta")) + timedelta(days=1)
                     field.get_by_label("Jadwal pemasangan").fill(schedule.strftime("%Y-%m-%dT%H:%M"))
                 field.get_by_role("button", name="Simpan tahap PSB").click()
+                if status == "scheduled":
+                    page.goto(order_url)
+                    page.get_by_role("link", name="Jadwalkan ulang", exact=False).click()
+                    page.get_by_label("Jadwal baru").fill((schedule+timedelta(days=1)).strftime("%Y-%m-%dT%H:%M"))
+                    page.get_by_label("Alasan penjadwalan ulang").fill("Pelanggan meminta teknisi datang sehari kemudian.")
+                    page.get_by_role("button", name="Simpan", exact=True).click()
+                    page.wait_for_url(order_url)
+                    expect(page.get_by_text("Jadwal baru disimpan.", exact=False)).to_be_visible()
+                    page.screenshot(path=str(evidence / "psb-rescheduled-desktop.png"), full_page=True)
+                    page.get_by_role("link", name="Ubah data PSB", exact=True).click()
+                    page.get_by_label("Alamat pemasangan").fill("Jl. Pemasangan Fiktif No. 12")
+                    page.get_by_label("Alasan perubahan").fill("Lokasi akhir berubah sehingga perlu survei ulang.")
+                    page.get_by_role("button", name="Simpan", exact=True).click()
+                    page.wait_for_url(order_url)
+                    expect(page.locator('.page-heading .eyebrow')).to_contain_text("SURVEI")
+                    field.reload()
+                    field.get_by_label("Tahap berikutnya").select_option("scheduled")
+                    field.get_by_label("Catatan / alasan").fill("Survei ulang selesai dan jadwal baru disepakati.")
+                    field.get_by_label("Jadwal pemasangan").fill((schedule+timedelta(days=2)).strftime("%Y-%m-%dT%H:%M"))
+                    field.get_by_role("button", name="Simpan tahap PSB").click()
             expect(field.locator('.page-heading .eyebrow')).to_contain_text("TERPASANG")
             assert technician.request.get(order_url + "activate/").status == 403
             assert "Rp" not in field.inner_text("main")
@@ -174,18 +200,64 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             page.get_by_role("button", name="Simpan status tiket").click()
             expect(page.locator('.page-heading .eyebrow')).to_contain_text("DITUTUP")
             page.screenshot(path=str(evidence / "ticket-closed-desktop.png"), full_page=True)
+            # Only the disposable fixture is changed to represent a missed SLA.
+            db_path = Path(directory) / "tagihnet.sqlite3"
+            with sqlite3.connect(db_path) as db:
+                db.execute("UPDATE core_ticket SET sla_due_at=? WHERE id=?",
+                    ((datetime.now(ZoneInfo("UTC"))-timedelta(hours=1)).replace(tzinfo=None).isoformat(" "), int(hidden_ticket.rstrip("/").split("/")[-1])))
+            page.goto(base + "/operations/reminders/")
+            expect(page.get_by_role("heading", name="Pengingat billing & SLA")).to_be_visible()
+            with sqlite3.connect(db_path) as db:
+                assert db.execute("SELECT COUNT(*) FROM core_reminderpolicy").fetchone()[0] == 0
+            page.get_by_role("link", name="Atur kebijakan simulasi").click()
+            page.get_by_label("Aktifkan pengingat billing simulasi").check()
+            page.get_by_label("Aktifkan pengingat SLA simulasi").check()
+            page.get_by_label("Jam mulai pengingat billing").fill("0")
+            page.get_by_label("Saya memahami ini hanya simulasi").check()
+            page.get_by_role("button", name="Simpan", exact=True).click()
+            page.wait_for_url(base + "/operations/reminders/")
+            subprocess.run([sys.executable, "manage.py", "shell", "-c",
+                "from core.models import ReminderPolicy; from core.reminders import plan_reminders; [plan_reminders(p.pk) for p in ReminderPolicy.objects.all()]"],
+                cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
+            with sqlite3.connect(db_path) as db:
+                invoice_id, balance = db.execute("SELECT i.id,i.total-COALESCE((SELECT SUM(p.amount) FROM core_payment p LEFT JOIN core_paymentreversal v ON v.payment_id=p.id WHERE p.invoice_id=i.id AND v.id IS NULL),0) FROM core_invoice i JOIN core_reminder r ON r.invoice_id=i.id WHERE r.kind='billing' LIMIT 1").fetchone()
+                count_before = db.execute("SELECT COUNT(*) FROM core_reminder").fetchone()[0]
+            page.goto(base + f"/invoices/{invoice_id}/")
+            page.get_by_label("Nominal pembayaran (rupiah)").fill(str(balance))
+            page.once("dialog", lambda dialog: dialog.accept())
+            page.get_by_role("button", name="Catat pembayaran simulasi", exact=True).click()
+            expect(page.locator('.invoice-brand .pill')).to_have_text("Lunas")
+            for repeat in range(2):
+                subprocess.run([sys.executable, "manage.py", "run_reminder_worker", "--once"], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
+            with sqlite3.connect(db_path) as db:
+                assert db.execute("SELECT COUNT(*) FROM core_reminder").fetchone()[0] == count_before
+                assert db.execute("SELECT status,attempts FROM core_reminder WHERE invoice_id=?", (invoice_id,)).fetchone() == ("skipped", 0)
+                sla_id, status, attempts, body = db.execute("SELECT id,status,attempts,body FROM core_reminder WHERE kind='sla'").fetchone()
+                assert (status, attempts) == ("simulated", 1)
+                assert "Catatan internal demo" not in body
+            reminder_url = base + f"/operations/reminders/{sla_id}/"
+            page.goto(reminder_url)
+            expect(page.get_by_role("heading", name="Isi simulasi terakhir")).to_be_visible()
+            expect(page.get_by_text("Tidak ada pesan nyata dikirim.", exact=False)).to_be_visible()
+            page.screenshot(path=str(evidence / "reminder-detail-desktop.png"), full_page=True)
+            assert technician.request.get(reminder_url).status == 403
+            assert customer.request.get(reminder_url).status == 403
             for width in [360, 768, 1366, 1920]:
                 page.set_viewport_size({"width": width, "height": 1000})
-                for route in ["/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/"]:
+                for route in ["/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/"]:
                     page.goto(base + route)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, route)
-                for url in [ticket_url, order_url]:
+                for url in [ticket_url, order_url, reminder_url]:
                     page.goto(url)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, url)
+            page.set_viewport_size({"width": 360, "height": 1000})
+            page.goto(base + "/operations/reminders/")
+            assert page.locator("tbody tr").first.bounding_box()["height"] < 170
+            page.screenshot(path=str(evidence / "reminders-mobile.png"), full_page=True)
             subprocess.run([sys.executable, "scripts/verify_restore.py"], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
             assert failures == [], failures
             browser.close()
-        print("PASS: owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, 4 viewports, restore state; no MFA factors in evidence.")
+        print("PASS: owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, 4 viewports, restore state; no MFA factors in evidence.")
     finally:
         server.terminate()
         try:

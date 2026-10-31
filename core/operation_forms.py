@@ -91,6 +91,23 @@ class InstallationAssignmentForm(VersionForm):
         self.fields["assigned_to"].queryset = technicians(tenant)
 
 
+class InstallationEditForm(InstallationCreationForm):
+    version = forms.IntegerField(min_value=1, widget=forms.HiddenInput)
+    reason = forms.CharField(label="Alasan perubahan (minimal 10 karakter)", min_length=10, max_length=2000,
+                             widget=forms.Textarea(attrs={"rows": 3}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        del self.fields["assigned_to"]
+
+
+class InstallationRescheduleForm(VersionForm):
+    scheduled_for = forms.DateTimeField(label="Jadwal baru (WIB)", input_formats=["%Y-%m-%dT%H:%M"],
+        widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}))
+    reason = forms.CharField(label="Alasan penjadwalan ulang (minimal 10 karakter)", min_length=10, max_length=2000,
+                             widget=forms.Textarea(attrs={"rows": 3}))
+
+
 class InstallationTransitionForm(VersionForm):
     status = forms.ChoiceField(label="Tahap berikutnya", choices=[choice for choice in Installation.STATES if choice[0] != "activated"])
     note = forms.CharField(label="Catatan / alasan (minimal 10 karakter)", min_length=10, max_length=2000,

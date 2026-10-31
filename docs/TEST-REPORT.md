@@ -1,6 +1,6 @@
 # Laporan pengujian — 31 Oktober 2026, WIB
 
-Target: checkpoint billing dan operasional TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite, Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
+Target: checkpoint billing, operasional, pengingat simulasi dan jadwal ulang PSB TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite, Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
 
 ## Eksekusi dan bukti
 
@@ -11,14 +11,14 @@ Target: checkpoint billing dan operasional TagihNet, Linux cloud, Python 3.12.14
 | `python manage.py check` | pass · no issues |
 | `python manage.py makemigrations --check --dry-run` | pass · no changes detected |
 | `python -m pip check` | pass · no broken requirements |
-| `python manage.py test --verbosity 1` | pass · **129 tes dieksekusi**, tanpa fail/skip/expected-failure |
+| `python manage.py test --verbosity 1` | pass · **162 tes dieksekusi**, tanpa fail/skip/expected-failure |
 | `python manage.py collectstatic --noinput` | pass · tiga aset lokal terkumpul |
 | `python scripts/browser_smoke.py` | pass · Chromium sungguhan: login/password toggle, tambah/reload pelanggan, faktur, pembayaran penuh, reversal, PDF, filter/URL kembali, logout, dark mode, menu mobile; **0 browser errors** |
 | `python scripts/security_smoke.py` | pass · server/database sementara, MFA enrollment/challenge, custom role assignment/edit, session revocation, recovery regeneration/rejection, penerbitan 28 faktur massal dengan diskon, replay, worker resume/duplikat/cancel parsial/restore antrean, lalu seluruh alur billing; tanpa mengubah akun demo pengguna |
-| `python scripts/operations_smoke.py` | pass · owner/teknisi/pelanggan, catatan internal tersembunyi, scope tugas, tiket sampai Ditutup, PSB sampai aktivasi/replay, satu customer/invoice/job, provisioning simulasi, 4 viewport dan restore state |
+| `python scripts/operations_smoke.py` | pass · owner/teknisi/pelanggan, catatan internal tersembunyi, scope tugas, tiket sampai Ditutup, PSB sampai aktivasi/replay, satu customer/invoice/job, provisioning simulasi, edit/reschedule/reset Survei, opt-in pengingat, dedupe, pelunasan sebelum proses, 4 viewport dan restore outbox |
 | Browser responsive checks | pass terbatas · 360/768/1366/1920 px, dashboard/pelanggan/faktur/jaringan/setelan tanpa scroll horizontal seluruh halaman; tabel punya scroll lokal |
 | `python scripts/verify_pdf.py` | pass · A4 **14 halaman**, 100 baris teks panjang, total Rp100.000, label simulasi, markup footer tampil sebagai teks; fixture di-rollback |
-| `python scripts/verify_restore.py` | pass · backup konsisten dan restore ke direktori kosong, integrity_check ok; pelanggan/faktur/total/pembayaran/piutang dan state batch/items sama |
+| `python scripts/verify_restore.py` | pass · backup konsisten dan restore ke direktori kosong, integrity_check ok; pelanggan/faktur/total/pembayaran/piutang, state batch/items/tiket/PSB/outbox, versi kebijakan/siklus SLA/jadwal PSB sama |
 | `python manage.py run_simulation_worker --once` | simulated · batch pertama 18 confirmed dan satu router seeded gagal; pembayaran tetap tersimpan, kegagalan dijadwalkan backoff |
 | `pip-audit 2.10.1 -r requirements.txt --no-deps --disable-pip --vulnerability-service pypi` | pass saat scan · no known vulnerabilities found untuk sebelas paket runtime; tidak mencakup OS, dev dependencies, atau bug logika |
 | `manage.py check --deploy` dengan DEBUG off dan secret sesi/MFA/host sementara | warning konfigurasi · W021: HSTS preload false. Ini disengaja sampai domain/HTTPS siap, tidak ada klaim deployment HTTPS sudah diverifikasi |
@@ -74,4 +74,12 @@ Browser memverifikasi 28 invoice baru senilai Rp6.310.000 dari pratinjau diskon 
 
 Browser operations_smoke.py pada database sementara membuktikan alur owner membuat/menugaskan tiket → teknisi menangani → pelanggan menulis komentar tanpa membaca catatan internal → resolusi/penutupan; lalu PSB survei/jadwal/pengerjaan/terpasang → owner quote bertanda tangan/MFA → tepat satu pelanggan/invoice/job meski replay → provisioning simulasi. Empat viewport mencakup list/form/detail/SLA. Restore membandingkan state operasional dan ledger. Foto tidak menyimpan faktor MFA. Akun/data demo pengguna tidak ditambah tiket/PSB/enrollment dari pengujian ini.
 
-Lampiran, notifikasi/SLA escalation, edit/rescheduling PSB, scope wilayah geografis, kalender jam kerja dan PostgreSQL multi-process belum tersedia/diuji. CI baru didaftarkan untuk browser operasional; hasil lokal tidak membuktikan CI remote lulus. Dependensi runtime tidak berubah dari checkpoint akses.
+Pada checkpoint operasional sebelumnya, edit/rescheduling dan seluruh notifikasi masih pending. Edit/rescheduling serta outbox pengingat simulasi kini tersedia; lampiran, kanal notifikasi/eskalasi nyata, scope wilayah geografis, kalender jam kerja dan PostgreSQL multi-process tetap belum tersedia/diuji. CI baru didaftarkan untuk browser operasional; hasil lokal tidak membuktikan CI remote lulus. Dependensi runtime tidak berubah dari checkpoint akses.
+
+## Checkpoint pengingat dan jadwal ulang PSB
+
+33 tes baru, total **162**, lulus tanpa fail/skip/expected-failure. Cakupan mencakup edit normalisasi/duplikat/paket lintas ISP, reset Terjadwal ke Survei, before/after, versi/replay dan dua reschedule bersamaan. Pengingat diuji default-off/GET tanpa efek, izin/dependensi role kustom, CSRF/review/MFA, batas 0–14 hari dan 0–23 WIB, dedupe invoice/hari dan SLA/deadline/siklus, pembayaran parsial/lunas terbaru, resolusi/reprioritas/reopen, persetujuan berubah/ulang, retry/max3, plaintext dan penolakan mode nyata. Dua planner/worker bersamaan menghasilkan satu receipt dengan satu percobaan. Rotasi >10 kebijakan dan penundaan jam billing tanpa menghambat antrean juga diuji.
+
+Browser operations_smoke.py memakai database/server sementara: edit prospek → jadwal ulang beralasan → perubahan alamat kembali Survei → penjadwalan baru → aktivasi. Kebijakan pengingat disetujui melalui UI; satu faktur dilunasi melalui UI setelah perencanaan dan sebelum worker, menghasilkan skipped/0 attempts. SLA overdue fiktif menghasilkan satu receipt simulated/1 attempt; pengulangan worker tidak menggandakan antrean. Teknisi/pelanggan ditolak dari receipt. Fixture SLA hanya diubah pada database sementara. Empat viewport memverifikasi list/detail/kebijakan; tabel mobile memakai scroll lokal dan tinggi baris terbatas.
+
+Migrasi 0005 telah diterapkan dengan backup sebelum migrasi. PDF 14 halaman, restore drill, model drift check, system check, pip check dan collectstatic lulus. Dependensi tidak berubah; audit runtime pada tabel tetap hasil checkpoint akses. Database pengguna tetap 33 pelanggan/40 faktur tanpa kebijakan/outbox/tiket/PSB/perangkat MFA uji. Browser security_smoke.py dijalankan ulang untuk regresi MFA/akses/billing massal. Hasil lokal tidak membuktikan CI remote atau kesiapan produksi.

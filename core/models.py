@@ -251,6 +251,7 @@ class Ticket(models.Model):
     status = models.CharField(max_length=20, choices=STATES, default="open")
     version = models.PositiveIntegerField(default=1)
     sla_policy = models.JSONField()
+    sla_cycle = models.PositiveIntegerField(default=1)
     sla_due_at = models.DateTimeField()
     resolved_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
@@ -321,6 +322,52 @@ class WorkEvent(models.Model):
             models.UniqueConstraint(fields=["tenant", "request_key"], name="work_event_request_per_tenant"),
             models.CheckConstraint(condition=(Q(ticket__isnull=False, installation__isnull=True)
                 | Q(ticket__isnull=True, installation__isnull=False)), name="one_work_event_target"),
+        ]
+
+
+class ReminderPolicy(models.Model):
+    tenant = models.OneToOneField(Tenant, on_delete=models.PROTECT)
+    billing_enabled = models.BooleanField(default=False)
+    sla_enabled = models.BooleanField(default=False)
+    lead_days = models.PositiveSmallIntegerField(default=3, validators=[MaxValueValidator(14)])
+    billing_hour = models.PositiveSmallIntegerField(default=9, validators=[MaxValueValidator(23)])
+    scenario = models.CharField(max_length=16, choices=[("normal", "Normal"), ("unavailable", "Gangguan simulasi")], default="normal")
+    authorized_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)
+    authorization_version = models.PositiveIntegerField(default=0)
+    version = models.PositiveIntegerField(default=1)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+
+class Reminder(models.Model):
+    KINDS = [("billing", "Jatuh tempo faktur"), ("sla", "SLA tiket")]
+    STATES = [("pending", "Menunggu"), ("simulated", "Tercatat simulasi"), ("skipped", "Dilewati"),
+              ("blocked", "Tertahan · perlu persetujuan ulang"), ("failed", "Gagal")]
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
+    kind = models.CharField(max_length=12, choices=KINDS)
+    invoice = models.ForeignKey(Invoice, null=True, blank=True, on_delete=models.PROTECT)
+    ticket = models.ForeignKey(Ticket, null=True, blank=True, on_delete=models.PROTECT)
+    business_date = models.DateField()
+    deadline_snapshot = models.DateTimeField(null=True, blank=True)
+    sla_cycle = models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=16, choices=STATES, default="pending")
+    attempts = models.PositiveSmallIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    recipient = models.CharField(max_length=160, blank=True)
+    body = models.TextField(max_length=2000, blank=True)
+    reason = models.CharField(max_length=250, blank=True)
+    policy_version_planned = models.PositiveIntegerField()
+    policy_version_processed = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "invoice", "business_date"], name="one_invoice_reminder_per_day"),
+            models.UniqueConstraint(fields=["tenant", "ticket", "sla_cycle", "deadline_snapshot"], name="one_sla_reminder_per_deadline"),
+            models.CheckConstraint(condition=(Q(kind="billing", invoice__isnull=False, ticket__isnull=True, deadline_snapshot__isnull=True, sla_cycle=0)
+                | Q(kind="sla", invoice__isnull=True, ticket__isnull=False, deadline_snapshot__isnull=False, sla_cycle__gte=1)), name="reminder_target_matches_kind"),
         ]
 
 

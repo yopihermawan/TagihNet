@@ -13,7 +13,8 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Role dan cakupan | Tujuh preset termasuk Teknisi dan peran kustom tenant; owner membuat/mengubah akun dan izin, sesi dicabut, owner terakhir dilindungi. Teknisi dibatasi penugasan; sales dan scope wilayah geografis belum | 2 · limited |
 | Faktur | Bulanan full month, tanggal akhir bulan, snapshot harga/pajak/diskon, constraint satu pelanggan/periode | 2 · implemented |
 | Penerbitan massal | Preview <=500 pelanggan, stale/expiry, MFA, snapshot persetujuan, worker per baris, deduplikasi/resume/cancel | 3 · implemented lokal |
-| Scheduler/pengingat/prorata | Penerbitan terjadwal tanpa konfirmasi per batch, kanal pengingat, prorata belum tersedia | 3 · pending |
+| Scheduler/prorata | Penerbitan terjadwal tanpa konfirmasi per batch dan prorata belum tersedia | 3 · pending |
+| Pengingat billing/SLA | Kebijakan opt-in/MFA, outbox simulasi, dedupe harian/deadline+siklus, recheck pelunasan/resolusi/izin, retry <=3 | 3/4 · simulated; kanal nyata pending |
 | Pembayaran | Integer rupiah, sebagian/penuh, overpay ditolak, UUID idempotensi persisten, reversal penuh | 2 · simulated |
 | Gateway/webhook | Endpoint gateway tidak didaftarkan; tidak ada signature/settlement produksi | 3 · pending |
 | PDF | ReportLab lokal, A4 multipage, total/snapshot/label simulasi, footer plain text | 2 · implemented |
@@ -24,7 +25,8 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Peta | Tautan pencarian OpenStreetMap; belum koordinat/topologi ODC/ODP | 2 · limited |
 | Tiket/portal/teknisi | Kategori/prioritas/SLA snapshot, komentar publik/internal, state machine/version/replay, assignment-only teknisi | 4 · implemented lokal |
 | PSB | Prospek sampai Terpasang, jadwal/penugasan, cancel beralasan, quote aktivasi/MFA, customer+invoice+job atomik | 4 · implemented lokal |
-| Lampiran/eskalasi/rescheduling | Upload/notifikasi/jam kerja SLA, edit identitas/jadwal PSB setelah dibuat belum tersedia | 4 · pending |
+| Edit/jadwal ulang PSB | Edit sebelum Pengerjaan; perubahan pada Terjadwal kembali Survei; reschedule beralasan/version/replay dan histori | 4 · implemented lokal |
+| Lampiran/eskalasi nyata | Upload, kanal notifikasi, eskalasi ke pihak lain dan jam kerja SLA belum tersedia | 4 · pending |
 | Kas, laporan akuntansi, payroll, komisi | Belum dibuat; dashboard ledger bukan laporan pendapatan akrual | 4 · pending |
 | Hotspot/voucher, marketing, portal promo | Belum dibuat | 4 · pending |
 | Upload/impor | Endpoint tidak tersedia; ekspor pelanggan dibatasi izin dan 10.000 baris | 4 · limited |

@@ -20,9 +20,15 @@ def reconcile(path):
         ticket_states = dict(db.execute("SELECT status, COUNT(*) FROM core_ticket GROUP BY status").fetchall())
         installation_states = dict(db.execute("SELECT status, COUNT(*) FROM core_installation GROUP BY status").fetchall())
         work_events = db.execute("SELECT COUNT(*) FROM core_workevent").fetchone()[0]
+        reminder_states = dict(db.execute("SELECT status, COUNT(*) FROM core_reminder GROUP BY status").fetchall())
+        reminder_policies = db.execute("SELECT tenant_id,billing_enabled,sla_enabled,version,authorization_version FROM core_reminderpolicy ORDER BY tenant_id").fetchall()
+        sla_cycles = db.execute("SELECT id,sla_cycle,version FROM core_ticket ORDER BY id").fetchall()
+        installation_versions = db.execute("SELECT id,version,scheduled_for FROM core_installation ORDER BY id").fetchall()
         return {"customers": customers, "invoices": invoices, "invoiced_rupiah": total, "paid_rupiah": paid,
                 "receivable_rupiah": total-paid, "billing_batches": batches, "batch_states": batch_states, "batch_items": batch_items,
-                "ticket_states": ticket_states, "installation_states": installation_states, "work_events": work_events}
+                "ticket_states": ticket_states, "installation_states": installation_states, "work_events": work_events,
+                "reminder_states": reminder_states, "reminder_policies": reminder_policies,
+                "sla_cycles": sla_cycles, "installation_versions": installation_versions}
 before = reconcile(data / "tagihnet.sqlite3")
 with tempfile.TemporaryDirectory(prefix="tagihnet-restore-") as directory:
     archive = Path(directory) / "backup.sqlite3"

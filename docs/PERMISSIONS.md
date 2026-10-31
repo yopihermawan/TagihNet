@@ -42,3 +42,9 @@ Worker tidak menerima tenant dari request pengguna; tiap job menyimpan tenant da
 | Target SLA | Sesuai settings | Tidak bawaan | Tidak | Tidak | Sesuai settings |
 
 Batch dan scope invoice tidak berubah. Peran Teknisi tidak dapat diberi custom role untuk menghindari scope global yang tidak disengaja. State mutation memakai versi dan UUID replay; komentar publik/internal difilter pada backend. Detail aktivasi dan keterbatasan data minimum ada di SUPPORT-AND-INSTALLATIONS.md. Tabel preset awal di atas tetap berlaku untuk fungsi billing; teknisi tidak mendapat fungsi finansial tersebut.
+
+## Pengingat dan perubahan PSB
+
+`reminders` tersedia untuk Owner secara bawaan, atau role kustom dengan seluruh prasyarat `tickets`, `invoices`, `customers`. Role ini dapat melihat isi pengingat finansial/operasional satu ISP. Teknisi dan pelanggan tidak mendapat akses. Kebijakan perlu MFA <=5 menit, versi sesi dan versi kebijakan yang cocok; GET tidak membuat kebijakan. Worker memeriksa akun aktif, tenant, semua capability dan session_version pemberi persetujuan. Perubahan akses menahan antrean sampai persetujuan baru; kondisi objek tetap diperiksa ulang.
+
+Edit identitas/paket dan jadwal ulang PSB menggunakan `installations`, bukan `field_work`. Owner/Ops dapat mengubah PSB satu ISP, teknisi tetap hanya mengubah tahap/catatan tugasnya. Identitas/paket terkunci mulai Pengerjaan. Riwayat perubahan internal dan plaintext; pelanggan tidak melihatnya.

@@ -170,6 +170,8 @@ def transition_ticket(actor, ticket_id, status, note, version, key):
         raise ValidationError("Perubahan status tidak diizinkan.")
     note = checked_text(note, minimum=10, maximum=2000)
     before = ticket.get_status_display()
+    if ticket.status == "resolved" and status == "in_progress":
+        ticket.sla_cycle += 1
     ticket.status = status
     if status == "resolved":
         ticket.resolved_at = timezone.now()
@@ -252,6 +254,85 @@ def assign_installation(actor, order_id, assigned_id, version, key):
     order.version += 1
     order.save()
     event(member, order, "assigned", "Penugasan teknisi diperbarui.", key, data)
+    return order
+
+
+@retry_locked
+@transaction.atomic
+def edit_installation(actor, order_id, values, reason, version, key):
+    member = member_for(actor)
+    if "installations" not in capabilities(member):
+        raise PermissionDenied
+    order = visible_installations(member).select_for_update().get(pk=order_id)
+    fields = {"name", "email", "phone", "username", "address", "area", "plan_id"}
+    if set(values) != fields:
+        raise ValidationError("Field perubahan PSB tidak valid.")
+    values = dict(values)
+    values["phone"] = normalize_phone(values["phone"])
+    data = {"values": values, "reason": reason, "version": version}
+    if replay(member, order, key, "edited", data):
+        return order
+    check_version(order, version)
+    if order.status not in {"prospect", "survey", "scheduled"}:
+        raise ValidationError("Identitas/paket hanya dapat diubah sebelum tahap Pengerjaan.")
+    reason = checked_text(reason, minimum=10, maximum=2000)
+    new_plan = member.tenant.plan_set.get(pk=values["plan_id"])
+    if Customer.objects.filter(tenant=member.tenant).filter(Q(phone=values["phone"]) | Q(username__iexact=values["username"])).exists():
+        raise ValidationError("Telepon atau username sudah digunakan pelanggan. Tidak ada perubahan diterapkan.")
+    changed = sorted(field for field in fields if getattr(order, field) != values[field])
+    if not changed:
+        raise ValidationError("Tidak ada perubahan data untuk disimpan.")
+    labels = {"name": "nama", "email": "email", "phone": "telepon", "username": "username layanan",
+              "address": "alamat", "area": "wilayah", "plan_id": "paket"}
+    changes = []
+    for field in changed:
+        before = order.plan.name if field == "plan_id" else getattr(order, field)
+        after = new_plan.name if field == "plan_id" else values[field]
+        changes.append(f"{labels[field]}: {before or 'Belum diisi'} → {after or 'Belum diisi'}")
+    old_schedule = timezone.localtime(order.scheduled_for).strftime("%d/%m/%Y %H:%M WIB") if order.scheduled_for else ""
+    for field, value in values.items():
+        setattr(order, field, value)
+    reset = order.status == "scheduled"
+    if reset:
+        order.status, order.scheduled_for = "survey", None
+    order.version += 1
+    order.updated_at = timezone.now()
+    order.full_clean()
+    order.save()
+    body = "Data PSB diperbarui. " + "; ".join(changes) + ". "
+    if reset:
+        body += f"Tahap kembali ke Survei dan jadwal {old_schedule} dibatalkan. "
+    event(member, order, "edited", body + reason, key, data)
+    return order
+
+
+@retry_locked
+@transaction.atomic
+def reschedule_installation(actor, order_id, scheduled_for, reason, version, key):
+    member = member_for(actor)
+    if "installations" not in capabilities(member):
+        raise PermissionDenied
+    order = visible_installations(member).select_for_update().get(pk=order_id)
+    data = {"scheduled": scheduled_for, "reason": reason, "version": version}
+    if replay(member, order, key, "rescheduled", data):
+        return order
+    check_version(order, version)
+    if order.status != "scheduled":
+        raise ValidationError("Penjadwalan ulang hanya tersedia pada tahap Terjadwal.")
+    if not order.assigned_to_id:
+        raise ValidationError("Tentukan teknisi aktif sebelum menjadwalkan ulang.")
+    assignee(member.tenant, order.assigned_to_id)
+    if not scheduled_for or timezone.is_naive(scheduled_for) or scheduled_for <= timezone.now():
+        raise ValidationError("Jadwal baru harus waktu mendatang dan bertimezone.")
+    reason = checked_text(reason, minimum=10, maximum=2000)
+    if scheduled_for == order.scheduled_for:
+        raise ValidationError("Jadwal baru harus berbeda dari jadwal sebelumnya.")
+    before = timezone.localtime(order.scheduled_for).strftime("%d/%m/%Y %H:%M WIB") if order.scheduled_for else "Belum diatur"
+    order.scheduled_for, order.updated_at = scheduled_for, timezone.now()
+    order.version += 1
+    order.save()
+    after = timezone.localtime(scheduled_for).strftime("%d/%m/%Y %H:%M WIB")
+    event(member, order, "rescheduled", f"Jadwal {before} → {after}. {reason}", key, data)
     return order
 
 

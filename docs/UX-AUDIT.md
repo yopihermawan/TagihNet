@@ -44,3 +44,9 @@ Bukti: [preview desktop](evidence/bulk-preview-desktop.png), [preview mobile](ev
 Tiket memisahkan prioritas, status dan target SLA; label catatan status menyatakan terlihat pelanggan, sementara checkbox komentar internal jelas. Teknisi melihat daftar tugas sendiri dengan identitas/lokasi minimum tanpa nominal. Portal hanya menampilkan event publik. PSB menampilkan tahap dan jadwal, lalu quote harga awal sebelum persetujuan MFA; status administrasi/provisioning dipisah.
 
 Bukti: [tugas teknisi](evidence/technician-ticket-desktop.png), [portal tiket mobile](evidence/customer-ticket-mobile.png), [tiket selesai](evidence/ticket-closed-desktop.png), [quote PSB](evidence/psb-activation-preview.png), [PSB administrasi selesai](evidence/psb-activated-desktop.png). Empat viewport 360/768/1366/1920 diuji tanpa luapan seluruh halaman. Lampiran dan notifikasi ditandai belum tersedia; kontrol terminal tidak ditampilkan sebagai aksi aktif. Audit screen reader/WCAG penuh tetap belum.
+
+## Pengingat dan jadwal ulang PSB
+
+Form edit menjelaskan bahwa perubahan pada Terjadwal membatalkan jadwal dan kembali Survei. Jadwal ulang memerlukan alasan dan menampilkan waktu lama/baru pada timeline. Kontrol hanya muncul untuk tahap/peran yang berlaku. [PSB dijadwalkan ulang](evidence/psb-rescheduled-desktop.png).
+
+Pengingat menyatakan Tidak ada pesan nyata dikirim, nonaktif bawaan, memakai persetujuan eksplisit dan status Menunggu/Tercatat simulasi/Dilewati/Tertahan/Gagal. Detail menunjukkan attempts, alasan, retry dan isi plaintext saat pemrosesan. [Receipt desktop](evidence/reminder-detail-desktop.png) dan [antrean mobile](evidence/reminders-mobile.png). Browser memeriksa empat viewport, tanpa overflow halaman; tabel lebar memakai scroll lokal agar alasan tidak membungkus menjadi baris terlalu tinggi. Audit WCAG/screen reader menyeluruh tetap belum dilakukan.
