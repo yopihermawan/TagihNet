@@ -44,6 +44,12 @@ def child(data):
 
     def action():
         case = data["case"]
+        if case == "gateway_reserve":
+            from core.gateway import reserve_order
+            return str(reserve_order(actor, data["invoice"]).pk)
+        if case == "gateway_settle":
+            from core.gateway import apply_status
+            return str(apply_status(data["gateway_order"], data["status_payload"]).payment_id)
         if case == "issue":
             return issue_invoice(tenant, data["customer"], date.fromisoformat(data["period"]), actor)[0].pk
         if case in {"payment", "cross_payment"}:
@@ -311,6 +317,24 @@ def verify():
         assert sorted(result["ok"] for result in results) == ["completed", "stale"]
         assert Customer.objects.filter(tenant=tenant, username="import-process-b").count() == 1
         print("PASS: 2 processes, overlapping imports -> 1 atomic import, 1 stale preview", flush=True)
+        from core.gateway import reserve_order
+        from core.models import GatewayConfig, GatewayOrder
+        from core.tests.test_payment_gateway import account_keys, status_payload
+        settings.MIDTRANS_SANDBOX_ACCOUNT_KEYS = account_keys(tenant)
+        os.environ["TAGIHNET_MIDTRANS_SANDBOX_ACCOUNT_KEYS"] = json.dumps(settings.MIDTRANS_SANDBOX_ACCOUNT_KEYS)
+        GatewayConfig.objects.create(tenant=tenant, merchant_id="G-TEST", enabled=True)
+        gateway_invoice, _ = issue_invoice(tenant, customer.pk, date(2026, 9, 1), actor)
+        results = parallel("gateway_reserve", {**common, "invoice": gateway_invoice.pk})
+        assert results[0]["ok"] == results[1]["ok"]
+        gateway_order = GatewayOrder.objects.get(invoice=gateway_invoice)
+        print("PASS: 2 processes, gateway checkout reservation -> 1 persisted order ID", flush=True)
+        jobs_before = NetworkJob.objects.count()
+        results = parallel("gateway_settle", {**common, "gateway_order": str(gateway_order.pk), "status_payload": status_payload(gateway_order)})
+        assert results[0]["ok"] == results[1]["ok"]
+        gateway_order.refresh_from_db()
+        assert gateway_order.payment_id and gateway_order.events.count() == 1
+        assert gateway_invoice.balance == 0 and NetworkJob.objects.count() == jobs_before + 1
+        print("PASS: 2 processes, gateway settlement replay -> 1 payment/event/network job", flush=True)
         import pyotp
         from core.models import MFADevice
         from core.security import encrypt_secret, decrypt_secret

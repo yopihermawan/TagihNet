@@ -239,6 +239,7 @@ class BillingBatchItem(models.Model):
 
 
 class Payment(models.Model):
+    source = models.CharField(max_length=24, default="simulation", choices=[("simulation", "Simulasi manual"), ("midtrans_sandbox", "Midtrans Sandbox")])
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
     invoice = models.ForeignKey(Invoice, related_name="payments", on_delete=models.PROTECT)
     amount = models.PositiveBigIntegerField()
@@ -260,6 +261,57 @@ class PaymentReversal(models.Model):
     reason = models.CharField(max_length=250)
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     created_at = models.DateTimeField(default=timezone.now)
+
+
+class GatewayConfig(models.Model):
+    tenant = models.OneToOneField(Tenant, on_delete=models.PROTECT)
+    merchant_id = models.CharField(max_length=64)
+    enabled = models.BooleanField(default=False)
+    version = models.PositiveIntegerField(default=1)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+
+class GatewayOrder(models.Model):
+    STATES = [("creating", "Menyiapkan checkout"), ("pending", "Menunggu pembayaran"),
+        ("settled", "Pembayaran tercatat"), ("deny", "Ditolak"), ("cancel", "Dibatalkan gateway"),
+        ("expire", "Kedaluwarsa di gateway"), ("review", "Perlu rekonsiliasi")]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
+    invoice = models.ForeignKey(Invoice, related_name="gateway_orders", on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    merchant_id = models.CharField(max_length=64)
+    amount = models.PositiveBigIntegerField()
+    status = models.CharField(max_length=16, choices=STATES, default="creating")
+    checkout_url = models.URLField(max_length=500, blank=True)
+    transaction_id = models.CharField(max_length=64, blank=True)
+    payment = models.OneToOneField(Payment, null=True, blank=True, on_delete=models.PROTECT)
+    reason = models.CharField(max_length=250, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    @property
+    def order_id(self):
+        return f"TN-SBX-{self.pk.hex}"
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        constraints = [
+            models.CheckConstraint(condition=Q(amount__gt=0), name="positive_gateway_order"),
+            models.UniqueConstraint(fields=["invoice"], condition=Q(status__in=["creating", "pending"], payment__isnull=True), name="one_open_gateway_order"),
+            models.UniqueConstraint(fields=["merchant_id", "transaction_id"], condition=~Q(transaction_id=""), name="unique_gateway_transaction"),
+        ]
+
+
+class GatewayEvent(models.Model):
+    order = models.ForeignKey(GatewayOrder, related_name="events", on_delete=models.PROTECT)
+    fingerprint = models.CharField(max_length=64)
+    gateway_status = models.CharField(max_length=32)
+    outcome = models.CharField(max_length=32)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        constraints = [models.UniqueConstraint(fields=["order", "fingerprint"], name="unique_gateway_event")]
 
 
 class NetworkJob(models.Model):

@@ -1,6 +1,7 @@
 import os
 import base64
 import secrets
+import json
 from pathlib import Path
 from .database import database_config
 
@@ -99,3 +100,12 @@ EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = os.getenv("TAGIHNET_FROM_EMAIL", "TagihNet <noreply@example.invalid>")
 DATA_UPLOAD_MAX_MEMORY_SIZE = 262144
 FILE_UPLOAD_MAX_MEMORY_SIZE = 262144
+
+# Private JSON: {"<tenant id>": {"merchant_id": "...", "server_key": "SB-Mid-server-..."}}.
+# No client key or production endpoint is used by the redirect checkout.
+try:
+    MIDTRANS_SANDBOX_ACCOUNT_KEYS = json.loads(os.getenv("TAGIHNET_MIDTRANS_SANDBOX_ACCOUNT_KEYS", "{}"))
+    if not isinstance(MIDTRANS_SANDBOX_ACCOUNT_KEYS, dict):
+        raise ValueError
+except (ValueError, TypeError):
+    raise RuntimeError("TAGIHNET_MIDTRANS_SANDBOX_ACCOUNT_KEYS harus berupa objek JSON privat.") from None

@@ -20,7 +20,7 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 | PDF sandbox / resource fetch | applicable | pass desain + tes | ReportLab teks lokal; tidak ada file/URL fetch atau HTML browser |
 | Upload/import validation | applicable | pass subset | CSV UTF-8 <=128 KiB/200 record, header/field/tenant/creator/review/MFA/atomic; raw file tidak diarsipkan; lampiran biner belum tersedia |
 | CSV formula injection | applicable | pass | Prefix sel berisiko + tenant/permission export tests |
-| Payment webhook signature/freshness/order | not applicable | not applicable | Endpoint tidak tersedia, gateway belum diimplementasikan |
+| Payment webhook signature/freshness/order | implemented subset | tested locally | Sandbox: signature + GET status, order/merchant/IDR/amount/fraud, replay dan stale state; akun merchant/HTTPS publik belum diverifikasi |
 | Ledger constraints/idempotency/reversal | applicable | pass lokal | Unique period/event, integer rupiah, partial/reject overpay; single/bulk race, approved snapshots, stale/expiry, queue/resume/cancel dan concurrency tests |
 | Job race / consistency | applicable | simulated | Recheck debt, retry/backoff, failure preserves payment; lab nyata belum |
 | SSRF / router allowlist / network secrets | not applicable | not applicable | Tidak ada adapter network I/O atau URL-fetch publik |

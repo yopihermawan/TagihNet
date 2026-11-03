@@ -4,7 +4,7 @@ Lingkungan: lokal Linux, Python 3.12.14, Django 5.2.18, SQLite, Chromium; semua 
 
 ## Model ancaman dan batas kepercayaan
 
-Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengaturan billing, serta antrean perubahan layanan. Ancaman prioritas: pembacaan lintas ISP/IDOR, kasir menaikkan privilege, manipulasi nominal browser, payment replay, XSS footer, CSV formula injection, serta indikator router palsu. Internet, input browser, dan ID pada URL tidak dipercaya. Administrator database/host masih berada dalam batas kepercayaan. Unggahan hanya CSV pelanggan terbatasi. Tidak ada koneksi router/gateway, upload lampiran biner, atau URL-fetch API pada implementasi ini.
+Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengaturan billing, serta antrean perubahan layanan. Ancaman prioritas: pembacaan lintas ISP/IDOR, kasir menaikkan privilege, manipulasi nominal browser, payment replay, XSS footer, CSV formula injection, serta indikator router palsu. Internet, input browser, dan ID pada URL tidak dipercaya. Administrator database/host masih berada dalam batas kepercayaan. Unggahan hanya CSV pelanggan terbatasi. Tidak ada koneksi router nyata atau upload lampiran biner. Adapter Midtrans Sandbox memakai dua host HTTPS tetap; input browser tidak dapat menentukan URL fetch.
 
 ## Kontrol yang diverifikasi
 
@@ -41,7 +41,7 @@ Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengatur
 | TGN-P05 | Sedang | Akun demo lokal tersedia dengan password yang didokumentasikan; seed dibatasi development. Dilarang mempublikasikan database seed sebagai layanan produksi |
 | TGN-P06 | Belum dinilai | TLS end-to-end, SMTP produksi, provisioning/rotation secret, Docker runtime, penetrasi aplikasi, dan beban belum diuji. Tidak ada klaim lulus untuk kontrol tersebut |
 
-Gateway/webhook signature, SSRF pada router, kredensial RADIUS, upload lampiran biner/malware, dan autentikasi realtime: **belum applicable pada kode aktif**, karena endpoint/adapternya tidak tersedia. Kontrol tersebut wajib dievaluasi ketika modul ditambahkan; jangan mengartikan ketiadaan implementasi sebagai lulus integrasi.
+Webhook Midtrans Sandbox kini tersedia dengan signature dan GET status, diuji memakai transport tiruan; rincian pada PAYMENT-GATEWAY.md. SSRF pada router, kredensial RADIUS, upload lampiran biner/malware, dan autentikasi realtime: **belum applicable pada kode aktif**, karena endpoint/adapternya tidak tersedia. Kontrol tersebut wajib dievaluasi ketika modul ditambahkan; jangan mengartikan ketiadaan implementasi sebagai lulus integrasi.
 
 Audit ini tidak memperbaiki seluruh target ASVS L2. [ASVS-CHECKLIST](ASVS-CHECKLIST.md) adalah daftar subset kontrol yang relevan dan status bukti, bukan checklist lengkap standar.
 
@@ -100,3 +100,7 @@ Retensi batch/PII dan enkripsi database/backup belum otomatis. Tidak ada dukunga
 Snapshot/payload plaintext hanya staging privat0600/0700 dan normal cleanup diuji; crash artifacts/secure erase tidak dijamin. Host admin adalah batas kepercayaan; dump dari pemegang kunci dipercaya dan bukan sandbox SQL. Kunci arsip terpisah dari Fernet MFA dan sesi, tidak disertakan dalam archive. Drill menguji MFA setelah restore dengan keys terpisah, password/TOTP/CSRF serta penolakan replay. Tidak ada key/factor/user content di stdout/argv; untuk local PG password berada pada child environment, bukan argv. Kunci development serta archive pada workspace bukan vault/offsite. Legacy plaintext dipertahankan untuk kompatibilitas; retensi, produksi TLS, backup offsite/PITR dan audit anti-tamper tetap terbuka.
 
 Replay drill membuktikan penolakan di database hasil restore. Snapshot lama dapat memulihkan state akses/counter/recovery sebelum perubahan pascabackup; rekonsiliasi transaksi, pencabutan sesi dan tinjauan akses/recovery tetap diperlukan sebelum cutover. Tidak ada klaim replay protection lintas rollback snapshot.
+
+## Checkpoint Midtrans Sandbox — 4 November 2026 WIB
+
+Gateway default-off dan hanya SIMULATION=1. Merchant/kredensial terikat tenant melalui konfigurasi host privat; pemilik mengaktifkan dengan MFA dan version check. Payload checkout minimal, amount dari saldo server, 3DS diminta untuk kartu, host sandbox tetap, HTTP redirect ditolak, timeout/size limit, serta checkout URL tervalidasi. Hanya notifikasi JSON terbatas dikecualikan CSRF; signature SHA-512/constant-time diikuti GET status yang mengecek order/merchant/currency/amount/transaction ID/fraud sebelum ledger atomik. Reservation, constraint dan lock mencegah pembayaran manual bersamaan/replay. Refund/chargeback dan lebih bayar ditahan untuk rekonsiliasi; reversal gateway manual ditolak. Raw webhook/secret tidak disimpan; URL checkout privat berada dalam database/backup. Pengujian lokal/Chromium/proses PostgreSQL memakai fixture, bukan bukti akun merchant atau callback publik bekerja. Pembatalan jarak jauh, resolusi order tak dikenal, refund provider dan produksi belum tersedia. Panduan dan batas expiry/timeout di PAYMENT-GATEWAY.md.

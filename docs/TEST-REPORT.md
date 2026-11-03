@@ -1,5 +1,7 @@
 # Laporan pengujian — 1 November 2026, WIB
 
+Laporan awal di bawah bersifat historis. Hasil terbaru checkpoint Midtrans Sandbox pada **4 November 2026 WIB**: **286 tes pada SQLite dan 286 pada PostgreSQL**, tanpa fail/skip/expected-failure; rincian ada di bagian akhir.
+
 Target: checkpoint billing, operasional, pengingat, PSB dan monitoring NAS simulasi TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite dan PostgreSQL 16.15 (psycopg 3.3.6), Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
 
 ## Eksekusi dan bukti
@@ -124,3 +126,15 @@ verify_encrypted_backup.py membuat seluruh fixture/keys/source/restore sementara
 Sepuluh race proses PG tetap lulus. Verifier menambah source MFA encrypted payload, encrypted pg_dump/verify/restore dengan guard endpoint container, pemilik/target kosong dan target berbeda. Wrong key/source/occupied target ditolak; seluruh tabel/hash/MFA plaintext hasil decrypt sesuai setelah restore. Authenticated envelope dengan payload PGDMP malformed menghasilkan pg_restore nonzero dan target tetap tanpa objek publik. Database sumber/original tidak diisi fixture; semua DB sementara dihapus. Single-transaction restore bukan benchmark atau bukti failover/PITR.
 
 Kedua browser regresi tetap lulus, termasuk restore kompatibilitas SQLite. PDF14 halaman, system/model drift/pip checks lulus. Satu backup demo terenkripsi dipertahankan lokal, diverifikasi dan dipulihkan ke direktori sementara; counts/ledger cocok dan source tetap 33 pelanggan/40 faktur tanpa fixture MFA/impor baru. Kunci/arsip mode0600, diabaikan Git; kunci development satu workspace bukan vault. Arsip plaintext lama tetap ada. Tidak ada schema/dependency baru; audit package tetap hasil checkpoint PG. Job backend CI menambah encrypted/MFA drill; remote CI belum diverifikasi. Offsite/retensi/PITR/RPO/RTO/secure erase belum diuji.
+
+## Checkpoint Midtrans Sandbox — 4 November 2026 WIB
+
+41 tes baru, **286 tes pada SQLite dan 286 pada PostgreSQL 16.15**, lulus tanpa fail/skip/expected-failure. Cakupan meliputi nominal/scope server, saldo parsial/lunas, opt-in, kredensial sandbox per-tenant, merchant reuse/switch, MFA/CSRF/peran/portal, GET tanpa efek, signature palsu, callback signed tetapi status API pending, merchant/order/currency/amount/transaction ID mismatch, capture/fraud, replay/out-of-order, refund/overpay review, larangan reversal manual gateway, timeout dengan order ID yang sama, disable yang tetap menerima callback, router gagal, parsing JSON/limit/malformed response, host redirect dan transport Basic Auth/3DS sandbox.
+
+`verify_postgres.py` lulus **12 skenario dua proses**, termasuk dua skenario gateway baru: checkout bersamaan menghasilkan satu UUID order; settlement bersamaan menghasilkan satu payment/event/network job. pg_dump/pg_restore dan encrypted restore membandingkan seluruh tabel, kini termasuk konfigurasi/order/event gateway. Seluruh database verifikasi sementara dihapus; database demo SQLite tidak dipindahkan.
+
+`gateway_smoke.py` lulus dengan Chromium/HTTP sungguhan, database/server sementara dan transport Midtrans tiruan: login + OTP, owner mengaktifkan gateway melalui UI, checkout pending, status refresh, penolakan signature palsu, settlement + replay callback, faktur lunas dan tidak ada reversal manual gateway. Empat viewport 360/768/1366/1920 tanpa overflow horizontal seluruh halaman; **0 browser errors**. Pending dan settlement menjadi dua event, satu payment dan satu job. Screenshot `gateway-mobile.png` dan `gateway-desktop.png` diperiksa; tidak memuat secret/OTP. Assertion awal smoke salah mengharapkan satu event meski pending dan settlement berbeda; diperbaiki agar memeriksa dua status tersebut secara eksplisit, kemudian smoke lulus.
+
+`verify_encrypted_backup.py` lulus untuk pemulihan konfigurasi/order settled + pembayaran gateway dan reservasi order lain yang belum dibayar, fingerprint seluruh tabel, saldo ledger, password+TOTP/CSRF serta replay OTP/recovery. System check, migration drift check, pip check dan diff whitespace check lulus. Instalasi runtime/dev/PostgreSQL terpin juga diuji pada `.venv` workspace. Tidak ada dependensi runtime baru.
+
+Kontrak client dicek terhadap SDK resmi Midtrans/midtrans-python-client dan artefak midtransclient 1.4.2. Kredensial sandbox asli dan URL HTTPS publik belum tersedia; tidak ada request transaksi ke merchant, uji metode pembayaran sandbox nyata, pengiriman webhook publik, refund provider, atau rilis produksi. GitHub Actions ditambah dengan gateway_smoke; keberhasilan CI remote belum dikonfirmasi. Panduan lengkap: PAYMENT-GATEWAY.md.

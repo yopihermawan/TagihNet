@@ -62,3 +62,7 @@ Bukti: [snapshot segar](evidence/monitoring-fresh-desktop.png), [gagal dengan hi
 Alur upload → preview → review/MFA → hasil menjelaskan bahwa upload belum menambah pelanggan. Header/template/paket ISP dan batas 200 baris/128 KiB ditampilkan. Telepon/username yang dinormalisasi dapat ditinjau; kesalahan per baris menghalangi seluruh konfirmasi. Status stale/expired meminta upload ulang. Hasil pending, tanpa faktur/akun portal/router dijelaskan sebelum persetujuan. Riwayat privat dan laporan CSV dapat diunduh dengan izin yang sama.
 
 Bukti: [preview desktop](evidence/customer-import-preview.png), [selesai](evidence/customer-import-completed.png), [mobile](evidence/customer-import-mobile.png). Browser memeriksa 360/768/1366/1920 px tanpa overflow halaman. Tabel punya scroll lokal dan hasil sticky; lebar hasil mobile disesuaikan agar identitas masih terlihat. Audit WCAG/screen reader lengkap belum dilakukan.
+
+## Midtrans Sandbox — 4 November 2026 WIB
+
+Halaman konfigurasi owner dan order pembayaran diuji pada 360/768/1366/1920 px menggunakan Chromium dan data sementara, tanpa overflow seluruh halaman. Status pending/lunas, jumlah, sumber sandbox dan waktu WIB ditampilkan. Referensi order dapat membungkus di mobile. Checkout eksternal memakai tab baru; halaman kembali tidak memalsukan status lunas. Pengujian transport memakai respons Midtrans tiruan. Bukti: [mobile](evidence/gateway-mobile.png), [desktop](evidence/gateway-desktop.png).

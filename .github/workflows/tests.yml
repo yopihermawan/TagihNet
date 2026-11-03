@@ -75,3 +75,4 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - run: python scripts/security_smoke.py
       - run: python scripts/operations_smoke.py
+      - run: python scripts/gateway_smoke.py

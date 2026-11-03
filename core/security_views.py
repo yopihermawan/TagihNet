@@ -113,7 +113,7 @@ def account_security(request):
                 audit(request.user.membership.tenant, request.user, "auth.stepup", request.user.pk, correlation_id=request.correlation_id)
                 messages.success(request, "Verifikasi ulang berhasil. Aksi sensitif tersedia selama 5 menit.")
                 return_to = request.session.pop("stepup_return", "")
-                if return_to.startswith(("/invoices/batches/", "/operations/installations/", "/operations/reminders/", "/network/monitoring/", "/customers/imports/")) and url_has_allowed_host_and_scheme(
+                if return_to.startswith(("/invoices/", "/settings/payment-gateway/", "/operations/installations/", "/operations/reminders/", "/network/monitoring/", "/customers/imports/")) and url_has_allowed_host_and_scheme(
                         return_to, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
                     return redirect(return_to)
                 return redirect("access_index" if membership(request.user).role == "owner" else landing(membership(request.user)))

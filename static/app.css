@@ -23,3 +23,4 @@ table{font-size:13px}th{font-size:11px}td strong{font-size:13px}td small{font-si
 
 .import-table{margin-top:24px}.import-table table{min-width:850px}.import-table td{min-width:110px}.import-table .import-result{min-width:230px;max-width:300px;white-space:normal}.import-result small{white-space:normal}.import-table td:first-child{min-width:70px}
 .import-result a{display:block;margin-top:8px;overflow-wrap:anywhere}@media(max-width:600px){.import-table .import-result{min-width:140px;max-width:160px;width:140px}.import-table td:first-child{min-width:55px}}
+.gateway-reference { overflow-wrap: anywhere; }

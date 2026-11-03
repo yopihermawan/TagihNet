@@ -7,7 +7,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import OperationalError, transaction
 from django.utils import timezone
-from .models import AuditEvent, Customer, Invoice, InvoiceLine, NetworkJob, Payment, PaymentReversal, Tenant, month_due
+from .models import AuditEvent, Customer, GatewayOrder, Invoice, InvoiceLine, NetworkJob, Payment, PaymentReversal, Tenant, month_due
 
 
 def retry_locked(function):
@@ -109,6 +109,8 @@ def record_payment(tenant, invoice_id, amount, event_key, actor, note="", correl
         return existing, False
     if type(amount) is not int or amount <= 0 or amount > invoice.balance:
         raise ValidationError("Nominal harus positif dan tidak melebihi sisa tagihan.")
+    if GatewayOrder.objects.filter(invoice=invoice, status__in=["creating", "pending", "review"], payment__isnull=True).exists():
+        raise ValidationError("Faktur memiliki checkout gateway aktif. Periksa status gateway sebelum mencatat pembayaran lain.")
     # A shared event key can race across different customers, whose row locks are independent.
     # get_or_create contains the unique-key insert in a savepoint and returns the winner.
     payment, created = Payment.objects.get_or_create(tenant=tenant, event_key=event_key,
@@ -128,6 +130,8 @@ def reverse_payment(tenant, payment_id, reason, actor, correlation_id=None):
     if not settings.SIMULATION:
         raise ValidationError("Reversal pada fondasi ini hanya tersedia dalam simulasi.")
     payment = Payment.objects.select_for_update(of=("self",)).select_related("invoice").get(tenant=tenant, pk=payment_id)
+    if payment.source != "simulation":
+        raise ValidationError("Pembayaran gateway memerlukan rekonsiliasi di Midtrans; reversal manual tidak tersedia.")
     Customer.objects.select_for_update().get(tenant=tenant, pk=payment.invoice.customer_id)
     if len(reason.strip()) < 10 or len(reason) > 250:
         raise ValidationError("Alasan koreksi harus 10–250 karakter.")

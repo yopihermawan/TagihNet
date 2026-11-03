@@ -218,7 +218,12 @@ def invoice_detail(request, pk):
     if not request.user.is_authenticated:
         return redirect("login")
     invoice = allowed_invoice(request, pk)
+    from .gateway import can_checkout
+    from .models import GatewayConfig
+    gateway_enabled = GatewayConfig.objects.filter(tenant=invoice.tenant, enabled=True).exists()
     return render(request, "core/invoice_detail.html", {"invoice": invoice,
+        "gateway_enabled": gateway_enabled and can_checkout(membership(request.user)),
+        "gateway_orders": invoice.gateway_orders.all()[:10],
         "payments": invoice.payments.select_related("recorded_by", "reversal"),
         "payment_form": PaymentForm(initial={"amount": invoice.balance, "event_key": uuid.uuid4()})})
 

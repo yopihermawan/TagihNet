@@ -25,6 +25,7 @@
   {% if 'audit' in capabilities %}<a href="/audit/" class="nav-link {% if '/audit/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'clock' %}</span> Jejak audit</a>{% endif %}
   {% if 'manage_access' in capabilities %}<a href="/settings/access/" class="nav-link {% if '/settings/access/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'customers' %}</span> Akun & peran</a>{% endif %}
   {% if 'reminders' in capabilities %}<a href="{% url 'reminder_list' %}" class="nav-link {% if '/operations/reminders/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'clock' %}</span> Pengingat simulasi</a>{% endif %}
+  {% if 'manage_access' in capabilities %}<a href="{% url 'gateway_settings' %}" class="nav-link">{% icon 'settings' %} Payment gateway</a>{% endif %}
   <a href="/account/security/" class="nav-link {% if '/account/security/' in request.path %}selected{% endif %}"><span aria-hidden="true">{% icon 'settings' %}</span> Keamanan akun</a>
   </nav>
   <div class="sidebar-bottom"><div class="development-note"><span class="dot"></span> Fondasi TagihNet<small>Data fiktif · integrasi simulasi</small></div><div class="account"><span class="avatar">{{ user.username|first|upper }}</span><span><strong>{{ user.get_short_name|default:user.username }}</strong><small>{{ member.access_label }}</small></span><form action="/logout/" method="post">{% csrf_token %}<button class="icon-button" aria-label="Keluar dari akun" title="Keluar">{% icon 'logout' %}</button></form></div></div>

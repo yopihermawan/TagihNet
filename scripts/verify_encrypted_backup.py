@@ -50,9 +50,19 @@ from core.tests.auth_helpers import TEST_TOTP_SECRET
 from core.billing import issue_invoice, record_payment
 from core.models import MFADevice
 from core.security import encrypt_secret, recovery_digest
+from django.test import override_settings
+from core.gateway import reserve_order, apply_status
+from core.models import GatewayConfig
+from core.tests.test_payment_gateway import account_keys, status_payload
 tenants, owners, customers = fixtures()
 invoice, _ = issue_invoice(tenants[0], customers[0].pk, date(2026, 10, 1), owners[0])
 record_payment(tenants[0], invoice.pk, 100000, uuid.uuid4(), owners[0])
+GatewayConfig.objects.create(tenant=tenants[0], merchant_id="G-TEST", enabled=True)
+with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(tenants[0])):
+    order = reserve_order(owners[0], invoice.pk)
+    apply_status(order.pk, status_payload(order))
+    pending, _ = issue_invoice(tenants[0], customers[0].pk, date(2026, 11, 1), owners[0])
+    reserve_order(owners[0], pending.pk)
 recovery = hashlib.sha256(b"tagihnet-isolated-drill-only").hexdigest()[:32]
 MFADevice.objects.create(user=owners[0], encrypted_secret=encrypt_secret(TEST_TOTP_SECRET), recovery_hashes=[recovery_digest(recovery)])
 '''
@@ -97,7 +107,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client
 from core.tests.auth_helpers import TEST_TOTP_SECRET
 from core.security import verify_factor
-from core.models import Invoice
+from core.models import Invoice, GatewayOrder, GatewayEvent, Payment
 client = Client(enforce_csrf_checks=True)
 client.get("/login/")
 csrf = client.cookies["csrftoken"].value
@@ -112,7 +122,11 @@ user = get_user_model().objects.get(username="owner0")
 assert not verify_factor(user, code)
 recovery = hashlib.sha256(b"tagihnet-isolated-drill-only").hexdigest()[:32]
 assert verify_factor(user, recovery) and not verify_factor(user, recovery)
-assert Invoice.objects.get().balance == 149750
+assert list(Invoice.objects.order_by("period").values_list("total", flat=True)) == [249750, 249750]
+assert [item.balance for item in Invoice.objects.order_by("period")] == [0, 249750]
+assert GatewayOrder.objects.filter(status="settled", payment__source="midtrans_sandbox").count() == 1
+assert GatewayOrder.objects.filter(status="creating", payment__isnull=True).count() == 1
+assert GatewayEvent.objects.count() == 1 and Payment.objects.count() == 2
 '''
     run("manage.py", "shell", "-c", authenticate, env=restored_env)
     assert fingerprint(source/"tagihnet.sqlite3") == before
