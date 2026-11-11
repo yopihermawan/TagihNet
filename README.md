@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Checkpoint `feature/tagihnet-network-monitoring` menambah monitoring NAS dan snapshot sesi contoh. Checkpoint `feature/tagihnet-postgresql-hardening` menambah backend PostgreSQL opsional dan pengujian transaksi lintas proses. Checkpoint `feature/tagihnet-customer-import` menambah impor CSV pelanggan dengan pratinjau dan konfirmasi atomik. Checkpoint `feature/tagihnet-encrypted-backups` menambah backup AES-256-GCM dan restore terverifikasi untuk SQLite/PostgreSQL. Checkpoint `feature/tagihnet-payment-gateway` menambah checkout Midtrans Sandbox, webhook terverifikasi dan rekonsiliasi idempoten. Checkpoint `feature/tagihnet-gateway-reconciliation` menambah riwayat/filter order dan memperkuat rekonsiliasi refund serta konflik saldo. Checkpoint `feature/tagihnet-gateway-expiry` menambah permintaan pengakhiran pembayaran sandbox dengan MFA, intent persisten dan verifikasi status sebelum/sesudah pengiriman. Checkpoint `feature/tagihnet-gateway-worker` menambah worker rekonsiliasi terjadwal opt-in, lease antarproses, backoff persisten dan waktu verifikasi yang dibedakan dari percobaan gagal. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Checkpoint `feature/tagihnet-network-monitoring` menambah monitoring NAS dan snapshot sesi contoh. Checkpoint `feature/tagihnet-postgresql-hardening` menambah backend PostgreSQL opsional dan pengujian transaksi lintas proses. Checkpoint `feature/tagihnet-customer-import` menambah impor CSV pelanggan dengan pratinjau dan konfirmasi atomik. Checkpoint `feature/tagihnet-encrypted-backups` menambah backup AES-256-GCM dan restore terverifikasi untuk SQLite/PostgreSQL. Checkpoint `feature/tagihnet-payment-gateway` menambah checkout Midtrans Sandbox, webhook terverifikasi dan rekonsiliasi idempoten. Checkpoint `feature/tagihnet-gateway-reconciliation` menambah riwayat/filter order dan memperkuat rekonsiliasi refund serta konflik saldo. Checkpoint `feature/tagihnet-gateway-expiry` menambah permintaan pengakhiran pembayaran sandbox dengan MFA, intent persisten dan verifikasi status sebelum/sesudah pengiriman. Checkpoint `feature/tagihnet-gateway-worker` menambah worker rekonsiliasi terjadwal opt-in, lease antarproses, backoff persisten dan waktu verifikasi yang dibedakan dari percobaan gagal. Checkpoint `feature/tagihnet-gateway-refund-reconciliation` menambah pencatatan refund penuh yang sudah terverifikasi, dengan persetujuan owner/MFA dan koreksi ledger idempoten. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Yang bisa digunakan
 
@@ -17,7 +17,7 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 - Impor CSV pelanggan: template, maksimal 200 baris/128 KiB, validasi/duplikat, laporan CSV aman, konfirmasi MFA atomik dan replay tanpa duplikasi.
 - Satu layanan/paket per pelanggan; faktur bulanan idempoten, snapshot harga/pajak, diskon, pembayaran sebagian, penolakan lebih bayar, dan reversal penuh dengan histori.
 - Faktur massal: pratinjau maksimal 500 pelanggan, MFA konfirmasi, snapshot disetujui, worker resumable, duplikat dilewati, serta pembatalan sisa pekerjaan.
-- Midtrans Sandbox opt-in: checkout redirect, signature + GET status terverifikasi, pencatatan atomik/idempoten, riwayat/filter order, pengakhiran checkout oleh owner/MFA, worker status terjadwal opt-in, dan rekonsiliasi refund/konflik saldo; koneksi akun sandbox asli masih perlu diuji.
+- Midtrans Sandbox opt-in: checkout redirect, signature + GET status terverifikasi, pencatatan atomik/idempoten, riwayat/filter order, pengakhiran checkout oleh owner/MFA, worker status terjadwal opt-in, dan pencatatan refund penuh terverifikasi dengan owner/MFA; koneksi akun sandbox asli masih perlu diuji.
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.
 - Antrean rekonsiliasi jaringan **simulasi** dengan pengecekan ulang tunggakan, backoff, dan maksimal tiga percobaan. Pembayaran tetap tercatat bila adapter gagal.
 - Monitoring NAS simulasi: snapshot sesi PPPoE contoh, waktu sumber, status segar/kedaluwarsa/gagal, ringkasan dengan cakupan, dan histori tanpa angka nol palsu.
@@ -137,7 +137,7 @@ python scripts/postgres_lab.py run manage.py test --verbosity 1 --noinput
 python scripts/postgres_lab.py run scripts/verify_postgres.py
 ```
 
-`run` hanya mengatur environment untuk subprocess itu. Verifikasi membuat database sementara sendiri dan menghapusnya setelah sepuluh skenario lintas proses serta pg_dump/pg_restore. Snapshot cloud tidak menjamin container/volume Docker ikut pulih. Panduan konfigurasi TLS, kredensial, restart, backup dan batas bukti: [POSTGRESQL](docs/POSTGRESQL.md).
+`run` hanya mengatur environment untuk subprocess itu. Verifikasi membuat database sementara sendiri dan menghapusnya setelah 20 skenario lintas proses serta pg_dump/pg_restore. Snapshot cloud tidak menjamin container/volume Docker ikut pulih. Panduan konfigurasi TLS, kredensial, restart, backup dan batas bukti: [POSTGRESQL](docs/POSTGRESQL.md).
 
 ## Monitoring NAS simulasi
 
@@ -193,6 +193,8 @@ Panduan konfigurasi merchant, domain sandbox, URL notifikasi HTTPS, pengakhiran 
 .venv/bin/python manage.py reconcile_gateway_payments --include-settled --tenant 1 --limit 100
 .venv/bin/python scripts/gateway_smoke.py  # Chromium nyata, transport Midtrans tiruan
 ```
+
+Owner dapat mencatat refund penuh yang sudah selesai di Midtrans melalui detail order. GET status baru wajib membuktikan seluruh nominal refund; koreksi membuka kembali sisa tagihan tanpa mengirim permintaan refund baru. Pembayaran asal dan bukti koreksi tetap tersimpan; refund sebagian/sengketa memerlukan peninjauan. Panduan: [PAYMENT-GATEWAY](docs/PAYMENT-GATEWAY.md).
 
 ## Pengujian
 

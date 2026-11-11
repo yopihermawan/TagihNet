@@ -17,6 +17,7 @@ urlpatterns = [
     path("payments/orders/<uuid:pk>/", gateway.order_detail, name="gateway_order"),
     path("payments/orders/<uuid:pk>/refresh/", gateway.order_refresh, name="gateway_refresh"),
     path("payments/orders/<uuid:pk>/expire/", gateway.order_expire, name="gateway_expire"),
+    path("payments/orders/<uuid:pk>/record-refund/", gateway.order_refund, name="gateway_record_refund"),
     path("payments/midtrans/notifications/", gateway.notification, name="midtrans_notification"),
     path("customers/imports/", customer_import.import_list, name="customer_import_list"),
     path("customers/imports/new/", customer_import.import_upload, name="customer_import_upload"),

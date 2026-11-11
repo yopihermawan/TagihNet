@@ -76,6 +76,25 @@ def child(data):
         if case == "gateway_settle":
             from core.gateway import apply_status
             return str(apply_status(data["gateway_order"], data["status_payload"]).payment_id)
+        if case in {"gateway_refund", "gateway_refund_late"}:
+            from core.gateway import apply_status
+            from core.gateway_refunds import reconcile_refund
+            from core.models import GatewayOrder
+            from core.tests.test_gateway_refunds import refund_payload, REASON
+            from core.tests.test_payment_gateway import status_payload
+            current = GatewayOrder.objects.get(pk=data["gateway_order"])
+            if case == "gateway_refund_late" and data["role"] == 1:
+                deadline = time.monotonic()+15
+                while not (gate_dir/"refund-recorded").exists():
+                    if time.monotonic() > deadline:
+                        raise TimeoutError("Refund process gate timed out")
+                    time.sleep(.01)
+                return apply_status(current.pk, status_payload(current)).status
+            with patch("core.gateway_refunds.SandboxClient.status", return_value=refund_payload(current)):
+                result = reconcile_refund(actor, current.pk, data["refund_key"], REASON, time.time(), 1)
+            if case == "gateway_refund_late":
+                (gate_dir/"refund-recorded").touch()
+            return str(result.pk)
         if case == "gateway_dispute":
             from core.gateway import apply_status
             if data["role"] == 1:
@@ -473,6 +492,25 @@ def verify():
         assert Payment.objects.count()==payments_before+2 and NetworkJob.objects.count()==jobs_before+2
         assert not GatewayReconciliationPolicy.objects.get(pk=polling_policy.pk).enabled
         print("PASS: 2 processes, consent revoked in flight -> verified payment preserved, next order not polled",flush=True)
+        from core.models import GatewayRefundResolution, PaymentReversal
+        for month, case in [(6,"gateway_refund"),(7,"gateway_refund_late")]:
+            refund_invoice,_=issue_invoice(tenant,customer.pk,date(2027,month,1),actor)
+            refund_order=reserve_order(actor,refund_invoice.pk)
+            apply_status(refund_order.pk,status_payload(refund_order))
+            jobs_before=NetworkJob.objects.count()
+            results=parallel(case,{**common,"gateway_order":str(refund_order.pk),"refund_key":str(uuid.uuid4())})
+            resolution=GatewayRefundResolution.objects.get(order=refund_order)
+            refund_order.refresh_from_db()
+            assert refund_order.status=="refunded" and refund_invoice.balance==refund_invoice.total
+            assert Payment.objects.filter(pk=refund_order.payment_id).count()==1
+            assert PaymentReversal.objects.filter(payment_id=refund_order.payment_id).count()==1
+            assert NetworkJob.objects.count()==jobs_before+1
+            if case=="gateway_refund":
+                assert results[0]["ok"]==results[1]["ok"]==str(resolution.pk)
+                print("PASS: 2 processes, same verified full refund -> 1 reversal/resolution/network job",flush=True)
+            else:
+                assert results[0]["ok"]==str(resolution.pk) and results[1]["ok"]=="refunded"
+                print("PASS: 2 processes, refund commits before late settlement -> reversal preserved, receivable reopened",flush=True)
         import pyotp
         from core.models import MFADevice
         from core.security import encrypt_secret, decrypt_secret

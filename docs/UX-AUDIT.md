@@ -78,3 +78,9 @@ Form owner pada detail order meminta alasan dan peninjauan; hasil membedakan Dim
 ## Jadwal pemeriksaan gateway — 11 November 2026 WIB
 
 Setelan owner memakai checkbox opt-in, interval 1/5/15 menit, opsi pemeriksaan transaksi tercatat dan persetujuan pencatatan otomatis. Form checkout dan polling memakai ID label berbeda. Status membedakan belum dijalankan, idle, selesai, sebagian, gagal dan perlu persetujuan ulang; hasil belum tersedia tidak ditampilkan sebagai keberhasilan nol. Detail/daftar order memisahkan waktu percobaan dan verifikasi sukses, dengan peringatan failure. Browser menjalankan worker dari kebijakan UI dan memverifikasi hasil pembayaran yang webhook-nya dilewatkan. Empat viewport dan bukti [mobile](evidence/gateway-worker-mobile.png)/[desktop](evidence/gateway-worker-desktop.png) memakai data dan transport tiruan.
+
+## Pencatatan refund penuh — 11 November 2026 WIB
+
+Detail order owner menyediakan alasan dan persetujuan yang menjelaskan pembayaran dibalik pada ledger serta sisa tagihan dibuka kembali. Tombol menyebut refund yang sudah terjadi; teks menjelaskan aplikasi tidak meminta refund baru. Status Refund penuh tercatat dan ringkasan bertanggal dibedakan dari event Perlu rekonsiliasi saat pertama diterima. Setelah selesai, formulir hilang. Portal melihat ringkasan generik tanpa catatan owner atau aksi pencatatan.
+
+Browser memverifikasi alur dan replay dengan CSRF pada empat viewport tanpa overflow halaman. Bukti [mobile](evidence/gateway-refund-mobile.png) dan [desktop](evidence/gateway-refund-desktop.png) memakai data fiktif, transport tiruan, animasi nonaktif, fokus dilepas dan posisi scroll dikembalikan ke atas sebelum full-page capture. Audit WCAG/screen reader lengkap dan halaman pembayaran eksternal belum diuji.

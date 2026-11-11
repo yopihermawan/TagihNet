@@ -11,9 +11,10 @@ from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from .gateway import can_checkout, refresh_order, save_config, start_checkout
 from .gateway_expiry import expire_order
+from .gateway_refunds import reconcile_refund
 from .gateway_worker import save_policy as save_reconciliation_policy
 from .midtrans import GatewayUnavailable, credentials, json_object, valid_signature
-from .models import GatewayConfig, GatewayOrder, GatewayReconciliationPolicy
+from .models import GatewayConfig, GatewayOrder, GatewayReconciliationPolicy, GatewayRefundResolution
 from .permissions import capabilities, membership, require
 from .security import throttle
 from .security_views import recent_factor
@@ -38,6 +39,22 @@ class ReconciliationForm(forms.Form):
     interval = forms.TypedChoiceField(coerce=int, choices=[(60, "Setiap 1 menit"), (300, "Setiap 5 menit"), (900, "Setiap 15 menit")], label="Jeda antar pemeriksaan")
     version = forms.IntegerField(min_value=0, widget=forms.HiddenInput)
     reviewed = forms.BooleanField(label="Saya menyetujui pemeriksaan berkala dan pencatatan otomatis pembayaran sandbox yang terverifikasi.")
+
+
+class RefundForm(forms.Form):
+    request_key = forms.UUIDField(widget=forms.HiddenInput)
+    reason = forms.CharField(min_length=10,max_length=250,widget=forms.Textarea(attrs={"rows":3}),label="Alasan pencatatan refund")
+    reviewed = forms.BooleanField(label="Saya memahami refund terverifikasi akan membatalkan pembayaran ini pada ledger dan membuka kembali sisa tagihan.")
+
+
+def refund_context(request, order, form=None):
+    owner = membership(request.user).role=="owner"
+    resolution = GatewayRefundResolution.objects.filter(order=order).first()
+    if not owner or not order.payment_id or resolution:
+        form = None
+    elif form is None:
+        form = RefundForm(auto_id="refund_%s", initial={"request_key":uuid.uuid4()})
+    return {"refund_resolution":resolution,"refund_form":form}
 
 
 def settings_response(request, form=None, policy_form=None, status=200):
@@ -175,7 +192,35 @@ def order_detail(request, pk):
     return render(request, "gateway/order.html", {"order": order, "can_refresh": can_checkout(membership(request.user)),
         "events": order.events.order_by("-created_at", "-pk")[:20],
         "expiry_form": expiry_form(order) if owner and not order.payment_id and order.status in {"creating", "pending"} else None,
-        "expiry_requests": order.expiry_requests.select_related("requested_by")[:10] if owner else []})
+        "expiry_requests": order.expiry_requests.select_related("requested_by")[:10] if owner else [],
+        **refund_context(request,order)})
+
+
+@require("manage_access")
+@require_POST
+def order_refund(request, pk):
+    if request.member.role!="owner":
+        raise PermissionDenied
+    order = allowed_order(request,pk)
+    if not recent_factor(request,return_to=f"/payments/orders/{order.pk}/"):
+        return redirect("account_security")
+    if throttle(request,"gateway_refund_record",request.user.pk):
+        return JsonResponse({"error":"Terlalu banyak permintaan. Coba kembali nanti."},status=429)
+    form = RefundForm(request.POST, auto_id="refund_%s")
+    if form.is_valid():
+        try:
+            reconcile_refund(request.user,order.pk,form.cleaned_data["request_key"],form.cleaned_data["reason"],
+                request.session["mfa_verified_at"],request.session["access_version"])
+        except (ValidationError,GatewayUnavailable,IntegrityError,OperationalError):
+            form.add_error(None,"Refund penuh belum dapat dicatat. Pastikan refund penuh sudah selesai di Midtrans dan nominalnya sesuai; periksa status lalu coba kembali.")
+        else:
+            messages.success(request,"Refund penuh yang sudah terverifikasi dicatat pada ledger. Sisa tagihan dibuka kembali; tidak ada permintaan refund baru ke Midtrans.")
+            return redirect("gateway_order",pk=pk)
+    order.refresh_from_db()
+    return render(request,"gateway/order.html",{"order":order,"can_refresh":True,
+        "events":order.events.order_by("-created_at","-pk")[:20],"expiry_form":None,
+        "expiry_requests":order.expiry_requests.select_related("requested_by")[:10],
+        **refund_context(request,order,form=form)},status=400)
 
 
 @require("manage_access")
@@ -201,7 +246,8 @@ def order_expire(request, pk):
     order.refresh_from_db()
     return render(request, "gateway/order.html", {"order": order, "can_refresh": True,
         "events": order.events.order_by("-created_at", "-pk")[:20], "expiry_form": form,
-        "expiry_requests": order.expiry_requests.select_related("requested_by")[:10]}, status=400)
+        "expiry_requests": order.expiry_requests.select_related("requested_by")[:10],
+        **refund_context(request,order)}, status=400)
 
 
 @require_POST

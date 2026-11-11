@@ -305,7 +305,7 @@ class GatewayReconciliationPolicy(models.Model):
 class GatewayOrder(models.Model):
     STATES = [("creating", "Menyiapkan checkout"), ("pending", "Menunggu pembayaran"),
         ("settled", "Pembayaran tercatat"), ("deny", "Ditolak"), ("cancel", "Dibatalkan gateway"),
-        ("expire", "Kedaluwarsa di gateway"), ("review", "Perlu rekonsiliasi")]
+        ("expire", "Kedaluwarsa di gateway"), ("review", "Perlu rekonsiliasi"), ("refunded", "Refund penuh tercatat")]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
     invoice = models.ForeignKey(Invoice, related_name="gateway_orders", on_delete=models.PROTECT)
@@ -379,6 +379,23 @@ class GatewayExpiry(models.Model):
     class Meta:
         ordering = ["-created_at", "-pk"]
         constraints = [models.UniqueConstraint(fields=["order", "request_key"], name="gateway_expiry_request_once")]
+
+
+class GatewayRefundResolution(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.OneToOneField(GatewayOrder, related_name="refund_resolution", on_delete=models.PROTECT)
+    reversal = models.OneToOneField(PaymentReversal, related_name="gateway_refund", on_delete=models.PROTECT)
+    request_key = models.UUIDField()
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    reason = models.CharField(max_length=250)
+    amount = models.PositiveBigIntegerField()
+    transaction_id = models.CharField(max_length=64)
+    proof_digest = models.CharField(max_length=64)
+    verified_at = models.DateTimeField()
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=Q(amount__gt=0), name="positive_gateway_refund")]
 
 
 class NetworkJob(models.Model):

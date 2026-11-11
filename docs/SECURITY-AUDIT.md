@@ -116,3 +116,11 @@ POST expire dibatasi owner aktif/tenant yang sama, MFA lima menit, session versi
 ## Worker polling opt-in — 11 November 2026 WIB
 
 Kebijakan default-off memerlukan owner/MFA/review, versi dan kredensial merchant tenant. Approval menyimpan user/session version; worker memeriksa ulang akses dan mode sebelum request. Lease UUID/version dengan TTL60 dan pembaruan tiap order mengoordinasi proses; HTTP di luar transaksi, writer ledger tetap idempoten. Policy edit/revocation mencegah request berikutnya, tetapi tidak membatalkan pencatatan hasil yang sudah terverifikasi saat in-flight. Backoff capped1jam dan urutan berdasarkan waktu percobaan mencegah kegagalan order tunggal menghalangi pekerjaan lain. API worker hanya GET status; tidak membuat checkout/refund/expiry/pesan. Audit hanya metadata jumlah/approval, tidak menyimpan secret atau response mentah. Waktu pemeriksaan gagal dan verifikasi sukses dipisah; backfill hanya dari event terverifikasi. Uji restore mempertahankan consent/lease dan takeover setelah kedaluwarsa. Ini bukti lokal/transport tiruan, bukan pengujian merchant atau kapasitas produksi.
+
+## Pencatatan refund penuh — 11 November 2026 WIB
+
+Aksi owner berscope tenant, POST/CSRF/review/rate-limit, MFA lima menit dan current access version; owner/akun/sesi dicek ulang setelah jaringan. GET status autentik baru wajib memverifikasi order/merchant/IDR/gross/transaction ID, status refund, code200 dan refund_amount penuh. Data browser/webhook/event lama tidak menjadi otorisasi reversal. Partial/missing amount/riwayat chargeback ditolak. Tidak ditambahkan endpoint refund pada client provider.
+
+Penulisan invoice/customer/order/payment terkunci dan atomik dengan PaymentReversal, resolution satu-ke-satu, audit dan job. Retry transaksi tidak mengulang HTTP; replay tidak mengoreksi dua kali. Digest metadata SHA256 bukan bukti signature atau ledger anti-tamper; administrator database tetap dipercaya. Payload mentah/kunci tidak disimpan pada bukti. Catatan owner privat, reversal publik memakai teks generik dan output tetap di-escape.
+
+362 tes pada masing-masing backend, dua race refund lintas proses, browser portal/CSRF/MFA dan restore terenkripsi lulus. Pemanggilan API merchant nyata, refund sebagian, pengiriman refund provider, sengketa, load dan audit anti-tamper tetap belum diverifikasi/diimplementasikan.

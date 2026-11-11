@@ -124,7 +124,7 @@ def process_policy(policy_id, limit=20):
     token, version = policy.lease_token, policy.version
     verified = unavailable = 0
     try:
-        states = ["creating", "pending", "review"] + (["settled"] if policy.include_settled else [])
+        states = ["creating", "pending", "review"] + (["settled","refunded"] if policy.include_settled else [])
         # Oldest checked first: both success and failure rotate an order to the back.
         orders = list(GatewayOrder.objects.filter(tenant_id=policy.tenant_id, status__in=states)
             .order_by(F("last_checked_at").asc(nulls_first=True), "created_at", "pk")[:limit])

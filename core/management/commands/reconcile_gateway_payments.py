@@ -20,7 +20,7 @@ class Command(BaseCommand):
             raise CommandError("limit harus 1–500")
         if options["tenant"] is not None and options["tenant"] < 1:
             raise CommandError("tenant harus ID ISP positif")
-        states = ["creating", "pending", "review"] + (["settled"] if options["include_settled"] else [])
+        states = ["creating", "pending", "review"] + (["settled","refunded"] if options["include_settled"] else [])
         orders = GatewayOrder.objects.filter(status__in=states)
         if options["tenant"] is not None:
             orders = orders.filter(tenant_id=options["tenant"])

@@ -110,6 +110,8 @@ def verified_status(order, payload):
     paid = (status == "settlement" and payload.get("fraud_status", "accept") == "accept"
         or status == "capture" and payload.get("fraud_status") == "accept") and payload.get("status_code") == "200"
     normalized = {key: payload.get(key, "") for key in ["transaction_id", "transaction_status", "status_code", "fraud_status", "gross_amount"]}
+    if status in {"refund","partial_refund"} and "refund_amount" in payload:
+        normalized["refund_amount"] = payload["refund_amount"]
     fingerprint = hashlib.sha256(json.dumps(normalized, sort_keys=True).encode()).hexdigest()
     return txn, status, paid, fingerprint
 
@@ -133,7 +135,10 @@ def apply_status(order_id, payload):
         return order
     order.transaction_id = txn
     before_status = order.status
-    if status in DISPUTE_STATES:
+    if status in DISPUTE_STATES and order.status == "refunded" and status == "refund" and (
+            "refund_amount" not in payload or rupiah(payload["refund_amount"]) == order.amount):
+        pass
+    elif status in DISPUTE_STATES:
         order.status, order.reason = "review", "Refund/chargeback perlu rekonsiliasi. Ledger asli tidak diubah otomatis."
     elif order.payment_id:
         # Notifications arriving late cannot undo a recorded payment.

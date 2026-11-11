@@ -34,12 +34,15 @@ django.setup()
 from datetime import date
 from core.tests.test_workflow import fixtures
 from core.billing import issue_invoice
-from core.models import MFADevice
+from core.models import MFADevice, Membership
+from django.contrib.auth import get_user_model
 from core.security import encrypt_secret
 tenants, owners, customers = fixtures()
 issue_invoice(tenants[0], customers[0].pk, date(2026, 11, 1), owners[0])
 issue_invoice(tenants[0], customers[0].pk, date(2026, 12, 1), owners[0])
 MFADevice.objects.create(user=owners[0], encrypted_secret=encrypt_secret("JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"))
+portal=get_user_model().objects.create_user(username="refund-customer",password="Local-test-secret-2026!")
+Membership.objects.create(user=portal,tenant=tenants[0],role="customer",customer=customers[0])
 '''
     subprocess.run([sys.executable, "-c", fixture], cwd=ROOT, env=env, check=True, stdout=subprocess.DEVNULL)
     (temporary / "remote-status").write_text("pending")
@@ -50,9 +53,12 @@ from pathlib import Path
 from unittest.mock import patch
 from django.core.management import call_command
 def status(order):
-    return {"order_id":order.order_id,"merchant_id":"G-BROWSER","gross_amount":f"{order.amount}.00",
+    result={"order_id":order.order_id,"merchant_id":"G-BROWSER","gross_amount":f"{order.amount}.00",
         "currency":"IDR","transaction_id":f"txn-{order.pk.hex}","transaction_status":
         (Path(os.environ["TAGIHNET_DATA_DIR"])/"remote-status").read_text(),"fraud_status":"accept","status_code":"200"}
+    if result["transaction_status"]=="refund":
+        result["refund_amount"]=f"{order.amount}.00"
+    return result
 def expire(order):
     (Path(os.environ["TAGIHNET_DATA_DIR"])/"remote-status").write_text("expire")
     return {"status_code":"407"}
@@ -179,9 +185,12 @@ django.setup()
 from unittest.mock import patch
 from django.core.management import call_command
 def status(order):
-    return {"order_id":order.order_id,"merchant_id":"G-BROWSER","gross_amount":f"{order.amount}.00",
+    result={"order_id":order.order_id,"merchant_id":"G-BROWSER","gross_amount":f"{order.amount}.00",
         "currency":"IDR","transaction_id":f"txn-{order.pk.hex}","transaction_status":
         "refund" if order.payment_id else "settlement","fraud_status":"accept","status_code":"200"}
+    if result["transaction_status"]=="refund":
+        result["refund_amount"]=f"{order.amount}.00"
+    return result
 with patch("core.gateway.SandboxClient.status",side_effect=status) as remote:
     call_command("run_gateway_worker",once=True)
     assert remote.call_count==2
@@ -198,24 +207,56 @@ with patch("core.gateway.SandboxClient.status") as remote:
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
                 if width in [360,1366]:
                     page.screenshot(path=str(evidence / f"gateway-worker-{'mobile' if width==360 else 'desktop'}.png"),full_page=True,animations="disabled")
+            (temporary / "remote-status").write_text("refund")
+            page.goto(order_url)
+            refund_reason="Catatan internal owner untuk pencatatan refund sandbox"
+            refund_key=page.locator('input[name="request_key"]').input_value()
+            page.get_by_label("Alasan pencatatan refund").fill(refund_reason)
+            page.get_by_label("Saya memahami refund terverifikasi",exact=False).check()
+            for width in [360,768,1366,1920]:
+                page.set_viewport_size({"width":width,"height":920})
+                page.evaluate("document.activeElement.blur(); window.scrollTo(0, 0)")
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
+                if width in [360,1366]:
+                    page.screenshot(path=str(evidence/f"gateway-refund-{'mobile' if width==360 else 'desktop'}.png"),full_page=True,animations="disabled")
+            page.get_by_role("button",name="Catat refund penuh yang sudah terjadi",exact=True).click()
+            expect(page.get_by_role("heading",name="Refund penuh tercatat",exact=True)).to_be_visible()
+            expect(page.get_by_role("heading",name="Refund penuh telah dicatat",exact=True)).to_be_visible()
+            csrf=next(cookie["value"] for cookie in context.cookies(base) if cookie["name"]=="csrftoken")
+            assert context.request.post(order_url+"record-refund/",form={"request_key":refund_key,"reason":refund_reason,"reviewed":"on","csrfmiddlewaretoken":csrf}).status==200
+            portal=browser.new_context()
+            portal_page=portal.new_page()
+            portal_page.goto(base+"/login/")
+            portal_page.get_by_label("Username",exact=True).fill("refund-customer")
+            portal_page.get_by_label("Kata sandi",exact=True).fill(PASSWORD)
+            portal_page.get_by_role("button",name="Masuk ke workspace").click()
+            portal_page.wait_for_url(base+"/portal/")
+            portal_page.goto(order_url)
+            expect(portal_page.get_by_role("heading",name="Refund penuh telah dicatat",exact=True)).to_be_visible()
+            assert portal_page.get_by_text(refund_reason,exact=True).count()==0
+            assert portal_page.get_by_role("button",name="Catat refund penuh yang sudah terjadi",exact=True).count()==0
+            portal_page.goto(base+"/invoices/1/")
+            expect(portal_page.get_by_text("Refund penuh Midtrans Sandbox terverifikasi. Sisa tagihan dibuka kembali.",exact=True)).to_be_visible()
+            assert portal_page.get_by_text(refund_reason,exact=True).count()==0
             assert not errors, errors
             browser.close()
         verify = '''
 import django
 django.setup()
-from core.models import Payment,GatewayEvent,GatewayExpiry,GatewayOrder,GatewayReconciliationPolicy,NetworkJob,Invoice
-assert Payment.objects.count()==NetworkJob.objects.count()==2
+from core.models import Payment,PaymentReversal,GatewayRefundResolution,GatewayEvent,GatewayExpiry,GatewayOrder,GatewayReconciliationPolicy,NetworkJob,Invoice
+assert Payment.objects.count()==2 and NetworkJob.objects.count()==3
 assert GatewayEvent.objects.count()==6
 assert set(GatewayEvent.objects.values_list("gateway_status",flat=True))=={"pending","settlement","refund","expire"}
-assert [invoice.balance for invoice in Invoice.objects.order_by("pk")]==[0,0]
-assert Payment.objects.filter(gatewayorder__status="review").count()==1
+assert [invoice.balance for invoice in Invoice.objects.order_by("pk")]==[249750,0]
+assert Payment.objects.filter(gatewayorder__status="refunded").count()==1
+assert PaymentReversal.objects.count()==GatewayRefundResolution.objects.count()==1
 assert GatewayExpiry.objects.count()==1 and GatewayExpiry.objects.get().status=="confirmed"
 assert GatewayOrder.objects.filter(invoice_id=2).count()==2
 assert GatewayReconciliationPolicy.objects.get().last_status=="completed"
 assert GatewayReconciliationPolicy.objects.get().last_verified==2
 '''
         subprocess.run([sys.executable, "-c", verify], cwd=ROOT, env=env, check=True)
-        print("PASS: Chromium login/MFA, checkout/history/refund/expiry and owner-opted polling worker recovering a missed payment; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
+        print("PASS: Chromium login/MFA, checkout/expiry/polling and verified full-refund recording/replay; customer portal hides owner notes; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
     finally:
         process.terminate()
         process.wait(timeout=10)
