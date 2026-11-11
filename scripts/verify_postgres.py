@@ -76,6 +76,35 @@ def child(data):
         if case == "gateway_settle":
             from core.gateway import apply_status
             return str(apply_status(data["gateway_order"], data["status_payload"]).payment_id)
+        if case == "gateway_report_refund":
+            from core.gateway_refunds import reconcile_refund
+            from core.gateway_reports import ledger_report
+            from core.models import GatewayOrder, GatewayRefundResolution
+            from core.tests.test_gateway_refunds import refund_payload, REASON
+            def wait_for(name):
+                deadline=time.monotonic()+15
+                while not (gate_dir/name).exists():
+                    if time.monotonic()>deadline:
+                        raise TimeoutError("Report process gate timed out")
+                    time.sleep(.01)
+            current=GatewayOrder.objects.get(pk=data["gateway_order"])
+            if data["role"]==1:
+                wait_for("correction-uncommitted")
+                try:
+                    report=ledger_report(actor,date.fromisoformat(data["start"]),date.fromisoformat(data["end"]))
+                    entries=[row for row in report["rows"] if row["id"]==current.pk]
+                    return {"entries":len(entries),"net":sum(row["signed_amount"] for row in entries)}
+                finally:
+                    (gate_dir/"reader-finished").touch()
+            original=QuerySet.create
+            def create(query,**kwargs):
+                if query.model is GatewayRefundResolution:
+                    # PaymentReversal exists only in the writer's uncommitted transaction.
+                    (gate_dir/"correction-uncommitted").touch()
+                    wait_for("reader-finished")
+                return original(query,**kwargs)
+            with patch.object(QuerySet,"create",create),patch("core.gateway_refunds.SandboxClient.status",return_value=refund_payload(current)):
+                return str(reconcile_refund(actor,current.pk,data["refund_key"],REASON,time.time(),1).pk)
         if case in {"gateway_refund", "gateway_refund_late"}:
             from core.gateway import apply_status
             from core.gateway_refunds import reconcile_refund
@@ -511,6 +540,21 @@ def verify():
             else:
                 assert results[0]["ok"]==str(resolution.pk) and results[1]["ok"]=="refunded"
                 print("PASS: 2 processes, refund commits before late settlement -> reversal preserved, receivable reopened",flush=True)
+        from core.gateway_reports import WIB, ledger_report
+        from django.utils import timezone
+        report_invoice,_=issue_invoice(tenant,customer.pk,date(2027,8,1),actor)
+        report_order=reserve_order(actor,report_invoice.pk)
+        apply_status(report_order.pk,status_payload(report_order))
+        today=timezone.localdate(timezone=WIB)
+        report_start,report_end=today-timedelta(days=1),today+timedelta(days=1)
+        results=parallel("gateway_report_refund",{**common,"gateway_order":str(report_order.pk),"refund_key":str(uuid.uuid4()),
+            "start":report_start.isoformat(),"end":report_end.isoformat()})
+        assert results[1]["ok"]=={"entries":1,"net":report_order.amount}
+        committed=ledger_report(actor,report_start,report_end)
+        report_rows=[row for row in committed["rows"] if row["id"]==report_order.pk]
+        assert len(report_rows)==2 and sum(row["signed_amount"] for row in report_rows)==0
+        assert {row["entry_kind"] for row in report_rows}=={"payment","refund"}
+        print("PASS: 2 processes, report during uncommitted refund -> complete prior snapshot; committed refund reconciles next read",flush=True)
         import pyotp
         from core.models import MFADevice
         from core.security import encrypt_secret, decrypt_secret

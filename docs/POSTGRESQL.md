@@ -53,7 +53,7 @@ Connect timeout 5 detik; lock timeout 5 detik; statement timeout 30 detik. Konek
 2. **Lock relasi pada worker bulk.** FOR UPDATE tanpa OF ikut mengunci joined actor/tenant. Overlap yang dipaksakan dengan penerbitan satuan menghasilkan satu deadlock terukur. Lock kini dibatasi ke self. Pengunci tenant untuk akses/konfigurasi memakai NO KEY UPDATE agar insert FK biasa tidak ikut tertahan; serialisasi konfigurasi/owner tetap ada. Retest domain ini memeriksa counter deadlock nol.
 3. **Retry database yang eksplisit.** Retry membaca SQLSTATE 40001 (serialization), 40P01 (deadlock), 55P03 (lock unavailable), atau SQLite BUSY/LOCKED. Maksimal lima percobaan dengan jeda bertingkat. Koneksi putus, SQL salah dan error lain tidak diulang secara umum. Fixture deadlock terkontrol menguji satu retry dengan rollback sehingga tidak ada audit yang committed dua kali.
 
-Pembatasan lock juga diterapkan pada query join terkait pembayaran, pengingat, akun dan reset MFA. SQLite mengabaikan row-lock flags; suite terbaru 385 tes lulus di kedua backend. Tidak ada perubahan izin web atau mutasi ledger lama dari pemilihan backend.
+Pembatasan lock juga diterapkan pada query join terkait pembayaran, pengingat, akun dan reset MFA. SQLite mengabaikan row-lock flags; suite terbaru 412 tes lulus di kedua backend. Tidak ada perubahan izin web atau mutasi ledger lama dari pemilihan backend.
 
 ## Verifikasi lintas proses dan restore
 
@@ -74,12 +74,13 @@ Pembatasan lock juga diterapkan pada query join terkait pembayaran, pengingat, a
 - Pengakhiran checkout replay menyimpan satu intent; pembayaran yang menang race tetap tercatat dan menghalangi expiry.
 - Dua worker polling memakai satu lease/status request; pencabutan persetujuan selama GET mempertahankan hasil sah dan menghentikan order berikutnya.
 - Dua pencatatan refund penuh menghasilkan satu reversal/resolution/job; settlement terlambat mempertahankan refund serta saldo terbuka.
+- Laporan saat transaksi refund belum committed melihat snapshot sebelumnya tanpa koreksi parsial; pembacaan sesudah commit merekonsiliasi refund lengkap.
 
 Gate file hanya menyelaraskan proses/lock; tidak mengganti operasi database dengan hasil palsu. Fixture deadlock terpisah sengaja menghasilkan deadlock, terpisah dari assertion nol deadlock pada race domain. Ini uji dua proses terbatas, bukan benchmark, jaminan fairness, klaim tidak pernah deadlock, atau pembuktian exactly-once integrasi eksternal.
 
 Setelah race, verifier menjalankan pg_dump custom ke file sementara 0600, restore ke database kosong kedua dengan pg_restore, lalu membandingkan jumlah/hash payload seluruh tabel aplikasi/auth beserta through table. Kedua database kemudian dihapus; database asal dan SQLite pengguna tidak diisi fixture. Tools PG berasal dari container yang dikonfigurasi helper/CI atau client lokal yang sesuai server. Drill kompatibilitas ini memakai dump sementara tanpa enkripsi; verifier juga menguji format AES-256-GCM ke target database baru. Offsite, PITR, RPO/RTO dan failover belum diverifikasi. Pemulihan authenticator masih memerlukan kunci MFA terpisah.
 
-`backup.py` mendukung PostgreSQL saat --key-file diberikan; restore memerlukan --target-database kosong yang berbeda dari source. verify_restore.py dan mode backup.py tanpa kunci tetap khusus SQLite. Panduan di BACKUPS.md. Kedua browser smoke secara eksplisit memakai SQLite sementara walaupun environment induk PG. Chromium belum diuji terhadap PG; tes HTTP/domain pada PG termasuk dalam 385 tes. CI mendaftarkan backend PG dan proses/restore, tanpa klaim remote CI sudah lulus.
+`backup.py` mendukung PostgreSQL saat --key-file diberikan; restore memerlukan --target-database kosong yang berbeda dari source. verify_restore.py dan mode backup.py tanpa kunci tetap khusus SQLite. Panduan di BACKUPS.md. Kedua browser smoke secara eksplisit memakai SQLite sementara walaupun environment induk PG. Chromium belum diuji terhadap PG; tes HTTP/domain pada PG termasuk dalam 412 tes. CI mendaftarkan backend PG dan proses/restore, tanpa klaim remote CI sudah lulus.
 
 ## Cutover berikutnya
 

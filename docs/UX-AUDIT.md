@@ -90,3 +90,9 @@ Browser memverifikasi alur dan replay dengan CSRF pada empat viewport tanpa over
 Notifikasi pada detail order menjelaskan bahwa kembali dari checkout belum membuktikan pembayaran berhasil dan menawarkan pemeriksaan status yang sudah ada. Jika sesi habis, login/MFA melanjutkan ke order yang sama; enrollment pertama tetap menampilkan kode pemulihan. Owner dapat melihat origin aplikasi dan notification URL pada setelan. Origin belum diatur ditampilkan sebagai belum tersedia, tanpa mengklaim merchant terhubung.
 
 Chromium memeriksa pending setelah query settlement palsu, resume login customer serta empat viewport tanpa overflow halaman dan tanpa browser errors. Bukti [mobile](evidence/gateway-return-mobile.png)/[desktop](evidence/gateway-return-desktop.png) memakai data fiktif dan transport tiruan. Halaman checkout eksternal dan audit screen reader/WCAG penuh belum diuji.
+
+## Laporan ledger gateway — 12 November 2026 WIB
+
+Menu Ledger gateway dan tautan dari riwayat muncul untuk pengguna berizin. Form menjelaskan periode WIB inklusif serta batas 31 hari/5.000 entri. Error tanggal/limit tidak menampilkan total nol palsu atau unduhan sebagian. Ringkasan memisahkan pembayaran, refund, koreksi lain dan perubahan bersih. Status order saat laporan dibedakan dari tanggal pencatatan; koreksi tanpa bukti dan kegagalan verifikasi diberi penjelasan. Laporan/CSV bukan pencairan bank atau pendapatan.
+
+Browser memeriksa tiga entri/total, unduhan lengkap dan penolakan portal pada empat viewport, tanpa overflow halaman atau browser errors. Tabel memakai scroll lokal; nominal panjang pada kartu dibungkus dengan ukuran responsif. Bukti [mobile](evidence/gateway-ledger-mobile.png)/[desktop](evidence/gateway-ledger-desktop.png) memakai data fiktif. Native date picker mengikuti locale browser, dengan periode terpilih juga ditulis sebagai nama bulan Indonesia pada caption. Audit WCAG/screen reader menyeluruh belum dilakukan.

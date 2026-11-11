@@ -165,10 +165,22 @@ with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(user.membershi
     recovered=process_policy(policy.pk)
 assert recovered.last_verified==1 and recovered.lease_token is None and recovered.last_status=="completed"
 assert Payment.objects.count()==3 and GatewayRefundResolution.objects.count()==PaymentReversal.objects.count()==1
+from core.gateway_reports import WIB, ledger_report
+today=timezone.localdate(timezone=WIB)
+start,end=today-timedelta(days=1),today+timedelta(days=1)
+report=ledger_report(user,start,end)
+assert report["counts"]=={"payment":2,"refund":1,"reversal":0}
+assert report["totals"]=={"payment":399500,"refund":249750,"reversal":0,"net":149750}
+import csv, io
+response=client.get("/payments/reports/export.csv",{"start":start.isoformat(),"end":end.isoformat()})
+assert response.status_code==200
+rows=list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
+assert len(rows)==3 and sum(int(row["perubahan_bersih_rupiah"]) for row in rows)==149750
 '''
     run("manage.py", "shell", "-c", authenticate, env=restored_env)
     assert fingerprint(source/"tagihnet.sqlite3") == before
     print("PASS: restored password + TOTP login with CSRF, OTP/recovery replay rejected, balance reconciles; wrong MFA key fails independently.", flush=True)
     print("PASS: restored polling approval and active lease preserved; expired lease resumes one verified status check without duplicate payment.",flush=True)
     print("PASS: restored full-refund proof, original payment and reversal reconcile; reopened receivable and one resolution preserved.",flush=True)
+    print("PASS: restored gateway ledger report/CSV reconciles 2 payments and 1 refund; manual payment excluded; no merchant access needed.",flush=True)
 print("PASS: temporary source/restored databases, plaintext staging, keys and archive cleaned; user demo untouched.")

@@ -132,3 +132,13 @@ Alamat callbacks.finish berasal dari origin process yang divalidasi dan UUID ord
 GET kembali tidak menerima bukti pembayaran, tidak memanggil provider dan tidak mengubah ledger. Anonim diarahkan ke login tanpa lookup objek. Hanya UUID+timestamp tervalidasi yang bertahan di antara flush/rotasi session, maksimal sepuluh menit tanpa memperpanjang deadline. Kredensial/faktor dan data pre-auth lain tidak disalin. MFA/enrollment/rotasi/revocation tetap berlaku, kemudian akses tenant/customer diperiksa ulang. Tujuan dipakai sekali; next umum/eksternal diabaikan. Kembalinya pengguna tidak melakukan POST sensitif secara otomatis.
 
 385 tes pada masing-masing backend, browser gateway dan regresi security/MFA serta restore terenkripsi lulus. Tidak ada endpoint write provider baru atau perubahan signature webhook. Account takeover/session abuse pada deployment publik dan redirect merchant sesungguhnya belum diuji.
+
+## Laporan ledger gateway — 12 November 2026 WIB
+
+`gateway_reports` terpisah dari ekspor pelanggan dan memerlukan `invoices`. Owner/Finance mendapat preset, peran kustom tetap eksplisit; customer/ops/cashier/NOC/technician ditolak. Domain dan endpoint memeriksa hak, sesi dan scope ISP. Order, invoice serta payment difilter tenant dan relasi invoice; parameter tenant browser diabaikan. Riwayat tetap dapat dibaca saat kredensial tidak ada, tanpa request provider.
+
+Periode <=31 hari dan maksimal 5.000 entri membatasi materialisasi. Satu UNION membaca pembayaran/koreksi konsisten; seluruh respons ditolak bila melebihi batas, tanpa total/CSV parsial. Report tidak mengunci atau mengubah ledger; ekspor hanya menambah audit periode/jumlah. Tidak ada klaim snapshot lintas request atau kapasitas produksi. Data status saat pembacaan dibedakan dari tanggal ledger.
+
+CSV UTF-8/BOM menjaga angka integer negatif, menormalkan kontrol teks dan mengawali potensi formula dengan apostrof. HTML di-escape. URL checkout, key, private UUID pembayaran, digest bukti dan catatan owner tidak diekspor. Cache-control no-store berasal dari middleware. File yang sudah diunduh tetap berada di perangkat pengguna; retensi/enkripsi perangkat berada di luar cakupan.
+
+412 tes pada kedua backend, uji proses saat refund belum committed, Chromium laporan/CSV/privacy dan restore terenkripsi lulus. Data ledger lokal bukan bukti kelengkapan transaksi merchant; koneksi akun sandbox/HTTPS publik tetap belum diverifikasi.

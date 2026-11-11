@@ -1,4 +1,4 @@
-# Midtrans Sandbox — checkpoint kembali dari checkout 11 November 2026 WIB
+# Midtrans Sandbox — checkpoint laporan ledger 12 November 2026 WIB
 
 Checkout Snap redirect, notifikasi terverifikasi, dan rekonsiliasi kini diimplementasikan. Integrasi **nonaktif secara bawaan**, khusus sandbox dan `TAGIHNET_SIMULATION=1`. Uang nyata, endpoint/kunci produksi, refund otomatis, serta aktivasi router nyata belum didukung. Kredensial merchant dan URL HTTPS publik belum tersedia pada lingkungan pengembangan; transport Midtrans diuji dengan respons tiruan, bukan transaksi pada akun sandbox sebenarnya.
 
@@ -132,6 +132,10 @@ Jika seluruh pemeriksaan gagal, interval berkembang dua kali lipat pada kegagala
 Halaman setelan menampilkan putaran terakhir, verifikasi sukses terakhir, jumlah hasil, status dan jadwal berikutnya. Order mempunyai waktu percobaan dan waktu verifikasi sukses yang terpisah. Kegagalan tidak memperbarui waktu verifikasi, dan daftar/detail menandai pemeriksaan terakhir gagal. Migrasi 0011 memakai waktu event verifikasi sebagai bukti untuk data lama; updated_at lama yang juga pernah mencatat kegagalan tidak dipercaya untuk backfill. Order tanpa bukti event tetap belum terverifikasi.
 
 Kebijakan, persetujuan, jadwal, backoff dan lease ikut backup/restore. Restore tidak menjalankan proses worker secara otomatis; jalankan lagi layanan dan biarkan lease lama kedaluwarsa sebelum mengambil alih. Penjadwalan/lease telah diuji pada SQLite dan PostgreSQL lokal, bukan bukti kapasitas produksi atau akses akun Midtrans asli.
+
+## Laporan ledger gateway
+
+Owner dan Keuangan dapat membuka **Ledger gateway**, memilih periode WIB dan mengunduh CSV seluruh entri. Pembayaran, refund penuh terverifikasi dan koreksi lain dipisahkan berdasarkan tanggal ledger, tanpa menghubungi Midtrans. Refund periode berikutnya tidak mengurangi total pembayaran pada periode asal. Ringkasan bukan laporan pencairan bank atau pendapatan. Peran kustom memerlukan `gateway_reports` dan `invoices`; portal dan hak ekspor pelanggan tidak memberikan akses. Batas 31 hari/5.000 entri menolak laporan utuh bila terlampaui. Panduan sumber, snapshot, batas, privasi dan CSV: [GATEWAY-REPORTS](GATEWAY-REPORTS.md).
 
 ## Bukti pengujian dan batasnya
 

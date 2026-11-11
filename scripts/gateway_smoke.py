@@ -1,5 +1,7 @@
 """Real Chromium/HTTP flow on disposable data. Midtrans transport is stubbed; no external payment."""
 import hashlib
+import csv
+import io
 import json
 import os
 import socket
@@ -235,6 +237,30 @@ with patch("core.gateway.SandboxClient.status") as remote:
             expect(page.get_by_role("heading",name="Refund penuh telah dicatat",exact=True)).to_be_visible()
             csrf=next(cookie["value"] for cookie in context.cookies(base) if cookie["name"]=="csrftoken")
             assert context.request.post(order_url+"record-refund/",form={"request_key":refund_key,"reason":refund_reason,"reviewed":"on","csrfmiddlewaretoken":csrf}).status==200
+            page.get_by_role("link",name="Ledger gateway",exact=True).click()
+            expect(page.get_by_role("heading",name="Laporan ledger gateway",exact=True)).to_be_visible()
+            assert page.locator("tbody tr").count()==3
+            report_export=page.get_by_role("link",name="Unduh CSV").get_attribute("href")
+            download=context.request.get(base+report_export)
+            assert download.status==200
+            ledger=list(csv.DictReader(io.StringIO(download.body().decode("utf-8-sig"))))
+            assert len(ledger)==3 and sum(int(row["pembayaran_rupiah"]) for row in ledger)==499500
+            assert sum(int(row["refund_penuh_rupiah"]) for row in ledger)==249750
+            assert sum(int(row["perubahan_bersih_rupiah"]) for row in ledger)==249750
+            assert refund_reason not in download.text() and "SB-Mid-server-" not in download.text()
+            for width in [360,768,1366,1920]:
+                page.set_viewport_size({"width":width,"height":920})
+                page.evaluate("document.activeElement.blur(); window.scrollTo(0, 0)")
+                assert page.locator(".gateway-ledger-summary .amount").evaluate_all('''nodes => nodes.length === 4 && nodes.every(node => {
+                    const saved = node.textContent;
+                    node.textContent = "Rp-4.999.999.999.995.000";
+                    const fits = node.scrollWidth <= node.clientWidth;
+                    node.textContent = saved;
+                    return fits;
+                })'''),width
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"),width
+                if width in [360,1366]:
+                    page.screenshot(path=str(evidence/f"gateway-ledger-{'mobile' if width==360 else 'desktop'}.png"),full_page=True,animations="disabled")
             portal=browser.new_context()
             portal_page=portal.new_page()
             portal_page.goto(order_url+"return/?transaction_status=settlement")
@@ -245,6 +271,8 @@ with patch("core.gateway.SandboxClient.status") as remote:
             portal_page.wait_for_url(order_url)
             expect(portal_page.get_by_role("heading",name="Refund penuh telah dicatat",exact=True)).to_be_visible()
             assert portal_page.get_by_text(refund_reason,exact=True).count()==0
+            assert portal.request.get(base+"/payments/reports/").status==403
+            assert portal.request.get(base+report_export).status==403
             assert portal_page.get_by_role("button",name="Catat refund penuh yang sudah terjadi",exact=True).count()==0
             portal_page.goto(base+"/invoices/1/")
             expect(portal_page.get_by_text("Refund penuh Midtrans Sandbox terverifikasi. Sisa tagihan dibuka kembali.",exact=True)).to_be_visible()
@@ -267,7 +295,7 @@ assert GatewayReconciliationPolicy.objects.get().last_status=="completed"
 assert GatewayReconciliationPolicy.objects.get().last_verified==2
 '''
         subprocess.run([sys.executable, "-c", verify], cwd=ROOT, env=env, check=True)
-        print("PASS: Chromium login/MFA, checkout return ignores forged status, customer login resumes order, expiry/polling and verified refund/replay; portal hides owner notes; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
+        print("PASS: Chromium login/MFA, checkout return/resume, expiry/polling/refund/replay and ledger report/CSV totals; customer report denied and notes private; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
     finally:
         process.terminate()
         process.wait(timeout=10)

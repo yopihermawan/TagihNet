@@ -1,5 +1,5 @@
 {% extends 'base.html' %}{% load tagihnet %}{% block content %}
-<div class="page-heading"><div><span class="eyebrow">MIDTRANS SANDBOX</span><h1>Riwayat pembayaran gateway</h1><p class="muted">Pantau checkout dan order yang perlu diperiksa. Semua pembayaran menggunakan sandbox tanpa uang nyata.</p></div></div>
+<div class="page-heading"><div><span class="eyebrow">MIDTRANS SANDBOX</span><h1>Riwayat pembayaran gateway</h1><p class="muted">Pantau checkout dan order yang perlu diperiksa. Semua pembayaran menggunakan sandbox tanpa uang nyata.</p></div>{% if 'gateway_reports' in capabilities %}<a class="button" href="{% url 'gateway_report' %}">Laporan ledger gateway</a>{% endif %}</div>
 <div class="metrics gateway-summary" aria-label="Ringkasan seluruh order dalam cakupan akses Anda">
   <section class="panel padded"><span class="muted">Seluruh order</span><h2>{{ summary.total }}</h2></section>
   <section class="panel padded"><span class="muted">Menunggu pembayaran</span><h2>{{ summary.waiting }}</h2></section>

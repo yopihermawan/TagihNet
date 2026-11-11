@@ -21,6 +21,8 @@ Owner dapat membuat akun, memilih preset, membuat/mengubah peran kustom, menghub
 
 Perubahan role, custom permissions, aktivasi akun, MFA enrollment/reset, atau pembuatan ulang kode meningkatkan versi akses/revisi MFA. Sesi lama dicabut pada request berikutnya. Owner aktif terakhir tidak boleh diturunkan/dinonaktifkan; transaksi menserialisasi pemeriksaan melalui tenant, dan kasus dua owner bersamaan diuji di SQLite lokal. Semua kontrol diberlakukan di endpoint/backend, termasuk PDF dan form yang mengirim ID dari tenant lain.
 
+Laporan ledger gateway memakai izin baca/ekspor terpisah `gateway_reports` dengan prasyarat `invoices`. Preset Owner dan Keuangan mendapatkannya; kasir, operasional, NOC, teknisi dan portal tidak. Peran kustom tetap memakai hak eksplisit dan dapat diberi atau dicabut izin laporan oleh owner. Hak ekspor pelanggan tidak memberikan akses laporan. Panduan: [GATEWAY-REPORTS](GATEWAY-REPORTS.md).
+
 ## Pemulihan
 
 Lupa password: gunakan alur reset yang sama. Reset password mencabut sesi tetapi **tidak menghapus MFA**. Kehilangan perangkat: gunakan satu kode pemulihan di tantangan login. Setelah masuk, **Keamanan akun → Buat ulang kode pemulihan** memerlukan password dan faktor kedua, membatalkan semua kode lama serta sesi lain. MFA tidak dapat dimatikan via web.

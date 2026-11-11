@@ -3,6 +3,7 @@ from django.urls import path
 from core import customer_import_views as customer_import
 from core import views
 from core import gateway_views as gateway
+from core import gateway_report_views as gateway_reports
 from core import security_views as security
 from core import bulk_views as bulk
 from core import operation_views as operations
@@ -10,6 +11,8 @@ from core import reminder_views as reminders
 from core import monitoring_views as monitoring
 
 urlpatterns = [
+    path("payments/reports/", gateway_reports.report, name="gateway_report"),
+    path("payments/reports/export.csv", gateway_reports.report_export, name="gateway_report_export"),
     path("payments/orders/", gateway.order_list, name="gateway_orders"),
     path("settings/payment-gateway/", gateway.gateway_settings, name="gateway_settings"),
     path("settings/payment-gateway/reconciliation/", gateway.reconciliation_settings, name="gateway_reconciliation_settings"),
