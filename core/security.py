@@ -19,6 +19,7 @@ from django.db.models import F
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 from .billing import audit, retry_locked
+from .checkout_return import SESSION_KEY, pending_checkout_return
 from .models import AuthRateBucket, MFADevice, Membership
 
 
@@ -60,7 +61,10 @@ def throttle(request, scope, identity=None):
 
 
 def remember_password(request, user):
+    checkout = pending_checkout_return(request)
     request.session.flush()
+    if checkout:
+        request.session[SESSION_KEY] = checkout
     request.session["pending_auth"] = {
         "uid": user.pk, "auth_hash": user.get_session_auth_hash(), "started": time.time(),
         "version": user.membership.session_version,
@@ -91,8 +95,11 @@ def complete_login(request, user, allow_version_change=False):
         request.session.flush()
         raise PermissionDenied("Akses berubah. Mulai ulang login.")
     user = member.user
+    checkout = pending_checkout_return(request)
     request.session.flush()
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    if checkout:
+        request.session[SESSION_KEY] = checkout
     device = MFADevice.objects.filter(user=user).first()
     request.session.update({"started_at": time.time(), "last_seen": time.time(),
         "access_version": member.session_version,

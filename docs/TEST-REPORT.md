@@ -1,6 +1,6 @@
 # Laporan pengujian — 1 November 2026, WIB
 
-Laporan awal di bawah bersifat historis. Hasil terbaru checkpoint pencatatan refund Midtrans Sandbox pada **11 November 2026 WIB**: **362 tes pada SQLite dan 362 pada PostgreSQL**, tanpa fail/skip/expected-failure; rincian ada di bagian akhir.
+Laporan awal di bawah bersifat historis. Hasil terbaru checkpoint kembali dari checkout Midtrans Sandbox pada **11 November 2026 WIB**: **385 tes pada SQLite dan 385 pada PostgreSQL**, tanpa fail/skip/expected-failure; rincian ada di bagian akhir.
 
 Target: checkpoint billing, operasional, pengingat, PSB dan monitoring NAS simulasi TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite dan PostgreSQL 16.15 (psycopg 3.3.6), Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
 
@@ -186,3 +186,13 @@ Encrypted SQLite restore drill mempertahankan persetujuan dan lease aktif; worke
 Encrypted SQLite drill memulihkan empat faktur dengan saldo [0,249750,249750,249750], tiga pembayaran asal, satu reversal/resolusi, metadata bukti, konfigurasi/expiry dan kebijakan/lease. Password+TOTP/CSRF, OTP/recovery replay dan pemulihan lease tetap lulus. Salah kunci backup/MFA dan target berisi data tetap ditolak. Bukti kontrak refund_amount berasal dari tipe GET status SDK Go resmi; merchant asli belum diverifikasi.
 
 Backup AES-256-GCM development dibuat dan diverifikasi sebelum migrasi 0012. Migrasi hanya menambah skema/status dan tidak membalik ledger lama. System check, migration drift, pip check dan diff whitespace lulus. Tidak ada dependency runtime baru. Kredensial sandbox privat dan endpoint HTTPS publik masih diperlukan untuk verifikasi akun sebenarnya; CI remote belum dikonfirmasi. Refund sebagian/chargeback dan pengiriman refund provider dari aplikasi belum didukung.
+
+## Checkpoint kembali dari checkout — 11 November 2026 WIB
+
+23 tes baru; **385 tes pada SQLite dan 385 pada PostgreSQL 16.15**, tanpa fail/skip/expected-failure. Cakupan: validasi origin HTTPS/HTTP loopback debug dan penolakan kredensial/path/query/fragment/port/whitespace; finish URL dari konfigurasi+UUID persisten, tanpa Host/forwarded host/POST injection; fallback origin kosong; GET kembali tanpa provider/ledger, status query palsu, anonim tanpa lookup order, GET-only, login customer dengan CSRF/rotasi dan tujuan sekali pakai; password/faktor salah, MFA wajib, revocation, enrollment pertama/recovery acknowledgment, batas sepuluh menit, scope tenant/customer terbaru dan penolakan arbitrary next. Setelan owner menampilkan notification URL tanpa kunci.
+
+`gateway_smoke.py` lulus Chromium/HTTP: return query settlement palsu tetap pending, pesan kembali tampil pada empat viewport 360/768/1366/1920 tanpa overflow, portal yang belum login kembali ke order tepat setelah password. Checkout, webhook/replay, expiry, polling, refund penuh/replay dan privasi catatan owner tetap lulus; 0 browser errors. Screenshot return mobile/desktop diperiksa. Transport provider tiruan, tidak membuka pembayaran Midtrans eksternal.
+
+`security_smoke.py` juga lulus seluruh enrollment/login MFA, role assignment, revocation, regenerasi recovery/penolakan kode lama, penerbitan massal dan alur billing browser pada empat viewport. Verifier PostgreSQL tetap lulus 20 skenario lintas proses, pg_dump/pg_restore dan restore terenkripsi seluruh tabel. Encrypted SQLite drill lulus ledger/refund proof, login password+TOTP/CSRF, OTP/recovery replay, key isolation dan pemulihan lease. Semua fixture/database sementara dibersihkan; data demo tidak diubah.
+
+System check, migration readiness/drift, pip check dan diff whitespace lulus. Tidak ada migrasi atau dependensi runtime baru. Nilai origin asli belum tersedia, kredensial sandbox masih kosong dan endpoint HTTPS publik belum diuji. Kontrak callbacks.finish diperiksa pada SDK Go resmi; redirect browser merchant dan CI remote belum diverifikasi.

@@ -25,6 +25,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-gateway-browser-") as temporar
     base = f"http://127.0.0.1:{port}"
     env = {**os.environ, "DJANGO_SETTINGS_MODULE": "config.settings", "TAGIHNET_DATA_DIR": str(temporary),
         "TAGIHNET_DB_ENGINE": "sqlite", "TAGIHNET_DEBUG": "1", "TAGIHNET_SIMULATION": "1",
+        "TAGIHNET_PUBLIC_ORIGIN": base,
         "TAGIHNET_ALLOWED_HOSTS": "localhost,127.0.0.1,testserver", "TAGIHNET_MIDTRANS_SANDBOX_ACCOUNT_KEYS":
             json.dumps({"1": {"merchant_id": "G-BROWSER", "server_key": KEY}})}
     subprocess.run([sys.executable, "manage.py", "migrate", "--noinput"], cwd=ROOT, env=env, check=True, stdout=subprocess.DEVNULL)
@@ -100,6 +101,16 @@ with patch("core.gateway.SandboxClient.create",return_value="https://app.sandbox
             order_url = page.url
             order_id = "TN-SBX-" + order_url.rstrip("/").split("/")[-1].replace("-", "")
             expect(page.get_by_role("heading", name="Menunggu pembayaran", exact=True)).to_be_visible()
+            evidence = ROOT / "docs/evidence"
+            for width in [360,768,1366,1920]:
+                page.set_viewport_size({"width":width,"height":920})
+                page.goto(order_url+"return/?transaction_status=settlement&order_id=forged&next=https://evil.example.test")
+                page.wait_for_url(order_url)
+                expect(page.get_by_text("Anda telah kembali dari checkout.",exact=False)).to_be_visible()
+                expect(page.get_by_role("heading",name="Menunggu pembayaran",exact=True)).to_be_visible()
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"),width
+                if width in [360,1366]:
+                    page.screenshot(path=str(evidence/f"gateway-return-{'mobile' if width==360 else 'desktop'}.png"),full_page=True,animations="disabled")
             assert page.get_by_role("link", name="Buka pembayaran Midtrans Sandbox").get_attribute("href").startswith("https://app.sandbox.midtrans.com/")
             page.get_by_role("button", name="Periksa status pembayaran").click()
             expect(page.get_by_role("heading", name="Menunggu pembayaran", exact=True)).to_be_visible()
@@ -226,12 +237,12 @@ with patch("core.gateway.SandboxClient.status") as remote:
             assert context.request.post(order_url+"record-refund/",form={"request_key":refund_key,"reason":refund_reason,"reviewed":"on","csrfmiddlewaretoken":csrf}).status==200
             portal=browser.new_context()
             portal_page=portal.new_page()
-            portal_page.goto(base+"/login/")
+            portal_page.goto(order_url+"return/?transaction_status=settlement")
+            portal_page.wait_for_url(base+"/login/")
             portal_page.get_by_label("Username",exact=True).fill("refund-customer")
             portal_page.get_by_label("Kata sandi",exact=True).fill(PASSWORD)
             portal_page.get_by_role("button",name="Masuk ke workspace").click()
-            portal_page.wait_for_url(base+"/portal/")
-            portal_page.goto(order_url)
+            portal_page.wait_for_url(order_url)
             expect(portal_page.get_by_role("heading",name="Refund penuh telah dicatat",exact=True)).to_be_visible()
             assert portal_page.get_by_text(refund_reason,exact=True).count()==0
             assert portal_page.get_by_role("button",name="Catat refund penuh yang sudah terjadi",exact=True).count()==0
@@ -256,7 +267,7 @@ assert GatewayReconciliationPolicy.objects.get().last_status=="completed"
 assert GatewayReconciliationPolicy.objects.get().last_verified==2
 '''
         subprocess.run([sys.executable, "-c", verify], cwd=ROOT, env=env, check=True)
-        print("PASS: Chromium login/MFA, checkout/expiry/polling and verified full-refund recording/replay; customer portal hides owner notes; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
+        print("PASS: Chromium login/MFA, checkout return ignores forged status, customer login resumes order, expiry/polling and verified refund/replay; portal hides owner notes; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
     finally:
         process.terminate()
         process.wait(timeout=10)

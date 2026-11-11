@@ -10,6 +10,7 @@ from django.views.decorators.http import require_http_methods
 from django.utils.http import url_has_allowed_host_and_scheme
 from .access import create_member, save_member, save_role
 from .billing import audit
+from .checkout_return import resume_checkout
 from .models import AccessRole, MFADevice, Membership
 from .permissions import membership, require
 from .security import (complete_login, confirm_enrollment, decrypt_secret, encrypt_secret,
@@ -29,7 +30,7 @@ def limited(request, form, template="security/factor.html", **context):
 @require_http_methods(["GET", "POST"])
 def challenge(request):
     if request.user.is_authenticated:
-        return redirect(landing(membership(request.user)))
+        return redirect(resume_checkout(request) or landing(membership(request.user)))
     user = pending_user(request)
     if not user:
         request.session.flush()
@@ -43,7 +44,7 @@ def challenge(request):
         if form.is_valid():
             if verify_factor(user, form.cleaned_data["code"]):
                 complete_login(request, user)
-                return redirect(landing(membership(user)))
+                return redirect(resume_checkout(request) or landing(membership(user)))
             form.add_error("code", "Kode tidak valid, telah dipakai, atau kedaluwarsa.")
             audit(user.membership.tenant, user, "auth.factor_failed", user.pk, correlation_id=request.correlation_id)
     return render(request, "security/factor.html", {"form": form})

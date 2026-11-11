@@ -1,15 +1,18 @@
 import uuid
 from django import forms
+from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, OperationalError
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from .gateway import can_checkout, refresh_order, save_config, start_checkout
+from .checkout_return import SESSION_KEY, remember_checkout_return
 from .gateway_expiry import expire_order
 from .gateway_refunds import reconcile_refund
 from .gateway_worker import save_policy as save_reconciliation_policy
@@ -72,7 +75,8 @@ def settings_response(request, form=None, policy_form=None, status=200):
     except ValidationError:
         merchant, ready = "", False
     return render(request, "gateway/settings.html", {"form": form, "ready": ready, "merchant_id": merchant,
-        "policy": policy, "policy_form": policy_form}, status=status)
+        "policy": policy, "policy_form": policy_form, "public_origin": settings.PUBLIC_ORIGIN,
+        "notification_url": settings.PUBLIC_ORIGIN + reverse("midtrans_notification") if settings.PUBLIC_ORIGIN else ""}, status=status)
 
 
 def expiry_form(order, data=None):
@@ -160,6 +164,18 @@ def scoped_orders(request):
     if member.role == "customer":
         orders = orders.filter(invoice__customer_id=member.customer_id)
     return orders.select_related("invoice", "created_by")
+
+
+@require_GET
+def checkout_return(request, pk):
+    if not request.user.is_authenticated:
+        # Anonymous requests reveal no order existence or payment/customer data.
+        remember_checkout_return(request, pk)
+        return redirect("login")
+    request.session.pop(SESSION_KEY, None)
+    order = allowed_order(request, pk)
+    messages.info(request, "Anda telah kembali dari checkout. Periksa status pembayaran; kembali dari checkout belum membuktikan pembayaran berhasil.")
+    return redirect("gateway_order", pk=order.pk)
 
 
 @require_GET

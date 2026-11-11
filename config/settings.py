@@ -4,9 +4,11 @@ import secrets
 import json
 from pathlib import Path
 from .database import database_config
+from .public_url import public_origin
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = os.getenv("TAGIHNET_DEBUG", "1") == "1"
+PUBLIC_ORIGIN = public_origin(os.getenv("TAGIHNET_PUBLIC_ORIGIN", ""), debug=DEBUG)
 SIMULATION = os.getenv("TAGIHNET_SIMULATION", "1") == "1"
 DATA_DIR = Path(os.getenv("TAGIHNET_DATA_DIR", BASE_DIR / "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)

@@ -1,4 +1,4 @@
-# Midtrans Sandbox — checkpoint pencatatan refund 11 November 2026 WIB
+# Midtrans Sandbox — checkpoint kembali dari checkout 11 November 2026 WIB
 
 Checkout Snap redirect, notifikasi terverifikasi, dan rekonsiliasi kini diimplementasikan. Integrasi **nonaktif secara bawaan**, khusus sandbox dan `TAGIHNET_SIMULATION=1`. Uang nyata, endpoint/kunci produksi, refund otomatis, serta aktivasi router nyata belum didukung. Kredensial merchant dan URL HTTPS publik belum tersedia pada lingkungan pengembangan; transport Midtrans diuji dengan respons tiruan, bukan transaksi pada akun sandbox sebenarnya.
 
@@ -42,6 +42,18 @@ Pemilik ISP membuka **Payment gateway**, meninjau mode sandbox, dan mengaktifkan
 6. Satu pembayaran bersumber `midtrans_sandbox`, satu event per status terverifikasi, audit, serta satu job rekonsiliasi jaringan simulasi disimpan atomik. Router gagal tidak membatalkan pembayaran.
 
 Menu **Pembayaran gateway** menampilkan daftar order ISP sendiri (atau hanya order pelanggan portal itu sendiri), pencarian nama/ID order, filter status, pagination 10/25/50 dan ringkasan status seluruh cakupan sebelum filter. Daftar tidak membocorkan URL checkout privat. GET daftar/detail tidak menghubungi Midtrans. Detail order menampilkan maksimal 20 riwayat verifikasi, beserta hasil saat pertama diterima, tanpa payload mentah/signature. Riwayat order juga tersedia pada detail faktur. Halaman order privat menampilkan status, nominal dan waktu pembuatan serta verifikasi terakhir WIB. Pembaca faktur tanpa izin pembayaran dapat membaca riwayat, tetapi tidak membuat checkout atau meminta pemeriksaan status. Pelanggan tidak dapat mengakses order pelanggan lain, termasuk pelanggan dalam ISP yang sama. Checkout dan refresh memerlukan POST+CSRF dan pembatasan permintaan persisten; GET tidak menghubungi Midtrans.
+
+## Kembali dari checkout dan login ulang
+
+Administrator dapat mengatur `TAGIHNET_PUBLIC_ORIGIN=https://billing.example.id` pada environment process dan menambahkan hostname itu ke `TAGIHNET_ALLOWED_HOSTS`. Gunakan origin saja, tanpa path, kredensial, query atau fragment. Nilai tidak valid menghentikan startup dengan pesan generik. HTTPS wajib; untuk pengujian lokal dengan DEBUG=1, HTTP localhost/127.0.0.1/[::1] dengan port eksplisit juga diterima. Alamat loopback bukan endpoint yang dapat dijangkau Midtrans. Perubahan konfigurasi memerlukan restart proses aplikasi.
+
+Jika origin tersedia, setiap checkout Snap **baru** menyertakan `callbacks.finish` menuju `/payments/orders/<UUID>/return/` pada origin tersebut. Host browser, forwarded host dan field POST tidak menentukan alamat ini. Callback per-transaksi diperiksa terhadap [tipe Callbacks pada SDK Go resmi](https://github.com/Midtrans/midtrans-go/blob/bb1a9d781c69e48a956b2ed129328ffe18d7689e/snap/request.go#L183). Checkout yang URL/token-nya sudah disimpan tetap memakai konfigurasi saat dibuat. Jika origin belum diatur, payload Snap tetap tanpa override callbacks; dashboard merchant menentukan perilaku kembali.
+
+Endpoint kembali hanya menerima GET. Semua parameter URL, termasuk order_id, transaction_status, status_code dan next, diabaikan. GET tidak mengambil status gateway atau mengubah ledger. Pengguna yang masih login diarahkan ke detail order setelah pembatasan tenant/customer diperiksa. Halaman menjelaskan bahwa kembali dari checkout belum membuktikan pembayaran berhasil; tombol **Periksa status pembayaran** tetap memakai POST/CSRF dan verifikasi server-ke-server. Webhook dan worker tetap bekerja secara terpisah.
+
+Jika sesi telah berakhir, endpoint mengarahkan ke login tanpa membaca atau mengungkap keberadaan order. Session menyimpan UUID order serta waktu awal selama maksimal sepuluh menit. Metadata yang tervalidasi ini dipertahankan saat session dihapus/dirotasi untuk password, MFA dan enrollment pertama; data session lain tidak dipertahankan. Password, MFA wajib operator, pemeriksaan pencabutan akses dan rotasi session tetap berlaku. Setelah login, tujuan dipakai sekali dan hak tenant/customer diperiksa lagi. Login akun yang tidak berhak tidak dapat melihat order; tujuan kedaluwarsa kembali ke halaman awal akun. Enrollment pertama tetap menampilkan kode pemulihan sebelum tombol lanjut mengarah ke order. Tidak ada URL eksternal atau nilai next umum yang disimpan sebagai tujuan login.
+
+Setelan owner menampilkan origin dan **Payment Notification URL** berdasarkan konfigurasi yang sama, tanpa secret. Tempel alamat notifikasi itu ke dashboard sandbox merchant. Origin aplikasi, URL kembali dan endpoint notifikasi memiliki peran berbeda: kembali dari browser bukan bukti pembayaran. Pengiriman browser Midtrans sesungguhnya dan akses HTTPS publik masih perlu diuji setelah domain/kredensial tersedia.
 
 ## Webhook dan pemulihan gangguan
 

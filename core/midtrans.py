@@ -10,6 +10,7 @@ import urllib.parse
 import urllib.request
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.urls import reverse
 from django.views.decorators.debug import sensitive_variables
 
 
@@ -119,11 +120,14 @@ class SandboxClient:
             raise GatewayUnavailable("Midtrans Sandbox belum dapat dihubungi. Periksa kembali status order yang sama.") from None
 
     def create(self, order):
-        response = self.request(order, "POST", {"transaction_details": {"order_id": order.order_id, "gross_amount": order.amount},
+        payload = {"transaction_details": {"order_id": order.order_id, "gross_amount": order.amount},
             "credit_card": {"secure": True},
             "item_details": [{"id": str(order.invoice_id), "price": order.amount, "quantity": 1,
                 "name": "Tagihan TagihNet Sandbox"}],
-            "expiry": {"unit": "hours", "duration": 24}})
+            "expiry": {"unit": "hours", "duration": 24}}
+        if settings.PUBLIC_ORIGIN:
+            payload["callbacks"] = {"finish": settings.PUBLIC_ORIGIN + reverse("gateway_return", kwargs={"pk": order.pk})}
+        response = self.request(order, "POST", payload)
         # Do not persist or log the Snap token; the private checkout URL is sufficient.
         return checkout_url(response.get("redirect_url"))
 

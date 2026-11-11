@@ -124,3 +124,11 @@ Aksi owner berscope tenant, POST/CSRF/review/rate-limit, MFA lima menit dan curr
 Penulisan invoice/customer/order/payment terkunci dan atomik dengan PaymentReversal, resolution satu-ke-satu, audit dan job. Retry transaksi tidak mengulang HTTP; replay tidak mengoreksi dua kali. Digest metadata SHA256 bukan bukti signature atau ledger anti-tamper; administrator database tetap dipercaya. Payload mentah/kunci tidak disimpan pada bukti. Catatan owner privat, reversal publik memakai teks generik dan output tetap di-escape.
 
 362 tes pada masing-masing backend, dua race refund lintas proses, browser portal/CSRF/MFA dan restore terenkripsi lulus. Pemanggilan API merchant nyata, refund sebagian, pengiriman refund provider, sengketa, load dan audit anti-tamper tetap belum diverifikasi/diimplementasikan.
+
+## Tujuan kembali dari checkout — 11 November 2026 WIB
+
+Alamat callbacks.finish berasal dari origin process yang divalidasi dan UUID order tersimpan. Request Host/forwarded host, next dan field browser tidak memilih tujuan. Origin menolak userinfo/path/query/fragment dan mewajibkan HTTPS kecuali HTTP loopback pada DEBUG=1. Konfigurasi salah gagal startup tanpa menyalin nilainya ke pesan validasi.
+
+GET kembali tidak menerima bukti pembayaran, tidak memanggil provider dan tidak mengubah ledger. Anonim diarahkan ke login tanpa lookup objek. Hanya UUID+timestamp tervalidasi yang bertahan di antara flush/rotasi session, maksimal sepuluh menit tanpa memperpanjang deadline. Kredensial/faktor dan data pre-auth lain tidak disalin. MFA/enrollment/rotasi/revocation tetap berlaku, kemudian akses tenant/customer diperiksa ulang. Tujuan dipakai sekali; next umum/eksternal diabaikan. Kembalinya pengguna tidak melakukan POST sensitif secara otomatis.
+
+385 tes pada masing-masing backend, browser gateway dan regresi security/MFA serta restore terenkripsi lulus. Tidak ada endpoint write provider baru atau perubahan signature webhook. Account takeover/session abuse pada deployment publik dan redirect merchant sesungguhnya belum diuji.

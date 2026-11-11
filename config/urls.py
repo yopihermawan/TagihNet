@@ -15,6 +15,7 @@ urlpatterns = [
     path("settings/payment-gateway/reconciliation/", gateway.reconciliation_settings, name="gateway_reconciliation_settings"),
     path("invoices/<int:pk>/checkout/", gateway.checkout, name="gateway_checkout"),
     path("payments/orders/<uuid:pk>/", gateway.order_detail, name="gateway_order"),
+    path("payments/orders/<uuid:pk>/return/", gateway.checkout_return, name="gateway_return"),
     path("payments/orders/<uuid:pk>/refresh/", gateway.order_refresh, name="gateway_refresh"),
     path("payments/orders/<uuid:pk>/expire/", gateway.order_expire, name="gateway_expire"),
     path("payments/orders/<uuid:pk>/record-refund/", gateway.order_refund, name="gateway_record_refund"),

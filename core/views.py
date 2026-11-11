@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.debug import sensitive_post_parameters
 from .billing import audit, issue_invoice, record_payment, reverse_payment
+from .checkout_return import resume_checkout
 from .forms import BillingSettingsForm, CustomerForm, InvoiceForm, PaymentForm
 from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment
 from .pdf import render_invoice
@@ -32,7 +33,7 @@ def landing(member):
 @sensitive_post_parameters("password")
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect(landing(membership(request.user)))
+        return redirect(resume_checkout(request) or landing(membership(request.user)))
     if request.method == "POST" and throttle(request, "login"):
         response = render(request, "registration/login.html", {"form": AuthenticationForm(request),
                           "throttled": True}, status=429)
@@ -47,7 +48,7 @@ def login_view(request):
             remember_password(request, user)
             return redirect("mfa_challenge" if enrolled else "mfa_setup")
         complete_login(request, user)
-        return redirect(landing(member))
+        return redirect(resume_checkout(request) or landing(member))
     return render(request, "registration/login.html", {"form": form})
 
 

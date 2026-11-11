@@ -84,3 +84,9 @@ Setelan owner memakai checkbox opt-in, interval 1/5/15 menit, opsi pemeriksaan t
 Detail order owner menyediakan alasan dan persetujuan yang menjelaskan pembayaran dibalik pada ledger serta sisa tagihan dibuka kembali. Tombol menyebut refund yang sudah terjadi; teks menjelaskan aplikasi tidak meminta refund baru. Status Refund penuh tercatat dan ringkasan bertanggal dibedakan dari event Perlu rekonsiliasi saat pertama diterima. Setelah selesai, formulir hilang. Portal melihat ringkasan generik tanpa catatan owner atau aksi pencatatan.
 
 Browser memverifikasi alur dan replay dengan CSRF pada empat viewport tanpa overflow halaman. Bukti [mobile](evidence/gateway-refund-mobile.png) dan [desktop](evidence/gateway-refund-desktop.png) memakai data fiktif, transport tiruan, animasi nonaktif, fokus dilepas dan posisi scroll dikembalikan ke atas sebelum full-page capture. Audit WCAG/screen reader lengkap dan halaman pembayaran eksternal belum diuji.
+
+## Kembali dari checkout — 11 November 2026 WIB
+
+Notifikasi pada detail order menjelaskan bahwa kembali dari checkout belum membuktikan pembayaran berhasil dan menawarkan pemeriksaan status yang sudah ada. Jika sesi habis, login/MFA melanjutkan ke order yang sama; enrollment pertama tetap menampilkan kode pemulihan. Owner dapat melihat origin aplikasi dan notification URL pada setelan. Origin belum diatur ditampilkan sebagai belum tersedia, tanpa mengklaim merchant terhubung.
+
+Chromium memeriksa pending setelah query settlement palsu, resume login customer serta empat viewport tanpa overflow halaman dan tanpa browser errors. Bukti [mobile](evidence/gateway-return-mobile.png)/[desktop](evidence/gateway-return-desktop.png) memakai data fiktif dan transport tiruan. Halaman checkout eksternal dan audit screen reader/WCAG penuh belum diuji.
