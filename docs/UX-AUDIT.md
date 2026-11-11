@@ -70,3 +70,7 @@ Halaman konfigurasi owner dan order pembayaran diuji pada 360/768/1366/1920 px m
 ## Riwayat gateway — 11 November 2026 WIB
 
 Menu Pembayaran gateway menyediakan ringkasan seluruh cakupan sebelum filter, pencarian nama/ID order, status dan pagination. Tabel memakai gulir lokal dengan detail tetap terlihat; 360/768/1366/1920 px diperiksa tanpa overflow horizontal seluruh halaman. Riwayat verifikasi memakai label Indonesia dan menjelaskan hasil saat pertama diterima. Browser memverifikasi filter pending/review serta refund lalu respons sukses terlambat yang tetap perlu rekonsiliasi. Bukti: [daftar mobile](evidence/gateway-history-mobile.png), [daftar desktop](evidence/gateway-history-desktop.png). Transport Midtrans tiruan, tanpa transaksi eksternal.
+
+## Pengakhiran checkout — 11 November 2026 WIB
+
+Form owner pada detail order meminta alasan dan peninjauan; hasil membedakan Diminta, Belum dapat dipastikan, Dikonfirmasi berakhir dan Tidak dapat diakhiri. Form retry mempertahankan alasan/UUID awal. Browser mengakhiri order pending, mereplay formulir dengan CSRF dan membuat checkout pengganti tanpa melunasi faktur. Empat viewport diperiksa; tangkapan layar menonaktifkan animasi agar resize tidak menangkap sidebar saat transisi. Bukti: [mobile](evidence/gateway-expiry-mobile.png), [desktop](evidence/gateway-expiry-desktop.png). Semua menggunakan data dan transport Midtrans tiruan.

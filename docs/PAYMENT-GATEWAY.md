@@ -1,4 +1,4 @@
-# Midtrans Sandbox — checkpoint rekonsiliasi 11 November 2026 WIB
+# Midtrans Sandbox — checkpoint pengakhiran checkout 11 November 2026 WIB
 
 Checkout Snap redirect, notifikasi terverifikasi, dan rekonsiliasi kini diimplementasikan. Integrasi **nonaktif secara bawaan**, khusus sandbox dan `TAGIHNET_SIMULATION=1`. Uang nyata, endpoint/kunci produksi, refund otomatis, serta aktivasi router nyata belum didukung. Kredensial merchant dan URL HTTPS publik belum tersedia pada lingkungan pengembangan; transport Midtrans diuji dengan respons tiruan, bukan transaksi pada akun sandbox sebenarnya.
 
@@ -24,7 +24,7 @@ Izinkan HTTPS keluar hanya ke:
 
 Client menggunakan proxy/CA bawaan lingkungan, Basic Auth server-side, timeout 10 detik, respons maksimal 64 KiB, dan penolakan redirect HTTP. Browser membuka halaman checkout di tab baru tanpa SDK atau script eksternal; CSP aplikasi tetap ketat. Client key tidak diperlukan untuk checkout redirect ini. Detail identitas pelanggan tidak dikirim; payload hanya membawa ID order acak, nominal, dan deskripsi tagihan generik. Permintaan kartu mengaktifkan `credit_card.secure=true`.
 
-Jalankan migrasi `0008` setelah mencadangkan database yang sudah berisi data:
+Jalankan migrasi sampai `0009` setelah mencadangkan database yang sudah berisi data (`0008`: gateway dan payment source; `0009`: permintaan pengakhiran):
 
 ```bash
 .venv/bin/python manage.py migrate --noinput
@@ -63,9 +63,27 @@ Tombol **Periksa status pembayaran** mengambil status langsung. Rekonsiliasi tan
 .venv/bin/python manage.py reconcile_gateway_payments --include-settled --tenant 1 --limit 100
 ```
 
-Perintah ini satu batch, bukan daemon; limit 1–500, ID tenant positif opsional, output hanya jumlah berhasil/gagal tanpa data kredensial. Secara default hanya order belum selesai/perlu rekonsiliasi diperiksa. `--include-settled` juga memeriksa pembayaran tercatat untuk menemukan refund/chargeback yang tidak pernah diterima melalui webhook. `--tenant` membatasi satu ISP. Pemeriksaan berhasil maupun gagal memutar urutan antrean agar satu order bermasalah tidak menghalangi order lain. Untuk order yang status API-nya belum tersedia, termasuk Snap yang belum memilih metode pembayaran, 404 tetap dianggap belum terverifikasi. Jangan menganggapnya lunas, menghapus order, atau membuka reservasi secara lokal. Snap diminta dengan expiry 24 jam, tetapi aplikasi melepaskan reservasi hanya setelah menerima status terminal yang terverifikasi. Timeout setelah Snap berhasil membuat token tetapi sebelum respons diterima dapat memerlukan pemeriksaan merchant/dashboard karena token redirect lama tidak dapat dipulihkan melalui Status API. Pembatalan/expire jarak jauh dan resolusi manual order tak dikenal belum disediakan dalam UI; ini batas cakupan sandbox, bukan prosedur operasional produksi.
+Perintah ini satu batch, bukan daemon; limit 1–500, ID tenant positif opsional, output hanya jumlah berhasil/gagal tanpa data kredensial. Secara default hanya order belum selesai/perlu rekonsiliasi diperiksa. `--include-settled` juga memeriksa pembayaran tercatat untuk menemukan refund/chargeback yang tidak pernah diterima melalui webhook. `--tenant` membatasi satu ISP. Pemeriksaan berhasil maupun gagal memutar urutan antrean agar satu order bermasalah tidak menghalangi order lain. Untuk order yang status API-nya belum tersedia, termasuk Snap yang belum memilih metode pembayaran, 404 tetap dianggap belum terverifikasi. Jangan menganggapnya lunas, menghapus order, atau membuka reservasi secara lokal. Snap diminta dengan expiry 24 jam, tetapi aplikasi melepaskan reservasi hanya setelah menerima status terminal yang terverifikasi. Timeout setelah Snap berhasil membuat token tetapi sebelum respons diterima dapat memerlukan pemeriksaan merchant/dashboard karena token redirect lama tidak dapat dipulihkan melalui Status API. Pengakhiran jarak jauh kini dapat diminta owner untuk transaksi pending yang dikenali, melalui alur di bawah. Resolusi manual order tidak dikenal/404, pemulihan Snap token yang responsnya hilang, dan refund provider belum disediakan; ini batas cakupan sandbox, bukan prosedur operasional produksi.
 
 Jika provider melaporkan pembayaran melebihi sisa faktur, order diberi status rekonsiliasi dan tidak membuat saldo negatif. Setelah pencatatan manual yang keliru dikoreksi melalui reversal berizin, periksa status lagi: settlement yang sama dapat dinilai ulang terhadap saldo terkini dan mencatat tepat satu pembayaran gateway. Bukti verifikasi pertama tetap berstatus review, dengan audit terpisah untuk pemulihan; replay tidak menggandakan payment/event/job. Pemulihan otomatis ini ditolak bila order pernah memiliki refund/chargeback terverifikasi. Periksa merchant dan ledger sebelum refund/penyesuaian; penyesuaian keuangan otomatis belum diimplementasikan.
+
+## Mengakhiri pembayaran sandbox
+
+Owner membuka detail order yang masih Menyiapkan checkout atau Menunggu pembayaran, mengisi alasan 10–250 karakter dan konfirmasi peninjauan, lalu memilih **Minta pengakhiran pembayaran**. Aksi memakai POST+CSRF, pembatasan permintaan, scope ISP, status akun aktif, session version dan MFA terbaru lima menit. Kasir, keuangan, operasional, NOC dan pelanggan tidak berwenang. GET hanya menampilkan form; tidak menghubungi gateway. Pengakhiran ini tidak melunasi faktur, tidak menghapus ledger, dan bukan refund.
+
+Aplikasi menyimpan `GatewayExpiry` beserta UUID permintaan, pemohon, alasan asli, waktu, status dan audit **sebelum** operasi jaringan. Jika formulir dikirim ulang dengan UUID sama, intent dipakai kembali; alasan berbeda dengan UUID yang sudah digunakan ditolak. Permintaan yang belum pasti ditampilkan dengan UUID/alasan awal untuk dicoba ulang. Hasil terminal tidak mengirim POST baru saat direplay. Dua pengiriman bersamaan dapat mencapai gateway dengan order ID yang sama, tetapi satu intent dan hasil terminal tersimpan; tidak ada penghapusan atau penambahan pembayaran karena replay.
+
+Urutan pemeriksaan:
+
+1. Ambil GET status melalui kredensial merchant milik ISP, dan validasi order/merchant/amount/IDR/transaction ID seperti saat rekonsiliasi.
+2. Bila pembayaran sudah selesai, terjadi refund/chargeback atau status tidak dikenal, jangan kirim expire. Settlement yang sah tetap masuk ledger sesuai aturan biasa.
+3. Hanya untuk status pending, periksa lagi izin dan MFA, lalu kirim POST ke host tetap `https://api.sandbox.midtrans.com/v2/<order_id>/expire`.
+4. Ambil GET status lagi, termasuk jika POST timeout atau ditolak. Respons POST sendiri tidak pernah melepaskan reservasi.
+5. Hanya status terminal expire/cancel/deny yang sudah terverifikasi dapat menghasilkan **Dikonfirmasi berakhir**. Pembayaran yang menang dalam race tetap tercatat, dan permintaan berstatus **Tidak dapat diakhiri**. Gangguan atau status yang masih pending menghasilkan **Belum dapat dipastikan**, dengan reservasi tetap ada.
+
+Status awal **Diminta** juga dapat dipakai ulang jika proses berhenti sebelum hasil tersimpan. Tidak ada umur lokal yang otomatis membebaskan order. Setelah pengakhiran terkonfirmasi, checkout pengganti memakai UUID order baru dan sisa tagihan dari server; faktur lama tetap belum lunas. Menonaktifkan checkout baru pada setelan tidak menghalangi pengakhiran order lama, selama kredensial sandbox tetap tersedia dan SIMULATION=1. Pencabutan izin/sesi atau lewatnya batas MFA setelah preflight mencegah pengiriman write baru.
+
+Riwayat maksimal sepuluh permintaan ditampilkan hanya kepada owner, termasuk alasan plaintext dan waktu WIB. Seluruh intent masuk backup/restore terenkripsi. Audit dan penyiapan intent berada di transaksi yang dapat dicoba ulang, sedangkan operasi HTTP berada di luar transaksi; retry lock database tidak mengulangi POST jaringan. Jika layanan gagal setelah remote request, ulangi UUID yang sama untuk memeriksa kebenaran status terlebih dahulu.
 
 ## Bukti pengujian dan batasnya
 

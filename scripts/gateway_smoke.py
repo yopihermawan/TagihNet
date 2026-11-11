@@ -38,6 +38,7 @@ from core.models import MFADevice
 from core.security import encrypt_secret
 tenants, owners, customers = fixtures()
 issue_invoice(tenants[0], customers[0].pk, date(2026, 11, 1), owners[0])
+issue_invoice(tenants[0], customers[0].pk, date(2026, 12, 1), owners[0])
 MFADevice.objects.create(user=owners[0], encrypted_secret=encrypt_secret("JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"))
 '''
     subprocess.run([sys.executable, "-c", fixture], cwd=ROOT, env=env, check=True, stdout=subprocess.DEVNULL)
@@ -52,7 +53,10 @@ def status(order):
     return {"order_id":order.order_id,"merchant_id":"G-BROWSER","gross_amount":f"{order.amount}.00",
         "currency":"IDR","transaction_id":f"txn-{order.pk.hex}","transaction_status":
         (Path(os.environ["TAGIHNET_DATA_DIR"])/"remote-status").read_text(),"fraud_status":"accept","status_code":"200"}
-with patch("core.gateway.SandboxClient.create",return_value="https://app.sandbox.midtrans.com/snap/v4/redirection/browser-fixture"), patch("core.gateway.SandboxClient.status",side_effect=status):
+def expire(order):
+    (Path(os.environ["TAGIHNET_DATA_DIR"])/"remote-status").write_text("expire")
+    return {"status_code":"407"}
+with patch("core.gateway.SandboxClient.create",return_value="https://app.sandbox.midtrans.com/snap/v4/redirection/browser-fixture"), patch("core.gateway.SandboxClient.status",side_effect=status), patch("core.gateway_expiry.SandboxClient.expire",side_effect=expire):
     call_command("runserver",os.environ["TAGIHNET_BROWSER_ADDRESS"],use_reloader=False)
 '''
     process = subprocess.Popen([sys.executable, "-c", server_code], cwd=ROOT,
@@ -109,9 +113,9 @@ with patch("core.gateway.SandboxClient.create",return_value="https://app.sandbox
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, route)
                 if width in [360, 1366]:
                     page.goto(order_url)
-                    page.screenshot(path=str(evidence / f"gateway-{'mobile' if width == 360 else 'desktop'}.png"), full_page=True)
+                    page.screenshot(path=str(evidence / f"gateway-{'mobile' if width == 360 else 'desktop'}.png"), full_page=True, animations="disabled")
                     page.goto(base + "/payments/orders/")
-                    page.screenshot(path=str(evidence / f"gateway-history-{'mobile' if width == 360 else 'desktop'}.png"), full_page=True)
+                    page.screenshot(path=str(evidence / f"gateway-history-{'mobile' if width == 360 else 'desktop'}.png"), full_page=True, animations="disabled")
             payload = {"order_id": order_id, "status_code": "200", "gross_amount": "249750.00"}
             payload["signature_key"] = "0" * 128
             assert context.request.post(base + "/payments/midtrans/notifications/", data=payload).status == 403
@@ -135,20 +139,50 @@ with patch("core.gateway.SandboxClient.create",return_value="https://app.sandbox
             expect(page.get_by_role("heading", name="Perlu rekonsiliasi", exact=True)).to_be_visible()
             page.goto(base + "/payments/orders/?status=review")
             expect(page.get_by_role("link", name=f"Lihat order {order_id}")).to_be_visible()
+            (temporary / "remote-status").write_text("pending")
+            page.goto(base + "/invoices/2/")
+            page.get_by_role("button", name="Buka checkout sandbox").click()
+            page.wait_for_url("**/payments/orders/*/")
+            expiring_url = page.url
+            expiry_key = page.locator('input[name="request_key"]').input_value()
+            reason = "Pelanggan meminta checkout sandbox baru untuk pengujian"
+            page.get_by_label("Alasan mengakhiri pembayaran").fill(reason)
+            page.get_by_label("Saya meminta pengakhiran di gateway", exact=False).check()
+            for width in [360, 768, 1366, 1920]:
+                page.set_viewport_size({"width": width, "height": 920})
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
+                if width in [360, 1366]:
+                    page.screenshot(path=str(evidence / f"gateway-expiry-{'mobile' if width==360 else 'desktop'}.png"), full_page=True, animations="disabled")
+            page.get_by_role("button", name="Minta pengakhiran pembayaran", exact=True).click()
+            expect(page.get_by_role("heading", name="Kedaluwarsa di gateway", exact=True)).to_be_visible()
+            expect(page.get_by_text("Dikonfirmasi berakhir", exact=True)).to_be_visible()
+            assert page.get_by_role("button", name="Minta pengakhiran pembayaran", exact=True).count()==0
+            csrf = next(cookie["value"] for cookie in context.cookies(base) if cookie["name"]=="csrftoken")
+            replay = context.request.post(expiring_url + "expire/", form={"request_key":expiry_key,"reason":reason,
+                "reviewed":"on","csrfmiddlewaretoken":csrf})
+            assert replay.status==200
+            (temporary / "remote-status").write_text("pending")
+            page.goto(base + "/invoices/2/")
+            page.get_by_role("button", name="Buka checkout sandbox").click()
+            page.wait_for_url("**/payments/orders/*/")
+            assert page.url!=expiring_url
+            expect(page.get_by_role("heading", name="Menunggu pembayaran", exact=True)).to_be_visible()
             assert not errors, errors
             browser.close()
         verify = '''
 import django
 django.setup()
-from core.models import Payment,GatewayEvent,NetworkJob,Invoice
+from core.models import Payment,GatewayEvent,GatewayExpiry,GatewayOrder,NetworkJob,Invoice
 assert Payment.objects.count()==NetworkJob.objects.count()==1
-assert GatewayEvent.objects.count()==3
-assert set(GatewayEvent.objects.values_list("gateway_status",flat=True))=={"pending","settlement","refund"}
-assert Invoice.objects.get().balance==0
+assert GatewayEvent.objects.count()==5
+assert set(GatewayEvent.objects.values_list("gateway_status",flat=True))=={"pending","settlement","refund","expire"}
+assert [invoice.balance for invoice in Invoice.objects.order_by("pk")]==[0,249750]
 assert Payment.objects.get().gatewayorder.status=="review"
+assert GatewayExpiry.objects.count()==1 and GatewayExpiry.objects.get().status=="confirmed"
+assert GatewayOrder.objects.filter(invoice_id=2).count()==2
 '''
         subprocess.run([sys.executable, "-c", verify], cwd=ROOT, env=env, check=True)
-        print("PASS: Chromium login/MFA, gateway opt-in, checkout, history/filter, signed callback/replay, settled ledger and refund/late-success review; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
+        print("PASS: Chromium login/MFA, checkout/history/refund, owner-reviewed expiry/replay and replacement checkout; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
     finally:
         process.terminate()
         process.wait(timeout=10)

@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from .gateway import can_checkout, refresh_order, save_config, start_checkout
+from .gateway_expiry import expire_order
 from .midtrans import GatewayUnavailable, credentials, json_object, valid_signature
 from .models import GatewayConfig, GatewayOrder
 from .permissions import capabilities, membership, require
@@ -22,6 +23,22 @@ class ConfigForm(forms.Form):
     enabled = forms.BooleanField(required=False, label="Aktifkan checkout Midtrans Sandbox untuk ISP ini")
     version = forms.IntegerField(min_value=0, widget=forms.HiddenInput)
     reviewed = forms.BooleanField(label="Saya memahami ini pengujian sandbox dan tidak menerima uang nyata.")
+
+
+class ExpiryForm(forms.Form):
+    request_key = forms.UUIDField(widget=forms.HiddenInput)
+    reason = forms.CharField(min_length=10, max_length=250, widget=forms.Textarea(attrs={"rows": 3}), label="Alasan mengakhiri pembayaran")
+    reviewed = forms.BooleanField(label="Saya meminta pengakhiran di gateway dan memahami tagihan tetap belum lunas bila belum dibayar.")
+
+
+def expiry_form(order, data=None):
+    previous = order.expiry_requests.filter(status__in=["requested", "unavailable"]).first()
+    form = ExpiryForm(data, initial={"request_key": previous.request_key if previous else uuid.uuid4(),
+        "reason": previous.reason if previous else ""})
+    if previous:
+        form.fields["reason"].disabled = True
+        form.fields["reason"].help_text = "Coba ulang permintaan yang sama; alasan awal tetap disimpan."
+    return form
 
 
 @require("manage_access")
@@ -111,8 +128,37 @@ def order_list(request):
 @require_GET
 def order_detail(request, pk):
     order = allowed_order(request, pk)
+    owner = membership(request.user).role == "owner"
     return render(request, "gateway/order.html", {"order": order, "can_refresh": can_checkout(membership(request.user)),
-        "events": order.events.order_by("-created_at", "-pk")[:20]})
+        "events": order.events.order_by("-created_at", "-pk")[:20],
+        "expiry_form": expiry_form(order) if owner and not order.payment_id and order.status in {"creating", "pending"} else None,
+        "expiry_requests": order.expiry_requests.select_related("requested_by")[:10] if owner else []})
+
+
+@require("manage_access")
+@require_POST
+def order_expire(request, pk):
+    if request.member.role != "owner":
+        raise PermissionDenied
+    order = allowed_order(request, pk)
+    if not recent_factor(request, return_to=f"/payments/orders/{order.pk}/"):
+        return redirect("account_security")
+    if throttle(request, "gateway_expiry", request.user.pk):
+        return JsonResponse({"error": "Terlalu banyak permintaan. Coba kembali nanti."}, status=429)
+    form = expiry_form(order, request.POST)
+    if form.is_valid():
+        try:
+            result = expire_order(request.user, order.pk, form.cleaned_data["request_key"], form.cleaned_data["reason"],
+                request.session["mfa_verified_at"], request.session["access_version"])
+        except (ValidationError, GatewayUnavailable, IntegrityError, OperationalError):
+            form.add_error(None, "Permintaan belum dapat diselesaikan. Periksa status order sebelum mencoba kembali.")
+        else:
+            messages.info(request, result.result)
+            return redirect("gateway_order", pk=pk)
+    order.refresh_from_db()
+    return render(request, "gateway/order.html", {"order": order, "can_refresh": True,
+        "events": order.events.order_by("-created_at", "-pk")[:20], "expiry_form": form,
+        "expiry_requests": order.expiry_requests.select_related("requested_by")[:10]}, status=400)
 
 
 @require_POST

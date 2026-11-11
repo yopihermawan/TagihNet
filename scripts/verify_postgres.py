@@ -62,6 +62,38 @@ def child(data):
             if data["role"] == 0:
                 (gate_dir/"dispute-applied").touch()
             return {"status": result.status, "payment_id": result.payment_id}
+        if case in {"gateway_expiry", "gateway_expiry_payment"}:
+            from core.gateway import apply_status
+            from core.gateway_expiry import expire_order
+            from core.midtrans import GatewayUnavailable
+            from core.models import GatewayOrder
+            from core.tests.test_payment_gateway import status_payload
+            current = GatewayOrder.objects.get(pk=data["gateway_order"])
+            def wait_for(name):
+                deadline = time.monotonic()+15
+                while not (gate_dir/name).exists():
+                    if time.monotonic()>deadline:
+                        raise TimeoutError("Expiry process gate timed out")
+                    time.sleep(.01)
+            if case == "gateway_expiry_payment" and data["role"] == 1:
+                wait_for("expiry-preflight")
+                result = apply_status(current.pk, status_payload(current))
+                (gate_dir/"payment-committed").touch()
+                return str(result.payment_id)
+            def status(order):
+                state = ("settlement" if (gate_dir/"payment-committed").exists() else
+                    "expire" if (gate_dir/"remote-expired").exists() else "pending")
+                return status_payload(order, state)
+            def expire(order):
+                if case == "gateway_expiry_payment":
+                    (gate_dir/"expiry-preflight").touch()
+                    wait_for("payment-committed")
+                    raise GatewayUnavailable
+                (gate_dir/"remote-expired").touch()
+                return {}
+            with patch("core.gateway.SandboxClient.status", side_effect=status), patch("core.gateway_expiry.SandboxClient.expire", side_effect=expire):
+                result = expire_order(actor, current.pk, data["expiry_key"], "Permintaan akhir checkout pada lab dua proses", time.time(), 1)
+            return {"request": str(result.pk), "status": result.status}
         if case == "issue":
             return issue_invoice(tenant, data["customer"], date.fromisoformat(data["period"]), actor)[0].pk
         if case in {"payment", "cross_payment"}:
@@ -371,6 +403,21 @@ def verify():
         assert all(result["ok"] == {"status": "review", "payment_id": None} for result in results)
         assert disputed_invoice.balance == disputed_invoice.total and NetworkJob.objects.count() == jobs_before
         print("PASS: 2 processes, refund commits before late settlement -> review, no payment/network job", flush=True)
+        from core.models import GatewayExpiry
+        ending_invoice, _ = issue_invoice(tenant, customer.pk, date(2027, 1, 1), actor)
+        ending_order = reserve_order(actor, ending_invoice.pk)
+        jobs_before, payments_before = NetworkJob.objects.count(), Payment.objects.count()
+        results = parallel("gateway_expiry", {**common,"gateway_order":str(ending_order.pk),"expiry_key":str(uuid.uuid4())})
+        assert results[0]["ok"] == results[1]["ok"] and results[0]["ok"]["status"]=="confirmed"
+        assert GatewayExpiry.objects.filter(order=ending_order).count()==1
+        assert ending_invoice.balance==ending_invoice.total and NetworkJob.objects.count()==jobs_before and Payment.objects.count()==payments_before
+        print("PASS: 2 processes, repeated expiry intent -> 1 confirmed request, no payment/network job", flush=True)
+        racing_invoice, _ = issue_invoice(tenant, customer.pk, date(2027, 2, 1), actor)
+        racing_order = reserve_order(actor, racing_invoice.pk)
+        results = parallel("gateway_expiry_payment", {**common,"gateway_order":str(racing_order.pk),"expiry_key":str(uuid.uuid4())})
+        assert results[0]["ok"]["status"]=="blocked" and GatewayExpiry.objects.get(order=racing_order).status=="blocked"
+        assert racing_invoice.balance==0 and Payment.objects.count()==payments_before+1 and NetworkJob.objects.count()==jobs_before+1
+        print("PASS: 2 processes, payment wins expiry race -> 1 payment, blocked expiry, no lost ledger entry", flush=True)
         import pyotp
         from core.models import MFADevice
         from core.security import encrypt_secret, decrypt_secret

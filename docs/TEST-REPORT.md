@@ -1,6 +1,6 @@
 # Laporan pengujian — 1 November 2026, WIB
 
-Laporan awal di bawah bersifat historis. Hasil terbaru checkpoint rekonsiliasi Midtrans Sandbox pada **11 November 2026 WIB**: **294 tes pada SQLite dan 294 pada PostgreSQL**, tanpa fail/skip/expected-failure; rincian ada di bagian akhir.
+Laporan awal di bawah bersifat historis. Hasil terbaru checkpoint pengakhiran Midtrans Sandbox pada **11 November 2026 WIB**: **316 tes pada SQLite dan 316 pada PostgreSQL**, tanpa fail/skip/expected-failure; rincian ada di bagian akhir.
 
 Target: checkpoint billing, operasional, pengingat, PSB dan monitoring NAS simulasi TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite dan PostgreSQL 16.15 (psycopg 3.3.6), Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
 
@@ -150,3 +150,15 @@ Enam tes tambahan mencakup batas tenant dan pelanggan pada daftar/ringkasan orde
 `gateway_smoke.py` lulus dengan Chromium dan HTTP nyata serta transport Midtrans tiruan: login/MFA/opt-in, checkout, pencarian/filter pending/review, callback palsu/replay, settlement, refund, dan sukses terlambat yang tetap review. List/detail/setelan/faktur diperiksa pada 360/768/1366/1920 px tanpa overflow horizontal seluruh halaman; tabel memiliki gulir lokal; **0 browser errors**. Screenshot riwayat gateway mobile/desktop diperiksa. Satu payment, tiga status verifikasi (pending/settlement/refund), satu job, dan saldo tetap konsisten.
 
 Encrypted SQLite restore, system check, migration drift, pip check dan diff whitespace check lulus. Tidak ada migrasi skema atau dependensi baru. Kredensial sandbox privat belum ada pada process dan domain Midtrans masih baru berada dalam draft, belum di kebijakan runtime; transaksi merchant dan webhook HTTPS publik belum diuji. Domain publik belum ditentukan. Bukti lokal bukan bukti akun Midtrans atau CI remote siap.
+
+## Checkpoint pengakhiran pembayaran sandbox — 11 November 2026 WIB
+
+22 tes tambahan, **316 tes pada SQLite dan 316 pada PostgreSQL 16.15**, lulus tanpa fail/skip/expected-failure. Cakupan: owner/tenant/MFA/session/CSRF/POST/review/reason, intent UUID persisten, replay/alasan berbeda, timeout sebelum/sesudah write, respons POST tanpa konfirmasi GET, unknown/404, mismatch nominal, pencabutan sesi setelah preflight, gateway default-off/live-mode, pembayaran yang menang race, refund, GET tanpa efek, alasan ter-escape, retry dengan alasan/UUID awal serta endpoint POST expire sandbox tetap.
+
+Suite penuh SQLite pertama menemukan audit attempt di luar transaksi retry dapat gagal dengan database table is locked ketika dua request berjalan bersamaan. Audit dipindahkan ke transaksi persiapan intent; relasi order di-cache sebelum keluar transaksi dan pembacaan otorisasi dapat diulang saat lock. Tes fault injection menimbulkan lock pada audit, memeriksa rollback/retry menghasilkan satu intent/audit request dan satu network write. Suite penuh kedua lulus 316/316. Tidak ada HTTP di dalam transaksi yang dapat diulang.
+
+`verify_postgres.py` lulus **16 skenario dua proses**. Tambahan expiry: dua proses dengan UUID permintaan sama menghasilkan satu intent confirmed tanpa payment/job; skenario terpisah memaksa payment commit setelah preflight namun sebelum expire selesai, menghasilkan satu payment/job, saldo lunas dan expiry blocked. Restore logis/terenkripsi PostgreSQL membandingkan seluruh tabel termasuk intent confirmed/blocked. Database verifikasi sementara dibersihkan.
+
+`gateway_smoke.py` lulus dengan Chromium/HTTP sungguhan, transport Midtrans tiruan dan data sementara: dua faktur, transaksi pertama settlement/refund, checkout kedua diakhiri lewat form alasan/review owner, status expire terverifikasi, replay dengan CSRF tidak menambah intent, lalu checkout pengganti memakai order baru. Empat viewport 360/768/1366/1920, tanpa overflow horizontal seluruh halaman dan 0 browser errors. Satu payment/job untuk faktur pertama, tiga order, lima status verifikasi dan satu expiry confirmed; saldo faktur kedua tetap Rp249.750. Tangkapan layar memakai animasi disabled agar viewport resize tidak merekam sidebar saat transisi.
+
+Encrypted SQLite restore drill kini mencakup permintaan expiry confirmed selain payment settled dan reservasi lain pending; seluruh tabel dan MFA login/replay cocok. Backup AES-256-GCM database development dibuat dan verify lulus sebelum migrasi 0009 diterapkan. System check, model drift, pip check serta diff whitespace check lulus. Tidak ada dependensi runtime baru. Akun merchant sandbox asli, notifikasi HTTPS publik dan produksi tetap belum diuji karena kredensial/domain belum tersedia pada runtime. Bukti transport tiruan tidak membuktikan layanan Midtrans siap.

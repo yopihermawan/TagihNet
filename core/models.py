@@ -326,6 +326,24 @@ class GatewayEvent(models.Model):
         constraints = [models.UniqueConstraint(fields=["order", "fingerprint"], name="unique_gateway_event")]
 
 
+class GatewayExpiry(models.Model):
+    STATES = [("requested", "Diminta"), ("confirmed", "Dikonfirmasi berakhir"),
+        ("unavailable", "Belum dapat dipastikan"), ("blocked", "Tidak dapat diakhiri")]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(GatewayOrder, related_name="expiry_requests", on_delete=models.PROTECT)
+    request_key = models.UUIDField()
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    reason = models.CharField(max_length=250)
+    status = models.CharField(max_length=16, choices=STATES, default="requested")
+    result = models.CharField(max_length=250, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        constraints = [models.UniqueConstraint(fields=["order", "request_key"], name="gateway_expiry_request_once")]
+
+
 class NetworkJob(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT)

@@ -96,12 +96,15 @@ def valid_signature(order, payload):
 
 class SandboxClient:
     @sensitive_variables()
-    def request(self, order, method, payload=None):
+    def request(self, order, method, payload=None, *, action=None):
+        if action not in {None, "expire"} or method not in {"GET", "POST"} or (action and method != "POST"):
+            raise ValueError("Unsupported sandbox operation")
         _, key = credentials(order.tenant_id, order.merchant_id)
-        url = ("https://app.sandbox.midtrans.com/snap/v1/transactions" if method == "POST"
+        url = (f"https://api.sandbox.midtrans.com/v2/{order.order_id}/expire" if action == "expire"
+            else "https://app.sandbox.midtrans.com/snap/v1/transactions" if method == "POST"
             else f"https://api.sandbox.midtrans.com/v2/{order.order_id}/status")
         auth = base64.b64encode((key + ":").encode()).decode()
-        request = urllib.request.Request(url, data=json.dumps(payload).encode() if payload else None,
+        request = urllib.request.Request(url, data=json.dumps(payload).encode() if payload is not None else None,
             headers={"Authorization": f"Basic {auth}", "Accept": "application/json", "Content-Type": "application/json"}, method=method)
         try:
             # Inherits session proxy and CA trust; refuses redirects, including to production.
@@ -126,3 +129,7 @@ class SandboxClient:
 
     def status(self, order):
         return self.request(order, "GET")
+
+    def expire(self, order):
+        # The response to this write is never used to release the local reservation.
+        return self.request(order, "POST", {}, action="expire")
