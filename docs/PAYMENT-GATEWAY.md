@@ -1,4 +1,4 @@
-# Midtrans Sandbox — checkpoint laporan ledger 12 November 2026 WIB
+# Midtrans Sandbox — checkpoint status notifikasi 12 November 2026 WIB
 
 Checkout Snap redirect, notifikasi terverifikasi, dan rekonsiliasi kini diimplementasikan. Integrasi **nonaktif secara bawaan**, khusus sandbox dan `TAGIHNET_SIMULATION=1`. Uang nyata, endpoint/kunci produksi, refund otomatis, serta aktivasi router nyata belum didukung. Kredensial merchant dan URL HTTPS publik belum tersedia pada lingkungan pengembangan; transport Midtrans diuji dengan respons tiruan, bukan transaksi pada akun sandbox sebenarnya.
 
@@ -24,7 +24,7 @@ Izinkan HTTPS keluar hanya ke:
 
 Client menggunakan proxy/CA bawaan lingkungan, Basic Auth server-side, timeout 10 detik, respons maksimal 64 KiB, dan penolakan redirect HTTP. Browser membuka halaman checkout di tab baru tanpa SDK atau script eksternal; CSP aplikasi tetap ketat. Client key tidak diperlukan untuk checkout redirect ini. Detail identitas pelanggan tidak dikirim; payload hanya membawa ID order acak, nominal, dan deskripsi tagihan generik. Permintaan kartu mengaktifkan `credit_card.secure=true`.
 
-Jalankan migrasi sampai `0012` setelah mencadangkan database yang sudah berisi data (`0008`: gateway/payment source; `0009`: pengakhiran; `0010`: kebijakan polling; `0011`: waktu pemeriksaan/verifikasi; `0012`: bukti pencatatan refund penuh). Migrasi 0012 tidak membalik pembayaran lama secara otomatis:
+Jalankan migrasi sampai `0013` setelah mencadangkan database yang sudah berisi data (`0008`: gateway/payment source; `0009`: pengakhiran; `0010`: kebijakan polling; `0011`: waktu pemeriksaan/verifikasi; `0012`: bukti pencatatan refund penuh; `0013`: metadata penerimaan notifikasi). Migrasi 0012 tidak membalik pembayaran lama; 0013 tidak menyimpulkan riwayat pengiriman dari event pemeriksaan status:
 
 ```bash
 .venv/bin/python manage.py migrate --noinput
@@ -78,6 +78,24 @@ Tombol **Periksa status pembayaran** mengambil status langsung. Rekonsiliasi tan
 Perintah ini satu batch, bukan daemon; limit 1–500, ID tenant positif opsional, output hanya jumlah berhasil/gagal tanpa data kredensial. Secara default hanya order belum selesai/perlu rekonsiliasi diperiksa. `--include-settled` juga memeriksa pembayaran tercatat untuk menemukan refund/chargeback yang tidak pernah diterima melalui webhook. `--tenant` membatasi satu ISP. Pemeriksaan berhasil maupun gagal memutar urutan antrean agar satu order bermasalah tidak menghalangi order lain. Untuk order yang status API-nya belum tersedia, termasuk Snap yang belum memilih metode pembayaran, 404 tetap dianggap belum terverifikasi. Jangan menganggapnya lunas, menghapus order, atau membuka reservasi secara lokal. Snap diminta dengan expiry 24 jam, tetapi aplikasi melepaskan reservasi hanya setelah menerima status terminal yang terverifikasi. Timeout setelah Snap berhasil membuat token tetapi sebelum respons diterima dapat memerlukan pemeriksaan merchant/dashboard karena token redirect lama tidak dapat dipulihkan melalui Status API. Pengakhiran jarak jauh kini dapat diminta owner untuk transaksi pending yang dikenali, melalui alur di bawah. Resolusi manual order tidak dikenal/404, pemulihan Snap token yang responsnya hilang, dan refund provider belum disediakan; ini batas cakupan sandbox, bukan prosedur operasional produksi.
 
 Jika provider melaporkan pembayaran melebihi sisa faktur, order diberi status rekonsiliasi dan tidak membuat saldo negatif. Setelah pencatatan manual yang keliru dikoreksi melalui reversal berizin, periksa status lagi: settlement yang sama dapat dinilai ulang terhadap saldo terkini dan mencatat tepat satu pembayaran gateway. Bukti verifikasi pertama tetap berstatus review, dengan audit terpisah untuk pemulihan; replay tidak menggandakan payment/event/job. Pemulihan otomatis ini ditolak bila order pernah memiliki refund/chargeback terverifikasi. Periksa merchant dan ledger sebelum refund/penyesuaian; penyesuaian keuangan otomatis belum diimplementasikan.
+
+## Status penerimaan notifikasi untuk owner
+
+Detail order menampilkan **Notifikasi Midtrans** hanya kepada owner ISP. Bagian **Penerimaan notifikasi** pada setelan gateway merangkum ISP sendiri. Data terdiri dari jumlah pengiriman terautentikasi (termasuk replay), waktu penerimaan terakhir, hasil pengiriman terakhir dan waktu hasil selesai. Satu baris `GatewayNotificationState` per order membatasi pertumbuhan metadata; tidak ada arsip semua payload atau catatan setiap permintaan.
+
+Catatan dibuat setelah signature dan nominal callback lolos autentikasi. Request malformed, order tidak dikenal, signature palsu, atau kredensial/mode yang tidak dapat memverifikasi signature tidak membuat atau mengubah metadata. Body, signature, server key dan detail exception tidak disimpan. Migrasi tidak mengisi data lama berdasarkan GatewayEvent karena event juga dapat berasal dari pemeriksaan manual/worker. Label **Belum ada catatan** berarti metadata belum tersedia, bukan bukti bahwa notifikasi tidak pernah tiba sebelum fitur ini aktif.
+
+Hasil pengiriman terakhir dibedakan sebagai berikut:
+
+- **Hasil belum tersedia**: pengiriman terautentikasi sudah tercatat, tetapi belum ada hasil akhir. Proses dapat masih berjalan atau terputus; ini bukan klaim ada worker aktif.
+- **Status terverifikasi**: GET status dan penerapannya berhasil. Status API dapat pending, settlement atau perlu rekonsiliasi; hasil ini sendiri tidak berarti invoice lunas.
+- **Verifikasi belum berhasil**: jaringan, identitas status atau penulisan ledger belum dapat dipastikan. Endpoint tetap mengembalikan 503 agar provider dapat mengirim ulang. Owner juga dapat memeriksa status order yang sama.
+
+Urutan penerimaan menentukan pengiriman terakhir, bukan urutan selesainya HTTP. Counter bertambah atomik, lalu HTTP berjalan di luar transaksi. Penyimpanan hasil hanya berlaku bila nomor pengiriman masih yang terbaru dan belum memiliki hasil akhir. Penyelesaian lama atau berulang tidak menimpa hasil terbaru. Status API sah dari request lama tetap melewati writer ledger idempoten, sehingga pembayaran tidak hilang hanya karena request lebih baru gagal. Status finansial order dan hasil pengiriman adalah dua informasi yang berbeda.
+
+Pencatatan hasil terpisah dari commit pembayaran. Jika proses/database gagal setelah pembayaran tersimpan, metadata dapat tetap **Hasil belum tersedia** dan respons 503; replay memverifikasi order yang sama tanpa payment/job ganda. Pemeriksaan manual dan worker tidak mengganti metadata notifikasi, meskipun berhasil memperbarui status order. Ringkasan setelan menghitung hasil pengiriman terakhir per order, bukan jumlah pembayaran atau semua percobaan yang pernah gagal.
+
+Alur webhook tetap sinkron: HTTP 200 hanya diberikan setelah GET status berhasil diterapkan dan hasil pengiriman terbaru dapat disimpan atau sudah digantikan oleh pengiriman yang lebih baru. Tidak ada antrean retry lokal atau proses worker baru. Metadata tidak membuktikan kelengkapan pengiriman merchant atau konektivitas HTTPS saat ini. Tetap uji satu notifikasi merchant sesungguhnya setelah kredensial/domain tersedia.
 
 ## Mencatat refund penuh yang sudah selesai
 

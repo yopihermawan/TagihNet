@@ -67,6 +67,14 @@ GatewayConfig.objects.create(tenant=tenants[0], merchant_id="G-TEST", enabled=Tr
 with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(tenants[0])):
     order = reserve_order(owners[0], invoice.pk)
     apply_status(order.pk, status_payload(order))
+    from django.test import Client
+    from core.midtrans import GatewayUnavailable
+    from core.tests.test_payment_gateway import notification_payload
+    import json
+    with patch("core.gateway.SandboxClient.status",side_effect=GatewayUnavailable):
+        assert Client().post("/payments/midtrans/notifications/",data=json.dumps(notification_payload(order)),content_type="application/json").status_code==503
+    with patch("core.gateway.SandboxClient.status",return_value=status_payload(order)):
+        assert Client().post("/payments/midtrans/notifications/",data=json.dumps(notification_payload(order)),content_type="application/json").status_code==200
     pending, _ = issue_invoice(tenants[0], customers[0].pk, date(2026, 11, 1), owners[0])
     reserve_order(owners[0], pending.pk)
     ending, _ = issue_invoice(tenants[0], customers[0].pk, date(2026, 12, 1), owners[0])
@@ -150,6 +158,9 @@ assert PaymentReversal.objects.count()==1 and resolution.reversal.payment_id==re
 assert resolution.amount==resolution.order.amount==resolution.reversal.payment.amount
 assert resolution.transaction_id==resolution.order.transaction_id and len(resolution.proof_digest)==64
 assert GatewayExpiry.objects.get().status=="confirmed"
+from core.models import GatewayNotificationState
+notification=GatewayNotificationState.objects.get()
+assert notification.delivery_count==2 and notification.last_outcome=="verified" and notification.last_completed_at is not None
 policy=GatewayReconciliationPolicy.objects.get()
 assert policy.enabled and policy.lease_token is not None and policy.approved_by==user
 from datetime import timedelta
@@ -183,4 +194,5 @@ assert len(rows)==3 and sum(int(row["perubahan_bersih_rupiah"]) for row in rows)
     print("PASS: restored polling approval and active lease preserved; expired lease resumes one verified status check without duplicate payment.",flush=True)
     print("PASS: restored full-refund proof, original payment and reversal reconcile; reopened receivable and one resolution preserved.",flush=True)
     print("PASS: restored gateway ledger report/CSV reconciles 2 payments and 1 refund; manual payment excluded; no merchant access needed.",flush=True)
+    print("PASS: restored authenticated notification count/result/timestamps preserved without raw webhook payload or signature.",flush=True)
 print("PASS: temporary source/restored databases, plaintext staging, keys and archive cleaned; user demo untouched.")

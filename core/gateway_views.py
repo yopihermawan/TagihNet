@@ -15,9 +15,10 @@ from .gateway import can_checkout, refresh_order, save_config, start_checkout
 from .checkout_return import SESSION_KEY, remember_checkout_return
 from .gateway_expiry import expire_order
 from .gateway_refunds import reconcile_refund
+from .gateway_notifications import notification_overview, process_notification
 from .gateway_worker import save_policy as save_reconciliation_policy
 from .midtrans import GatewayUnavailable, credentials, json_object, valid_signature
-from .models import GatewayConfig, GatewayOrder, GatewayReconciliationPolicy, GatewayRefundResolution
+from .models import GatewayConfig, GatewayNotificationState, GatewayOrder, GatewayReconciliationPolicy, GatewayRefundResolution
 from .permissions import capabilities, membership, require
 from .security import throttle
 from .security_views import recent_factor
@@ -76,6 +77,7 @@ def settings_response(request, form=None, policy_form=None, status=200):
         merchant, ready = "", False
     return render(request, "gateway/settings.html", {"form": form, "ready": ready, "merchant_id": merchant,
         "policy": policy, "policy_form": policy_form, "public_origin": settings.PUBLIC_ORIGIN,
+        "notifications": notification_overview(request.member.tenant),
         "notification_url": settings.PUBLIC_ORIGIN + reverse("midtrans_notification") if settings.PUBLIC_ORIGIN else ""}, status=status)
 
 
@@ -209,7 +211,13 @@ def order_detail(request, pk):
         "events": order.events.order_by("-created_at", "-pk")[:20],
         "expiry_form": expiry_form(order) if owner and not order.payment_id and order.status in {"creating", "pending"} else None,
         "expiry_requests": order.expiry_requests.select_related("requested_by")[:10] if owner else [],
-        **refund_context(request,order)})
+        **refund_context(request,order), **notification_context(request,order)})
+
+
+def notification_context(request, order):
+    owner = membership(request.user).role == "owner"
+    return {"show_notifications": owner,
+        "notification_state": GatewayNotificationState.objects.filter(order=order).first() if owner else None}
 
 
 @require("manage_access")
@@ -236,7 +244,7 @@ def order_refund(request, pk):
     return render(request,"gateway/order.html",{"order":order,"can_refresh":True,
         "events":order.events.order_by("-created_at","-pk")[:20],"expiry_form":None,
         "expiry_requests":order.expiry_requests.select_related("requested_by")[:10],
-        **refund_context(request,order,form=form)},status=400)
+        **refund_context(request,order,form=form), **notification_context(request,order)},status=400)
 
 
 @require("manage_access")
@@ -263,7 +271,7 @@ def order_expire(request, pk):
     return render(request, "gateway/order.html", {"order": order, "can_refresh": True,
         "events": order.events.order_by("-created_at", "-pk")[:20], "expiry_form": form,
         "expiry_requests": order.expiry_requests.select_related("requested_by")[:10],
-        **refund_context(request,order)}, status=400)
+        **refund_context(request,order), **notification_context(request,order)}, status=400)
 
 
 @require_POST
@@ -306,7 +314,7 @@ def notification(request):
     if not signed:
         return JsonResponse({"error": "invalid signature"}, status=403)
     try:
-        refresh_order(order)
+        process_notification(order)
     except (ValidationError, GatewayUnavailable, IntegrityError, OperationalError):
         return JsonResponse({"error": "verification unavailable"}, status=503)
     return JsonResponse({"status": "ok"})

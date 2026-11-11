@@ -363,6 +363,23 @@ class GatewayEvent(models.Model):
         constraints = [models.UniqueConstraint(fields=["order", "fingerprint"], name="unique_gateway_event")]
 
 
+class GatewayNotificationState(models.Model):
+    OUTCOMES = [("received", "Hasil pengiriman terakhir belum tersedia"),
+        ("verified", "Status pengiriman terakhir terverifikasi"), ("unavailable", "Verifikasi pengiriman terakhir belum berhasil")]
+    order = models.OneToOneField(GatewayOrder, primary_key=True, related_name="notification_state", on_delete=models.PROTECT)
+    delivery_count = models.PositiveBigIntegerField(default=1)
+    last_received_at = models.DateTimeField(default=timezone.now)
+    last_outcome = models.CharField(max_length=16, choices=OUTCOMES, default="received")
+    last_completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=Q(delivery_count__gt=0), name="positive_gateway_deliveries"),
+            models.CheckConstraint(condition=(Q(last_outcome="received", last_completed_at__isnull=True)
+                | Q(last_outcome__in=["verified", "unavailable"], last_completed_at__isnull=False)), name="gateway_notification_result_pair"),
+        ]
+
+
 class GatewayExpiry(models.Model):
     STATES = [("requested", "Diminta"), ("confirmed", "Dikonfirmasi berakhir"),
         ("unavailable", "Belum dapat dipastikan"), ("blocked", "Tidak dapat diakhiri")]

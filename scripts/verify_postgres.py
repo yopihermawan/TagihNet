@@ -76,6 +76,32 @@ def child(data):
         if case == "gateway_settle":
             from core.gateway import apply_status
             return str(apply_status(data["gateway_order"], data["status_payload"]).payment_id)
+        if case == "gateway_notification_overlap":
+            from django.test import Client
+            from core.midtrans import GatewayUnavailable
+            from core.models import GatewayOrder
+            from core.tests.test_payment_gateway import notification_payload, status_payload
+            current=GatewayOrder.objects.get(pk=data["gateway_order"])
+            def wait_for(name):
+                deadline=time.monotonic()+15
+                while not (gate_dir/name).exists():
+                    if time.monotonic()>deadline:
+                        raise TimeoutError("Notification process gate timed out")
+                    time.sleep(.01)
+            if data["role"]==1:
+                wait_for("notification-first-http")
+            def status(order):
+                if data["role"]==0:
+                    (gate_dir/"notification-first-http").touch()
+                    wait_for("notification-second-finished")
+                    return status_payload(order)
+                raise GatewayUnavailable
+            with patch("core.gateway.SandboxClient.status",side_effect=status):
+                response=Client(enforce_csrf_checks=True).post("/payments/midtrans/notifications/",
+                    data=json.dumps(notification_payload(current)),content_type="application/json")
+            if data["role"]==1:
+                (gate_dir/"notification-second-finished").touch()
+            return response.status_code
         if case == "gateway_report_refund":
             from core.gateway_refunds import reconcile_refund
             from core.gateway_reports import ledger_report
@@ -555,6 +581,16 @@ def verify():
         assert len(report_rows)==2 and sum(row["signed_amount"] for row in report_rows)==0
         assert {row["entry_kind"] for row in report_rows}=={"payment","refund"}
         print("PASS: 2 processes, report during uncommitted refund -> complete prior snapshot; committed refund reconciles next read",flush=True)
+        from core.models import GatewayNotificationState
+        notification_invoice,_=issue_invoice(tenant,customer.pk,date(2027,9,1),actor)
+        notification_order=reserve_order(actor,notification_invoice.pk)
+        jobs_before,payments_before=NetworkJob.objects.count(),Payment.objects.count()
+        results=parallel("gateway_notification_overlap",{**common,"gateway_order":str(notification_order.pk)})
+        assert [result["ok"] for result in results]==[200,503]
+        notification=GatewayNotificationState.objects.get(order=notification_order)
+        assert notification.delivery_count==2 and notification.last_outcome=="unavailable"
+        assert notification_invoice.balance==0 and Payment.objects.count()==payments_before+1 and NetworkJob.objects.count()==jobs_before+1
+        print("PASS: 2 processes, older webhook succeeds after newer failure -> latest failure retained, 1 verified payment/job",flush=True)
         import pyotp
         from core.models import MFADevice
         from core.security import encrypt_secret, decrypt_secret

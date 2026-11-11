@@ -142,3 +142,11 @@ Periode <=31 hari dan maksimal 5.000 entri membatasi materialisasi. Satu UNION m
 CSV UTF-8/BOM menjaga angka integer negatif, menormalkan kontrol teks dan mengawali potensi formula dengan apostrof. HTML di-escape. URL checkout, key, private UUID pembayaran, digest bukti dan catatan owner tidak diekspor. Cache-control no-store berasal dari middleware. File yang sudah diunduh tetap berada di perangkat pengguna; retensi/enkripsi perangkat berada di luar cakupan.
 
 412 tes pada kedua backend, uji proses saat refund belum committed, Chromium laporan/CSV/privacy dan restore terenkripsi lulus. Data ledger lokal bukan bukti kelengkapan transaksi merchant; koneksi akun sandbox/HTTPS publik tetap belum diverifikasi.
+
+## Metadata notifikasi terautentikasi — 12 November 2026 WIB
+
+Hanya callback dengan order/nominal/signature valid yang memasuki pencatatan metadata. Kredensial/mode yang tidak dapat memverifikasi signature, body invalid dan order tidak dikenal tidak memperbarui catatan. Satu row per order berisi jumlah pengiriman, waktu penerimaan dan outcome/waktu hasil terbaru; tidak menyimpan body, signature, server key, IP atau exception. Owner-only UI dan ringkasan dibatasi tenant serta invoice tenant; finance dan portal tidak melihat diagnostik.
+
+Begin/finish memakai transaksi pendek dengan lock order serta urutan penerimaan. HTTP di luar transaksi; completion lama/berulang tidak mengganti hasil pengiriman baru. GET status dan writer ledger tetap authoritative. Sukses pending/refund review tidak diklaim lunas. Jika metadata gagal sesudah ledger commit, 503 dan replay tetap aman tanpa pembayaran/job ganda. Metadata bukan bukti pembayaran dan bukan audit provider yang tidak dapat diubah; administrator database tetap dipercaya. Model ini tidak mengarsipkan seluruh percobaan atau request yang tidak terautentikasi.
+
+434 tes pada kedua backend, thread/dua proses HTTP overlap, browser privacy dan restore terenkripsi lulus. Tidak ditambah retry worker atau respons 200 sebelum proses sinkron selesai. Verifikasi merchant asli, pengiriman HTTPS publik, kapasitas dan audit anti-tamper tetap belum dilakukan.

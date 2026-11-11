@@ -16,7 +16,7 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Scheduler/prorata | Penerbitan terjadwal tanpa konfirmasi per batch dan prorata belum tersedia | 3 · pending |
 | Pengingat billing/SLA | Kebijakan opt-in/MFA, outbox simulasi, dedupe harian/deadline+siklus, recheck pelunasan/resolusi/izin, retry <=3 | 3/4 · simulated; kanal nyata pending |
 | Pembayaran | Integer rupiah, sebagian/penuh, overpay ditolak, UUID idempotensi persisten, reversal penuh | 2 · simulated |
-| Gateway/webhook | Midtrans Sandbox opt-in, redirect checkout, signature + GET status, ledger atomik/idempoten, rekonsiliasi refund/konflik saldo, daftar/filter/riwayat, expiry owner/MFA dengan intent persisten, polling opt-in/lease/backoff, pencatatan refund penuh owner/MFA, alamat kembali tepercaya/login resume dan audit | 3 · implemented lokal; akun sandbox nyata/HTTPS publik dan produksi belum diverifikasi |
+| Gateway/webhook | Midtrans Sandbox opt-in, redirect checkout, signature + GET status, ledger atomik/idempoten, rekonsiliasi refund/konflik saldo, daftar/filter/riwayat, expiry owner/MFA dengan intent persisten, polling opt-in/lease/backoff, pencatatan refund penuh owner/MFA, alamat kembali tepercaya/login resume, status penerimaan notifikasi owner dan audit | 3 · implemented lokal; akun sandbox nyata/HTTPS publik dan produksi belum diverifikasi |
 | Laporan ledger gateway | Periode WIB <=31 hari/5.000 entri, pembayaran/refund/koreksi, satu snapshot per respons, total dan CSV dengan izin khusus | 3 · implemented lokal; pencairan bank/akuntansi pending |
 | PDF | ReportLab lokal, A4 multipage, total/snapshot/label simulasi, footer plain text | 2 · implemented |
 | Setelan billing | Pajak basis poin termasuk nol, tanggal 1–31, footer teks, hanya berlaku pada faktur berikutnya | 2 · limited |
@@ -36,7 +36,7 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | MFA dan editor role | TOTP wajib operator, QR lokal, secret Fernet, recovery sekali pakai, step-up, editor akun/peran owner | 2 · implemented lokal |
 | Profil mandiri, scope wilayah geografis | Penugasan teknisi tersedia; profil mandiri dan batas wilayah geografis belum tersedia | 4 · pending |
 | Backup/restore | AES-256-GCM streaming SQLite/PG, kunci terpisah, verify, target kosong/no-clobber, restore ledger+MFA | 5 · implemented lokal; offsite/retensi/PITR pending |
-| Backend PostgreSQL | Opsional, role non-superuser lab, 412 tes pada dua backend, 21 race proses + pg_dump/pg_restore | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
+| Backend PostgreSQL | Opsional, role non-superuser lab, 434 tes pada dua backend, 22 race proses + pg_dump/pg_restore | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
 | Rilis produksi | TLS, SMTP, secret vault, queue/capacity multiworker, beban, lab perangkat, penetration test | 5 · pending |
 
 Dukungan PostgreSQL dan race dua proses kini diuji lokal; perpindahan data/kapasitas produksi masih pending. Langkah berikutnya mencakup verifikasi akun Midtrans sandbox nyata/HTTPS publik, router/RADIUS lab dan modul tersisa sesuai brief. Cakupan lanjutan mengikuti urutan brief, tanpa mengubah status fitur pending menjadi selesai.

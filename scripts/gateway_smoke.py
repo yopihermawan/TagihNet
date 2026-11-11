@@ -55,10 +55,14 @@ django.setup()
 from pathlib import Path
 from unittest.mock import patch
 from django.core.management import call_command
+from core.midtrans import GatewayUnavailable
 def status(order):
+    current=(Path(os.environ["TAGIHNET_DATA_DIR"])/"remote-status").read_text()
+    if current=="unavailable":
+        raise GatewayUnavailable
     result={"order_id":order.order_id,"merchant_id":"G-BROWSER","gross_amount":f"{order.amount}.00",
         "currency":"IDR","transaction_id":f"txn-{order.pk.hex}","transaction_status":
-        (Path(os.environ["TAGIHNET_DATA_DIR"])/"remote-status").read_text(),"fraud_status":"accept","status_code":"200"}
+        current,"fraud_status":"accept","status_code":"200"}
     if result["transaction_status"]=="refund":
         result["refund_amount"]=f"{order.amount}.00"
     return result
@@ -138,12 +142,24 @@ with patch("core.gateway.SandboxClient.create",return_value="https://app.sandbox
             payload = {"order_id": order_id, "status_code": "200", "gross_amount": "249750.00"}
             payload["signature_key"] = "0" * 128
             assert context.request.post(base + "/payments/midtrans/notifications/", data=payload).status == 403
-            (temporary / "remote-status").write_text("settlement")
             payload["signature_key"] = hashlib.sha512((order_id + "200" + "249750.00" + KEY).encode()).hexdigest()
+            (temporary / "remote-status").write_text("unavailable")
+            assert context.request.post(base+"/payments/midtrans/notifications/",data=payload).status==503
+            page.goto(order_url)
+            expect(page.get_by_role("heading",name="Notifikasi Midtrans",exact=True)).to_be_visible()
+            expect(page.get_by_text("Verifikasi pengiriman terakhir belum berhasil",exact=True)).to_be_visible()
+            for width in [360,768,1366,1920]:
+                page.set_viewport_size({"width":width,"height":920})
+                page.evaluate("document.activeElement.blur(); window.scrollTo(0, 0)")
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"),width
+                if width in [360,1366]:
+                    page.screenshot(path=str(evidence/f"gateway-notification-{'mobile' if width==360 else 'desktop'}.png"),full_page=True,animations="disabled")
+            (temporary / "remote-status").write_text("settlement")
             for _ in range(2):
                 assert context.request.post(base + "/payments/midtrans/notifications/", data=payload).status == 200
             page.goto(order_url)
             expect(page.get_by_role("heading", name="Pembayaran tercatat", exact=True)).to_be_visible()
+            expect(page.get_by_text("Status pengiriman terakhir terverifikasi",exact=True)).to_be_visible()
             page.goto(base + "/invoices/1/")
             expect(page.get_by_text("Lunas", exact=True)).to_be_visible()
             expect(page.get_by_text("Midtrans Sandbox", exact=True)).to_be_visible()
@@ -214,7 +230,7 @@ with patch("core.gateway.SandboxClient.status") as remote:
             subprocess.run([sys.executable,"-c",worker_code],cwd=ROOT,env=env,check=True)
             page.goto(base + "/settings/payment-gateway/")
             expect(page.get_by_text("Pemeriksaan selesai", exact=False)).to_be_visible()
-            expect(page.locator(".definition-list")).to_contain_text("2 terverifikasi")
+            expect(page.locator("section").filter(has=page.get_by_role("heading",name="Pemeriksaan status otomatis",exact=True)).locator(".definition-list")).to_contain_text("2 terverifikasi")
             for width in [360, 768, 1366, 1920]:
                 page.set_viewport_size({"width":width,"height":920})
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
@@ -271,6 +287,7 @@ with patch("core.gateway.SandboxClient.status") as remote:
             portal_page.wait_for_url(order_url)
             expect(portal_page.get_by_role("heading",name="Refund penuh telah dicatat",exact=True)).to_be_visible()
             assert portal_page.get_by_text(refund_reason,exact=True).count()==0
+            assert portal_page.get_by_role("heading",name="Notifikasi Midtrans",exact=True).count()==0
             assert portal.request.get(base+"/payments/reports/").status==403
             assert portal.request.get(base+report_export).status==403
             assert portal_page.get_by_role("button",name="Catat refund penuh yang sudah terjadi",exact=True).count()==0
@@ -282,7 +299,7 @@ with patch("core.gateway.SandboxClient.status") as remote:
         verify = '''
 import django
 django.setup()
-from core.models import Payment,PaymentReversal,GatewayRefundResolution,GatewayEvent,GatewayExpiry,GatewayOrder,GatewayReconciliationPolicy,NetworkJob,Invoice
+from core.models import Payment,PaymentReversal,GatewayRefundResolution,GatewayEvent,GatewayExpiry,GatewayOrder,GatewayReconciliationPolicy,GatewayNotificationState,NetworkJob,Invoice
 assert Payment.objects.count()==2 and NetworkJob.objects.count()==3
 assert GatewayEvent.objects.count()==6
 assert set(GatewayEvent.objects.values_list("gateway_status",flat=True))=={"pending","settlement","refund","expire"}
@@ -293,9 +310,11 @@ assert GatewayExpiry.objects.count()==1 and GatewayExpiry.objects.get().status==
 assert GatewayOrder.objects.filter(invoice_id=2).count()==2
 assert GatewayReconciliationPolicy.objects.get().last_status=="completed"
 assert GatewayReconciliationPolicy.objects.get().last_verified==2
+notification=GatewayNotificationState.objects.get()
+assert notification.delivery_count==3 and notification.last_outcome=="verified" and notification.last_completed_at is not None
 '''
         subprocess.run([sys.executable, "-c", verify], cwd=ROOT, env=env, check=True)
-        print("PASS: Chromium login/MFA, checkout return/resume, expiry/polling/refund/replay and ledger report/CSV totals; customer report denied and notes private; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
+        print("PASS: Chromium notification failure/retry metadata, login/MFA, checkout return/resume, expiry/polling/refund/replay and report/CSV; owner-only diagnostics, portal privacy; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
     finally:
         process.terminate()
         process.wait(timeout=10)
