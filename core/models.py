@@ -322,6 +322,13 @@ class GatewayOrder(models.Model):
     last_checked_at = models.DateTimeField(null=True, blank=True)
     last_verified_at = models.DateTimeField(null=True, blank=True)
 
+    checkout_lease_token = models.UUIDField(null=True, blank=True)
+    checkout_lease_until = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def checkout_in_progress(self):
+        return bool(self.checkout_lease_until and self.checkout_lease_until > timezone.now())
+
     @property
     def verification_failed(self):
         return bool(self.last_checked_at and (not self.last_verified_at or self.last_checked_at > self.last_verified_at))
@@ -334,6 +341,8 @@ class GatewayOrder(models.Model):
         ordering = ["-created_at", "-pk"]
         constraints = [
             models.CheckConstraint(condition=Q(amount__gt=0), name="positive_gateway_order"),
+            models.CheckConstraint(condition=(Q(checkout_lease_token__isnull=True, checkout_lease_until__isnull=True)
+                | Q(checkout_lease_token__isnull=False, checkout_lease_until__isnull=False)), name="gateway_checkout_lease_pair"),
             models.UniqueConstraint(fields=["invoice"], condition=Q(status__in=["creating", "pending"], payment__isnull=True), name="one_open_gateway_order"),
             models.UniqueConstraint(fields=["merchant_id", "transaction_id"], condition=~Q(transaction_id=""), name="unique_gateway_transaction"),
         ]

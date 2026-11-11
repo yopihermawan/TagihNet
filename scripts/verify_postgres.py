@@ -76,6 +76,42 @@ def child(data):
         if case == "gateway_settle":
             from core.gateway import apply_status
             return str(apply_status(data["gateway_order"], data["status_payload"]).payment_id)
+        if case in {"checkout_overlap", "checkout_takeover", "checkout_payment"}:
+            from django.db import connection
+            from django.utils import timezone
+            from core.gateway import apply_status, start_checkout
+            from core.models import GatewayOrder
+            from core.tests.test_payment_gateway import URL, status_payload
+            def wait_for(name):
+                deadline=time.monotonic()+15
+                while not (gate_dir/name).exists():
+                    if time.monotonic()>deadline:
+                        raise TimeoutError("Checkout process gate timed out")
+                    time.sleep(.01)
+            if data["role"]==1:
+                wait_for("checkout-first-http")
+                current=GatewayOrder.objects.get(invoice_id=data["invoice"])
+                if case=="checkout_payment":
+                    result=apply_status(current.pk,status_payload(current))
+                    (gate_dir/"checkout-peer-finished").touch()
+                    return str(result.payment_id)
+                if case=="checkout_takeover":
+                    GatewayOrder.objects.filter(pk=current.pk).update(checkout_lease_until=timezone.now()-timedelta(seconds=1))
+            calls=0
+            def create(order):
+                nonlocal calls
+                calls+=1
+                assert not connection.in_atomic_block
+                if data["role"]==0:
+                    (gate_dir/"checkout-first-http").touch()
+                    wait_for("checkout-peer-finished")
+                    return URL.replace("fixture-token","stale-fixture") if case=="checkout_takeover" else URL
+                return URL
+            with patch("core.gateway.SandboxClient.create",side_effect=create):
+                result=start_checkout(actor,data["invoice"])
+            if data["role"]==1:
+                (gate_dir/"checkout-peer-finished").touch()
+            return {"id":str(result.pk),"url":result.checkout_url,"status":result.status,"calls":calls}
         if case == "gateway_notification_overlap":
             from django.test import Client
             from core.midtrans import GatewayUnavailable
@@ -591,6 +627,29 @@ def verify():
         assert notification.delivery_count==2 and notification.last_outcome=="unavailable"
         assert notification_invoice.balance==0 and Payment.objects.count()==payments_before+1 and NetworkJob.objects.count()==jobs_before+1
         print("PASS: 2 processes, older webhook succeeds after newer failure -> latest failure retained, 1 verified payment/job",flush=True)
+        from core.tests.test_payment_gateway import URL
+        for month,case in [(10,"checkout_overlap"),(11,"checkout_takeover"),(12,"checkout_payment")]:
+            checkout_invoice,_=issue_invoice(tenant,customer.pk,date(2027,month,1),actor)
+            payments_before,jobs_before=Payment.objects.count(),NetworkJob.objects.count()
+            results=parallel(case,{**common,"invoice":checkout_invoice.pk})
+            checkout_order=GatewayOrder.objects.get(invoice=checkout_invoice)
+            assert checkout_order.checkout_lease_token is None and checkout_order.checkout_lease_until is None
+            if case=="checkout_overlap":
+                assert results[0]["ok"]["id"]==results[1]["ok"]["id"]==str(checkout_order.pk)
+                assert [result["ok"]["calls"] for result in results]==[1,0]
+                assert results[1]["ok"]["url"]=="" and checkout_order.checkout_url==URL
+                print("PASS: 2 processes, checkout creation overlap -> 1 remote POST, 1 order, no HTTP transaction",flush=True)
+            elif case=="checkout_takeover":
+                assert [result["ok"]["calls"] for result in results]==[1,1]
+                assert all(result["ok"]["url"]==URL for result in results) and checkout_order.checkout_url==URL
+                print("PASS: 2 processes, expired creation lease takeover -> stale response fenced, same order ID",flush=True)
+            else:
+                assert results[0]["ok"]["status"]=="settled" and results[0]["ok"]["url"]==""
+                assert checkout_order.status=="settled" and checkout_order.checkout_url==""
+                assert checkout_invoice.balance==0 and Payment.objects.count()==payments_before+1 and NetworkJob.objects.count()==jobs_before+1
+                print("PASS: 2 processes, payment during checkout creation -> settled ledger preserved, late URL discarded",flush=True)
+            if case!="checkout_payment":
+                assert checkout_invoice.balance==checkout_invoice.total and Payment.objects.count()==payments_before and NetworkJob.objects.count()==jobs_before
         import pyotp
         from core.models import MFADevice
         from core.security import encrypt_secret, decrypt_secret

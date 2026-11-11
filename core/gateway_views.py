@@ -61,6 +61,13 @@ def refund_context(request, order, form=None):
     return {"refund_resolution":resolution,"refund_form":form}
 
 
+def checkout_context(request, order):
+    resumable = (settings.SIMULATION and not order.checkout_url and not order.payment_id
+        and order.status in {"creating", "pending"} and can_checkout(membership(request.user))
+        and GatewayConfig.objects.filter(tenant_id=order.tenant_id, enabled=True).exists())
+    return {"can_resume_checkout": resumable}
+
+
 def settings_response(request, form=None, policy_form=None, status=200):
     config = GatewayConfig.objects.filter(tenant=request.member.tenant).first()
     policy = GatewayReconciliationPolicy.objects.filter(tenant=request.member.tenant).first()
@@ -211,7 +218,7 @@ def order_detail(request, pk):
         "events": order.events.order_by("-created_at", "-pk")[:20],
         "expiry_form": expiry_form(order) if owner and not order.payment_id and order.status in {"creating", "pending"} else None,
         "expiry_requests": order.expiry_requests.select_related("requested_by")[:10] if owner else [],
-        **refund_context(request,order), **notification_context(request,order)})
+        **refund_context(request,order), **notification_context(request,order), **checkout_context(request,order)})
 
 
 def notification_context(request, order):
@@ -244,7 +251,7 @@ def order_refund(request, pk):
     return render(request,"gateway/order.html",{"order":order,"can_refresh":True,
         "events":order.events.order_by("-created_at","-pk")[:20],"expiry_form":None,
         "expiry_requests":order.expiry_requests.select_related("requested_by")[:10],
-        **refund_context(request,order,form=form), **notification_context(request,order)},status=400)
+        **refund_context(request,order,form=form), **notification_context(request,order), **checkout_context(request,order)},status=400)
 
 
 @require("manage_access")
@@ -271,7 +278,24 @@ def order_expire(request, pk):
     return render(request, "gateway/order.html", {"order": order, "can_refresh": True,
         "events": order.events.order_by("-created_at", "-pk")[:20], "expiry_form": form,
         "expiry_requests": order.expiry_requests.select_related("requested_by")[:10],
-        **refund_context(request,order), **notification_context(request,order)}, status=400)
+        **refund_context(request,order), **notification_context(request,order), **checkout_context(request,order)}, status=400)
+
+
+@require_POST
+def order_resume(request, pk):
+    order = allowed_order(request, pk)
+    member = membership(request.user)
+    if not can_checkout(member):
+        raise PermissionDenied
+    if member.role != "customer" and not recent_factor(request, return_to=f"/payments/orders/{order.pk}/"):
+        return redirect("account_security")
+    if throttle(request, "gateway_create", request.user.pk):
+        return JsonResponse({"error": "Terlalu banyak permintaan. Coba kembali nanti."}, status=429)
+    try:
+        start_checkout(request.user, order.invoice_id, expected_order_id=order.pk)
+    except (ValidationError, GatewayUnavailable, IntegrityError, OperationalError):
+        messages.error(request, "Checkout order ini belum dapat dilanjutkan. Periksa status; bila sudah berakhir, buat checkout baru dari faktur.")
+    return redirect("gateway_order", pk=pk)
 
 
 @require_POST

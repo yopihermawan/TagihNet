@@ -69,7 +69,11 @@ def status(order):
 def expire(order):
     (Path(os.environ["TAGIHNET_DATA_DIR"])/"remote-status").write_text("expire")
     return {"status_code":"407"}
-with patch("core.gateway.SandboxClient.create",return_value="https://app.sandbox.midtrans.com/snap/v4/redirection/browser-fixture"), patch("core.gateway.SandboxClient.status",side_effect=status), patch("core.gateway_expiry.SandboxClient.expire",side_effect=expire):
+def create(order):
+    with (Path(os.environ["TAGIHNET_DATA_DIR"])/"checkout-posts").open("a") as stream:
+        stream.write(order.order_id+"\\n")
+    return "https://app.sandbox.midtrans.com/snap/v4/redirection/browser-fixture"
+with patch("core.gateway.SandboxClient.create",side_effect=create), patch("core.gateway.SandboxClient.status",side_effect=status), patch("core.gateway_expiry.SandboxClient.expire",side_effect=expire):
     call_command("runserver",os.environ["TAGIHNET_BROWSER_ADDRESS"],use_reloader=False)
 '''
     process = subprocess.Popen([sys.executable, "-c", server_code], cwd=ROOT,
@@ -101,11 +105,30 @@ with patch("core.gateway.SandboxClient.create",return_value="https://app.sandbox
             page.get_by_label("Saya memahami ini pengujian sandbox").check()
             page.get_by_role("button", name="Simpan dengan verifikasi MFA").click()
             expect(page.get_by_text("Setelan Midtrans Sandbox disimpan.", exact=False)).to_be_visible()
+            creation_fixture='from django.contrib.auth import get_user_model; from core.gateway import prepare_checkout; prepare_checkout(get_user_model().objects.get(username="owner0"),1)'
+            subprocess.run([sys.executable,"manage.py","shell","-c",creation_fixture],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             page.goto(base + "/invoices/1/")
             page.get_by_role("button", name="Buka checkout sandbox").click()
             page.wait_for_url("**/payments/orders/*/")
             order_url = page.url
             order_id = "TN-SBX-" + order_url.rstrip("/").split("/")[-1].replace("-", "")
+            evidence = ROOT / "docs/evidence"
+            expect(page.get_by_role("heading",name="Menyiapkan checkout",exact=True)).to_be_visible()
+            assert not (temporary/"checkout-posts").exists()
+            for width in [360,768,1366,1920]:
+                page.set_viewport_size({"width":width,"height":920})
+                expect(page.get_by_role("link",name="Muat ulang halaman checkout",exact=True)).to_be_visible()
+                assert page.get_by_role("button",name="Lanjutkan checkout yang sama",exact=True).count()==0
+                page.evaluate("document.activeElement.blur(); window.scrollTo(0, 0)")
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"),width
+                if width in [360,1366]:
+                    page.screenshot(path=str(evidence/f"gateway-creation-{'mobile' if width==360 else 'desktop'}.png"),full_page=True,animations="disabled")
+            expire_creation='from datetime import timedelta; from django.utils import timezone; from core.models import GatewayOrder; GatewayOrder.objects.filter(invoice_id=1).update(checkout_lease_until=timezone.now()-timedelta(seconds=1))'
+            subprocess.run([sys.executable,"manage.py","shell","-c",expire_creation],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
+            page.reload()
+            page.get_by_role("button",name="Lanjutkan checkout yang sama",exact=True).click()
+            page.wait_for_url(order_url)
+            assert (temporary/"checkout-posts").read_text().splitlines()==[order_id]
             expect(page.get_by_role("heading", name="Menunggu pembayaran", exact=True)).to_be_visible()
             evidence = ROOT / "docs/evidence"
             for width in [360,768,1366,1920]:
@@ -314,7 +337,9 @@ notification=GatewayNotificationState.objects.get()
 assert notification.delivery_count==3 and notification.last_outcome=="verified" and notification.last_completed_at is not None
 '''
         subprocess.run([sys.executable, "-c", verify], cwd=ROOT, env=env, check=True)
-        print("PASS: Chromium notification failure/retry metadata, login/MFA, checkout return/resume, expiry/polling/refund/replay and report/CSV; owner-only diagnostics, portal privacy; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
+        creation_posts=(temporary/"checkout-posts").read_text().splitlines()
+        assert len(creation_posts)==len(set(creation_posts))==3
+        print("PASS: Chromium busy checkout lease/retry same ID, notification retry, login/MFA/return, expiry/polling/refund and report/CSV; privacy; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
     finally:
         process.terminate()
         process.wait(timeout=10)

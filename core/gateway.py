@@ -4,6 +4,7 @@ import json
 import re
 import time
 import uuid
+from datetime import timedelta
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, OperationalError, transaction
 from django.utils import timezone
@@ -15,6 +16,7 @@ from .permissions import capabilities, membership
 
 OPEN_STATES = ["creating", "pending", "review"]
 DISPUTE_STATES = {"refund", "partial_refund", "chargeback", "partial_chargeback"}
+CHECKOUT_LEASE_SECONDS = 60
 
 
 def can_checkout(member):
@@ -77,23 +79,60 @@ def reserve_order(actor, invoice_id):
 
 @retry_locked
 @transaction.atomic
-def store_checkout(order_id, url):
-    order = GatewayOrder.objects.select_for_update().get(pk=order_id)
-    if order.status in {"creating", "pending"}:
-        order.checkout_url = checkout_url(url)
-        order.status, order.reason, order.updated_at = "pending", "", timezone.now()
-        order.save(update_fields=["checkout_url", "status", "reason", "updated_at"])
-    return order
-
-
-def start_checkout(actor, invoice_id):
-    order = reserve_order(actor, invoice_id)
+def prepare_checkout(actor, invoice_id, expected_order_id=None):
+    # The outer transaction retains reservation/access/config locks until the
+    # creation lease is persisted; no remote write occurs in this transaction.
+    reserved = reserve_order(actor, invoice_id)
+    if expected_order_id is not None and reserved.pk != expected_order_id:
+        # Roll back any replacement reservation made by reserve_order. A stale
+        # resume action may only continue its own order, never create another.
+        raise ValidationError("Order ini tidak dapat dilanjutkan. Periksa status sebelum membuat checkout baru dari faktur.")
+    order = GatewayOrder.objects.select_for_update().get(pk=reserved.pk)
     if order.status == "review":
         raise ValidationError("Order perlu rekonsiliasi. Periksa status di Midtrans.")
-    if not order.checkout_url:
-        # A retry always reuses the persisted merchant order ID. A timeout never releases it.
-        order = store_checkout(order.pk, SandboxClient().create(order))
+    if order.checkout_url or order.payment_id or order.status not in {"creating", "pending"} or order.checkout_in_progress:
+        return order, None
+    token = uuid.uuid4()
+    order.checkout_lease_token, order.checkout_lease_until = token, timezone.now()+timedelta(seconds=CHECKOUT_LEASE_SECONDS)
+    order.save(update_fields=["checkout_lease_token", "checkout_lease_until"])
+    return order, token
+
+
+@retry_locked
+@transaction.atomic
+def release_checkout(order_id, token):
+    order = GatewayOrder.objects.select_for_update().get(pk=order_id)
+    if order.checkout_lease_token == token:
+        order.checkout_lease_token = order.checkout_lease_until = None
+        order.save(update_fields=["checkout_lease_token", "checkout_lease_until"])
     return order
+
+
+@retry_locked
+@transaction.atomic
+def store_checkout(order_id, url, token):
+    order = GatewayOrder.objects.select_for_update().get(pk=order_id)
+    if order.checkout_lease_token != token:
+        return order
+    if not order.checkout_url and not order.payment_id and order.status in {"creating", "pending"}:
+        order.checkout_url = checkout_url(url)
+        order.status, order.reason, order.updated_at = "pending", "", timezone.now()
+    order.checkout_lease_token = order.checkout_lease_until = None
+    order.save(update_fields=["checkout_url", "status", "reason", "updated_at", "checkout_lease_token", "checkout_lease_until"])
+    return order
+
+
+def start_checkout(actor, invoice_id, expected_order_id=None):
+    order, token = prepare_checkout(actor, invoice_id, expected_order_id)
+    if token is None:
+        return order
+    try:
+        # A retry reuses the persisted merchant order ID. Losing this process
+        # leaves a bounded lease, never an unlocked invoice or a new remote ID.
+        return store_checkout(order.pk, SandboxClient().create(order), token)
+    except (GatewayUnavailable, ValidationError):
+        release_checkout(order.pk, token)
+        raise
 
 
 def verified_status(order, payload):

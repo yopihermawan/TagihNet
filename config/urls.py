@@ -20,6 +20,7 @@ urlpatterns = [
     path("payments/orders/<uuid:pk>/", gateway.order_detail, name="gateway_order"),
     path("payments/orders/<uuid:pk>/return/", gateway.checkout_return, name="gateway_return"),
     path("payments/orders/<uuid:pk>/refresh/", gateway.order_refresh, name="gateway_refresh"),
+    path("payments/orders/<uuid:pk>/resume/", gateway.order_resume, name="gateway_checkout_resume"),
     path("payments/orders/<uuid:pk>/expire/", gateway.order_expire, name="gateway_expire"),
     path("payments/orders/<uuid:pk>/record-refund/", gateway.order_refund, name="gateway_record_refund"),
     path("payments/midtrans/notifications/", gateway.notification, name="midtrans_notification"),

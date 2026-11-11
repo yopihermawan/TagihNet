@@ -51,7 +51,7 @@ from core.billing import issue_invoice, record_payment
 from core.models import MFADevice
 from core.security import encrypt_secret, recovery_digest
 from django.test import override_settings
-from core.gateway import reserve_order, apply_status
+from core.gateway import reserve_order, apply_status, prepare_checkout
 from core.models import GatewayConfig
 from core.tests.test_payment_gateway import account_keys, status_payload
 from core.gateway_expiry import expire_order
@@ -76,7 +76,7 @@ with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(tenants[0])):
     with patch("core.gateway.SandboxClient.status",return_value=status_payload(order)):
         assert Client().post("/payments/midtrans/notifications/",data=json.dumps(notification_payload(order)),content_type="application/json").status_code==200
     pending, _ = issue_invoice(tenants[0], customers[0].pk, date(2026, 11, 1), owners[0])
-    reserve_order(owners[0], pending.pk)
+    prepare_checkout(owners[0], pending.pk)
     ending, _ = issue_invoice(tenants[0], customers[0].pk, date(2026, 12, 1), owners[0])
     ending_order = reserve_order(owners[0], ending.pk)
     with patch("core.gateway.SandboxClient.status", side_effect=[status_payload(ending_order,"pending"),status_payload(ending_order,"expire")]), patch("core.gateway_expiry.SandboxClient.expire",return_value={}):
@@ -172,6 +172,25 @@ from core.tests.test_payment_gateway import account_keys, status_payload
 assert claim_policy(policy.pk) is None
 GatewayReconciliationPolicy.objects.filter(pk=policy.pk).update(lease_until=timezone.now()-timedelta(seconds=1))
 pending=GatewayOrder.objects.get(status="creating")
+assert pending.checkout_lease_token is not None and pending.checkout_lease_until is not None
+from core.gateway import start_checkout
+from core.midtrans import GatewayUnavailable
+lease_token=pending.checkout_lease_token
+GatewayOrder.objects.filter(pk=pending.pk).update(checkout_lease_until=timezone.now()+timedelta(seconds=60))
+with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(user.membership.tenant)), patch("core.gateway.SandboxClient.create") as remote:
+    active=start_checkout(user,pending.invoice_id)
+assert active.checkout_lease_token==lease_token
+remote.assert_not_called()
+GatewayOrder.objects.filter(pk=pending.pk).update(checkout_lease_until=timezone.now()-timedelta(seconds=1))
+with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(user.membership.tenant)), patch("core.gateway.SandboxClient.create",side_effect=GatewayUnavailable) as remote:
+    try:
+        start_checkout(user,pending.invoice_id)
+    except GatewayUnavailable:
+        pass
+    else:
+        raise AssertionError("Checkout retry fixture must fail without releasing invoice")
+assert remote.call_count==1 and remote.call_args.args[0].pk==pending.pk
+assert GatewayOrder.objects.get(pk=pending.pk).checkout_lease_token is None
 with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(user.membership.tenant)), patch("core.gateway.SandboxClient.status",return_value=status_payload(pending,"pending")):
     recovered=process_policy(policy.pk)
 assert recovered.last_verified==1 and recovered.lease_token is None and recovered.last_status=="completed"
@@ -195,4 +214,5 @@ assert len(rows)==3 and sum(int(row["perubahan_bersih_rupiah"]) for row in rows)
     print("PASS: restored full-refund proof, original payment and reversal reconcile; reopened receivable and one resolution preserved.",flush=True)
     print("PASS: restored gateway ledger report/CSV reconciles 2 payments and 1 refund; manual payment excluded; no merchant access needed.",flush=True)
     print("PASS: restored authenticated notification count/result/timestamps preserved without raw webhook payload or signature.",flush=True)
+    print("PASS: restored checkout creation lease preserved; active lease avoids POST, expired lease retries same order without duplicate or freed invoice.",flush=True)
 print("PASS: temporary source/restored databases, plaintext staging, keys and archive cleaned; user demo untouched.")

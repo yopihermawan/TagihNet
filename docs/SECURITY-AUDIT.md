@@ -150,3 +150,11 @@ Hanya callback dengan order/nominal/signature valid yang memasuki pencatatan met
 Begin/finish memakai transaksi pendek dengan lock order serta urutan penerimaan. HTTP di luar transaksi; completion lama/berulang tidak mengganti hasil pengiriman baru. GET status dan writer ledger tetap authoritative. Sukses pending/refund review tidak diklaim lunas. Jika metadata gagal sesudah ledger commit, 503 dan replay tetap aman tanpa pembayaran/job ganda. Metadata bukan bukti pembayaran dan bukan audit provider yang tidak dapat diubah; administrator database tetap dipercaya. Model ini tidak mengarsipkan seluruh percobaan atau request yang tidak terautentikasi.
 
 434 tes pada kedua backend, thread/dua proses HTTP overlap, browser privacy dan restore terenkripsi lulus. Tidak ditambah retry worker atau respons 200 sebelum proses sinkron selesai. Verifikasi merchant asli, pengiriman HTTPS publik, kapasitas dan audit anti-tamper tetap belum dilakukan.
+
+## Lease pembuatan checkout — 12 November 2026 WIB
+
+Reservasi/hak/config dan lease persisten disiapkan dalam transaksi singkat sebelum POST sandbox. Selama lease aktif, request lain tidak mengirim create baru. HTTP di luar transaksi; retry penulisan URL tidak mengulang POST. Token yang sudah digantikan tidak dapat melepas lease baru atau menyimpan respons lama. Settlement/terminal/review tidak dibuka kembali oleh URL yang tiba terlambat. Kedaluwarsa lease tidak membebaskan invoice; order ID tetap menjadi batas deduplikasi remote.
+
+Resume terikat UUID endpoint, dengan POST/CSRF, throttle, izin pay/portal-own-customer dan MFA operator. Field token/deadline/order/nominal dari browser tidak mengubah claim. Formulir lama sesudah order terminal tidak membuat replacement; bila order pengganti sudah ada, formulir lama tidak mengklaimnya. Lease token tidak ditampilkan ke pengguna atau ditambahkan ke CSV. Schema/backup menyimpan pasangan token/deadline; restore tidak memulihkan proses HTTP.
+
+457 tes kedua backend, tiga skenario proses baru, Chromium dan restore lease lulus. Batas tetap: lease adalah koordinasi berbatas waktu, bukan exactly-once provider; request yang masih hidup setelah deadline dapat overlap dengan takeover pada ID yang sama. Kehilangan respons token Snap tetap memerlukan rekonsiliasi merchant. Belum ada uji akun/HTTPS publik atau kapasitas produksi.

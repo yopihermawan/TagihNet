@@ -1,4 +1,4 @@
-# Midtrans Sandbox — checkpoint status notifikasi 12 November 2026 WIB
+# Midtrans Sandbox — checkpoint penguncian pembuatan checkout 12 November 2026 WIB
 
 Checkout Snap redirect, notifikasi terverifikasi, dan rekonsiliasi kini diimplementasikan. Integrasi **nonaktif secara bawaan**, khusus sandbox dan `TAGIHNET_SIMULATION=1`. Uang nyata, endpoint/kunci produksi, refund otomatis, serta aktivasi router nyata belum didukung. Kredensial merchant dan URL HTTPS publik belum tersedia pada lingkungan pengembangan; transport Midtrans diuji dengan respons tiruan, bukan transaksi pada akun sandbox sebenarnya.
 
@@ -24,7 +24,7 @@ Izinkan HTTPS keluar hanya ke:
 
 Client menggunakan proxy/CA bawaan lingkungan, Basic Auth server-side, timeout 10 detik, respons maksimal 64 KiB, dan penolakan redirect HTTP. Browser membuka halaman checkout di tab baru tanpa SDK atau script eksternal; CSP aplikasi tetap ketat. Client key tidak diperlukan untuk checkout redirect ini. Detail identitas pelanggan tidak dikirim; payload hanya membawa ID order acak, nominal, dan deskripsi tagihan generik. Permintaan kartu mengaktifkan `credit_card.secure=true`.
 
-Jalankan migrasi sampai `0013` setelah mencadangkan database yang sudah berisi data (`0008`: gateway/payment source; `0009`: pengakhiran; `0010`: kebijakan polling; `0011`: waktu pemeriksaan/verifikasi; `0012`: bukti pencatatan refund penuh; `0013`: metadata penerimaan notifikasi). Migrasi 0012 tidak membalik pembayaran lama; 0013 tidak menyimpulkan riwayat pengiriman dari event pemeriksaan status:
+Jalankan migrasi sampai `0014` setelah mencadangkan database yang sudah berisi data (`0008`: gateway/payment source; `0009`: pengakhiran; `0010`: kebijakan polling; `0011`: waktu pemeriksaan/verifikasi; `0012`: bukti pencatatan refund penuh; `0013`: metadata penerimaan notifikasi; `0014`: lease pembuatan checkout). Migrasi tidak membalik ledger lama, menebak histori notifikasi, atau membebaskan reservasi:
 
 ```bash
 .venv/bin/python manage.py migrate --noinput
@@ -42,6 +42,20 @@ Pemilik ISP membuka **Payment gateway**, meninjau mode sandbox, dan mengaktifkan
 6. Satu pembayaran bersumber `midtrans_sandbox`, satu event per status terverifikasi, audit, serta satu job rekonsiliasi jaringan simulasi disimpan atomik. Router gagal tidak membatalkan pembayaran.
 
 Menu **Pembayaran gateway** menampilkan daftar order ISP sendiri (atau hanya order pelanggan portal itu sendiri), pencarian nama/ID order, filter status, pagination 10/25/50 dan ringkasan status seluruh cakupan sebelum filter. Daftar tidak membocorkan URL checkout privat. GET daftar/detail tidak menghubungi Midtrans. Detail order menampilkan maksimal 20 riwayat verifikasi, beserta hasil saat pertama diterima, tanpa payload mentah/signature. Riwayat order juga tersedia pada detail faktur. Halaman order privat menampilkan status, nominal dan waktu pembuatan serta verifikasi terakhir WIB. Pembaca faktur tanpa izin pembayaran dapat membaca riwayat, tetapi tidak membuat checkout atau meminta pemeriksaan status. Pelanggan tidak dapat mengakses order pelanggan lain, termasuk pelanggan dalam ISP yang sama. Checkout dan refresh memerlukan POST+CSRF dan pembatasan permintaan persisten; GET tidak menghubungi Midtrans.
+
+## Pembuatan checkout bersamaan dan proses terputus
+
+Reservasi dan pemeriksaan hak/config dilanjutkan dengan lease pembuatan selama 60 detik pada order yang sama. Selama lease aktif, permintaan lain mendapat detail order yang sedang disiapkan tanpa POST pembuatan baru. Lease disimpan sebelum HTTP, sementara transaksi database sudah ditutup ketika menghubungi Midtrans. Memuat ulang halaman tidak mengirim POST atau memperpanjang lease.
+
+Ketika alamat checkout belum tersedia, halaman pengguna berizin menunjukkan waktu dapat mencoba lagi dan tautan **Muat ulang halaman checkout**. Setelah lease kedaluwarsa, **Lanjutkan checkout yang sama** memakai POST/CSRF, scope tenant/customer, izin pembayaran, throttle yang sama dengan checkout awal dan MFA terbaru untuk operator. Aksi resume terikat UUID pada URL; ID lease, nominal dan deadline dari browser diabaikan. Jika order sudah terminal atau sudah digantikan saat formulir terbuka, resume tidak membuat atau mengambil alih order pengganti. Checkout baru setelah terminal tetap tindakan terpisah dari faktur.
+
+Timeout/kegagalan yang diketahui melepas lease milik request itu agar bisa dicoba ulang. Proses yang mati meninggalkan lease sampai batas waktunya. Setelah takeover, token request lama tidak dapat menghapus lease baru, menerbitkan URL, atau menimpa hasil baru. Respons sukses yang datang setelah deadline masih dapat disimpan jika belum terjadi takeover. Hasil URL juga tidak menurunkan order yang sudah settled, expired/cancelled/denied atau perlu rekonsiliasi. Pembayaran yang menang saat pembuatan checkout tetap tercatat; URL terlambat diabaikan.
+
+Lease kedaluwarsa hanya memberi kesempatan mengulangi pembuatan dengan merchant order ID yang sama. Ia tidak membebaskan invoice, tidak mengizinkan pembayaran manual, dan tidak membuktikan status remote. Tidak ada retry POST otomatis atau worker baru. Retry database saat menyimpan URL memakai hasil HTTP yang sudah ada dan tidak mengulang HTTP.
+
+Ini bukan jaminan exactly-once di Midtrans: jika request lama masih berjalan sesudah lease berakhir, request pengganti dapat berimpit. Kedua request tetap memakai order ID yang sama; keunikan provider dan writer ledger menjadi perlindungan tambahan. Token/redirect yang sudah dibuat remote tetapi responsnya hilang tetap mungkin memerlukan pemeriksaan dashboard merchant. Jangan menghapus order atau menganggap 404/umur lokal sebagai bukti transaksi tidak ada.
+
+Migrasi 0014 menambah pasangan token/deadline nullable tanpa menciptakan lease lama. Backup/restore mempertahankan keduanya; setelah pemulihan proses, biarkan deadline lama habis dan ulangi order yang sama. Tidak ada proses HTTP yang dipulihkan dari backup atau lease yang otomatis dianggap pekerjaan aktif.
 
 ## Kembali dari checkout dan login ulang
 
