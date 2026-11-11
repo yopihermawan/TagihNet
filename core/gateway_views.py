@@ -11,8 +11,9 @@ from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from .gateway import can_checkout, refresh_order, save_config, start_checkout
 from .gateway_expiry import expire_order
+from .gateway_worker import save_policy as save_reconciliation_policy
 from .midtrans import GatewayUnavailable, credentials, json_object, valid_signature
-from .models import GatewayConfig, GatewayOrder
+from .models import GatewayConfig, GatewayOrder, GatewayReconciliationPolicy
 from .permissions import capabilities, membership, require
 from .security import throttle
 from .security_views import recent_factor
@@ -29,6 +30,32 @@ class ExpiryForm(forms.Form):
     request_key = forms.UUIDField(widget=forms.HiddenInput)
     reason = forms.CharField(min_length=10, max_length=250, widget=forms.Textarea(attrs={"rows": 3}), label="Alasan mengakhiri pembayaran")
     reviewed = forms.BooleanField(label="Saya meminta pengakhiran di gateway dan memahami tagihan tetap belum lunas bila belum dibayar.")
+
+
+class ReconciliationForm(forms.Form):
+    enabled = forms.BooleanField(required=False, label="Aktifkan pemeriksaan status otomatis")
+    include_settled = forms.BooleanField(required=False, label="Periksa juga pembayaran tercatat untuk mendeteksi refund atau sengketa")
+    interval = forms.TypedChoiceField(coerce=int, choices=[(60, "Setiap 1 menit"), (300, "Setiap 5 menit"), (900, "Setiap 15 menit")], label="Jeda antar pemeriksaan")
+    version = forms.IntegerField(min_value=0, widget=forms.HiddenInput)
+    reviewed = forms.BooleanField(label="Saya menyetujui pemeriksaan berkala dan pencatatan otomatis pembayaran sandbox yang terverifikasi.")
+
+
+def settings_response(request, form=None, policy_form=None, status=200):
+    config = GatewayConfig.objects.filter(tenant=request.member.tenant).first()
+    policy = GatewayReconciliationPolicy.objects.filter(tenant=request.member.tenant).first()
+    if form is None:
+        form = ConfigForm(initial={"enabled": bool(config and config.enabled), "version": config.version if config else 0})
+    if policy_form is None:
+        policy_form = ReconciliationForm(auto_id="reconciliation_%s", initial={"enabled": bool(policy and policy.enabled),
+            "include_settled": bool(policy and policy.include_settled), "interval": policy.interval_seconds if policy else 60,
+            "version": policy.version if policy else 0})
+    try:
+        merchant = credentials(request.member.tenant_id)[0]
+        ready = True
+    except ValidationError:
+        merchant, ready = "", False
+    return render(request, "gateway/settings.html", {"form": form, "ready": ready, "merchant_id": merchant,
+        "policy": policy, "policy_form": policy_form}, status=status)
 
 
 def expiry_form(order, data=None):
@@ -60,12 +87,28 @@ def gateway_settings(request):
             else:
                 messages.success(request, "Setelan Midtrans Sandbox disimpan. Order lama tetap dapat direkonsiliasi.")
                 return redirect("gateway_settings")
-    try:
-        merchant, _ = credentials(request.member.tenant_id)
-        ready = True
-    except ValidationError:
-        merchant, ready = "", False
-    return render(request, "gateway/settings.html", {"form": form, "ready": ready, "merchant_id": merchant})
+    return settings_response(request, form=form)
+
+
+@require("manage_access")
+@require_POST
+def reconciliation_settings(request):
+    if request.member.role != "owner":
+        raise PermissionDenied
+    if not recent_factor(request, return_to="/settings/payment-gateway/"):
+        return redirect("account_security")
+    form = ReconciliationForm(request.POST, auto_id="reconciliation_%s")
+    if form.is_valid():
+        try:
+            save_reconciliation_policy(request.user, form.cleaned_data["enabled"], form.cleaned_data["include_settled"],
+                form.cleaned_data["interval"], form.cleaned_data["version"], request.session["mfa_verified_at"],
+                request.session["access_version"])
+        except (ValidationError, IntegrityError, OperationalError):
+            form.add_error(None, "Kebijakan belum disimpan. Periksa kredensial sandbox dan muat ulang jika pengaturan berubah.")
+        else:
+            messages.success(request, "Kebijakan pemeriksaan otomatis disimpan. Worker mengikuti jadwal dan persetujuan terbaru.")
+            return redirect("gateway_settings")
+    return settings_response(request, policy_form=form, status=400)
 
 
 @require_POST

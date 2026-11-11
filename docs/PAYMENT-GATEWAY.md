@@ -1,4 +1,4 @@
-# Midtrans Sandbox — checkpoint pengakhiran checkout 11 November 2026 WIB
+# Midtrans Sandbox — checkpoint worker rekonsiliasi 11 November 2026 WIB
 
 Checkout Snap redirect, notifikasi terverifikasi, dan rekonsiliasi kini diimplementasikan. Integrasi **nonaktif secara bawaan**, khusus sandbox dan `TAGIHNET_SIMULATION=1`. Uang nyata, endpoint/kunci produksi, refund otomatis, serta aktivasi router nyata belum didukung. Kredensial merchant dan URL HTTPS publik belum tersedia pada lingkungan pengembangan; transport Midtrans diuji dengan respons tiruan, bukan transaksi pada akun sandbox sebenarnya.
 
@@ -24,7 +24,7 @@ Izinkan HTTPS keluar hanya ke:
 
 Client menggunakan proxy/CA bawaan lingkungan, Basic Auth server-side, timeout 10 detik, respons maksimal 64 KiB, dan penolakan redirect HTTP. Browser membuka halaman checkout di tab baru tanpa SDK atau script eksternal; CSP aplikasi tetap ketat. Client key tidak diperlukan untuk checkout redirect ini. Detail identitas pelanggan tidak dikirim; payload hanya membawa ID order acak, nominal, dan deskripsi tagihan generik. Permintaan kartu mengaktifkan `credit_card.secure=true`.
 
-Jalankan migrasi sampai `0009` setelah mencadangkan database yang sudah berisi data (`0008`: gateway dan payment source; `0009`: permintaan pengakhiran):
+Jalankan migrasi sampai `0011` setelah mencadangkan database yang sudah berisi data (`0008`: gateway/payment source; `0009`: pengakhiran; `0010`: kebijakan polling; `0011`: waktu pemeriksaan/verifikasi):
 
 ```bash
 .venv/bin/python manage.py migrate --noinput
@@ -41,7 +41,7 @@ Pemilik ISP membuka **Payment gateway**, meninjau mode sandbox, dan mengaktifkan
 5. Aplikasi mencatat pembayaran hanya setelah status API cocok dengan order, merchant, mata uang IDR, nominal rupiah bulat, dan transaction ID. `settlement` dengan status_code `200` dan fraud accept/absent, atau `capture` dengan `fraud_status=accept` dan status_code `200`, dapat dikreditkan.
 6. Satu pembayaran bersumber `midtrans_sandbox`, satu event per status terverifikasi, audit, serta satu job rekonsiliasi jaringan simulasi disimpan atomik. Router gagal tidak membatalkan pembayaran.
 
-Menu **Pembayaran gateway** menampilkan daftar order ISP sendiri (atau hanya order pelanggan portal itu sendiri), pencarian nama/ID order, filter status, pagination 10/25/50 dan ringkasan status seluruh cakupan sebelum filter. Daftar tidak membocorkan URL checkout privat. GET daftar/detail tidak menghubungi Midtrans. Detail order menampilkan maksimal 20 riwayat verifikasi, beserta hasil saat pertama diterima, tanpa payload mentah/signature. Riwayat order juga tersedia pada detail faktur. Halaman order privat menampilkan status, nominal dan waktu pembaruan WIB. Pembaca faktur tanpa izin pembayaran dapat membaca riwayat, tetapi tidak membuat checkout atau meminta pemeriksaan status. Pelanggan tidak dapat mengakses order pelanggan lain, termasuk pelanggan dalam ISP yang sama. Checkout dan refresh memerlukan POST+CSRF dan pembatasan permintaan persisten; GET tidak menghubungi Midtrans.
+Menu **Pembayaran gateway** menampilkan daftar order ISP sendiri (atau hanya order pelanggan portal itu sendiri), pencarian nama/ID order, filter status, pagination 10/25/50 dan ringkasan status seluruh cakupan sebelum filter. Daftar tidak membocorkan URL checkout privat. GET daftar/detail tidak menghubungi Midtrans. Detail order menampilkan maksimal 20 riwayat verifikasi, beserta hasil saat pertama diterima, tanpa payload mentah/signature. Riwayat order juga tersedia pada detail faktur. Halaman order privat menampilkan status, nominal dan waktu pembuatan serta verifikasi terakhir WIB. Pembaca faktur tanpa izin pembayaran dapat membaca riwayat, tetapi tidak membuat checkout atau meminta pemeriksaan status. Pelanggan tidak dapat mengakses order pelanggan lain, termasuk pelanggan dalam ISP yang sama. Checkout dan refresh memerlukan POST+CSRF dan pembatasan permintaan persisten; GET tidak menghubungi Midtrans.
 
 ## Webhook dan pemulihan gangguan
 
@@ -84,6 +84,28 @@ Urutan pemeriksaan:
 Status awal **Diminta** juga dapat dipakai ulang jika proses berhenti sebelum hasil tersimpan. Tidak ada umur lokal yang otomatis membebaskan order. Setelah pengakhiran terkonfirmasi, checkout pengganti memakai UUID order baru dan sisa tagihan dari server; faktur lama tetap belum lunas. Menonaktifkan checkout baru pada setelan tidak menghalangi pengakhiran order lama, selama kredensial sandbox tetap tersedia dan SIMULATION=1. Pencabutan izin/sesi atau lewatnya batas MFA setelah preflight mencegah pengiriman write baru.
 
 Riwayat maksimal sepuluh permintaan ditampilkan hanya kepada owner, termasuk alasan plaintext dan waktu WIB. Seluruh intent masuk backup/restore terenkripsi. Audit dan penyiapan intent berada di transaksi yang dapat dicoba ulang, sedangkan operasi HTTP berada di luar transaksi; retry lock database tidak mengulangi POST jaringan. Jika layanan gagal setelah remote request, ulangi UUID yang sama untuk memeriksa kebenaran status terlebih dahulu.
+
+## Pemeriksaan status otomatis
+
+Pada **Payment gateway → Pemeriksaan status otomatis**, owner dapat mengaktifkan pemeriksaan berkala dengan MFA terbaru dan persetujuan eksplisit bahwa pembayaran terverifikasi akan dicatat. Default nonaktif, terpisah dari sakelar checkout baru. Interval yang tersedia 1/5/15 menit; pemeriksaan pembayaran yang sudah tercatat untuk mencari refund/chargeback juga opt-in. Gateway checkout boleh dinonaktifkan sementara pemeriksaan order lama tetap berjalan. Kunci merchant tetap berada di konfigurasi privat; database kebijakan hanya menyimpan ID merchant dan bukti persetujuan.
+
+```bash
+.venv/bin/python manage.py run_gateway_worker --once --limit 20
+# Layanan kontinu, dihentikan dengan Ctrl+C:
+.venv/bin/python manage.py run_gateway_worker --limit 20
+```
+
+Worker memeriksa maksimal 10 kebijakan yang jatuh tempo per putaran dan maksimal 20 order per kebijakan secara bawaan (limit 1–100). Jadwal adalah jeda minimum antarputaran; pemeriksaan setiap order bergantung backlog dan jumlah worker. Order yang belum pernah diperiksa didahulukan, kemudian yang waktu pemeriksaannya paling lama. Keberhasilan maupun kegagalan memutar urutan sehingga satu order bermasalah tidak menghalangi yang lain. `--once` mengembalikan gagal jika batch yang dilaporkan masih mempunyai status gagal/sebagian; progres dan jadwal tetap tersimpan. Mode di luar SIMULATION ditolak. Worker tidak membuat checkout, tidak mengirim expire, tidak meminta refund, dan tidak mengirim pesan.
+
+Setiap kebijakan memakai UUID lease selama 60 detik yang diperbarui sebelum tiap request. Tidak ada transaksi database yang dibiarkan terbuka selama HTTP. Selama lease valid hanya satu worker mengerjakan kebijakan; lease kedaluwarsa dapat diambil ulang setelah proses terhenti. Worker lama tidak dapat menimpa hasil/jadwal dari token atau versi baru. Jika proses berhenti saat request sedang berlangsung, status yang kembali tetap melewati writer ledger idempoten; lease tidak membatalkan request yang sudah dikirim. Simpan ulang atau menonaktifkan kebijakan membatalkan lease, dan worker berhenti sebelum request berikutnya. Hasil yang sudah terverifikasi saat perubahan berlangsung tetap dicatat.
+
+Akses owner pemberi persetujuan, status akun, tenant, session version dan mode simulasi diperiksa ulang sebelum batch dan setiap order. Persetujuan yang tidak berlaku menonaktifkan kebijakan dan menampilkan **Perlu persetujuan ulang**; owner harus meninjau dan menyimpan ulang dengan MFA. Kredensial yang sementara hilang menghasilkan kegagalan verifikasi dengan jadwal ulang, bukan pemakaian merchant ISP lain.
+
+Jika seluruh pemeriksaan gagal, interval berkembang dua kali lipat pada kegagalan berikutnya, maksimal satu jam. Keberhasilan atau putaran kosong mereset rangkaian kegagalan. Batch dengan hasil campuran tetap memakai interval normal agar kegagalan satu order tidak memperlambat order lain. Status **Pemeriksaan selesai** berarti pemeriksaan API pada batch berhasil; bukan berarti semua order lunas atau masalah keuangan sudah diselesaikan.
+
+Halaman setelan menampilkan putaran terakhir, verifikasi sukses terakhir, jumlah hasil, status dan jadwal berikutnya. Order mempunyai waktu percobaan dan waktu verifikasi sukses yang terpisah. Kegagalan tidak memperbarui waktu verifikasi, dan daftar/detail menandai pemeriksaan terakhir gagal. Migrasi 0011 memakai waktu event verifikasi sebagai bukti untuk data lama; updated_at lama yang juga pernah mencatat kegagalan tidak dipercaya untuk backfill. Order tanpa bukti event tetap belum terverifikasi.
+
+Kebijakan, persetujuan, jadwal, backoff dan lease ikut backup/restore. Restore tidak menjalankan proses worker secara otomatis; jalankan lagi layanan dan biarkan lease lama kedaluwarsa sebelum mengambil alih. Penjadwalan/lease telah diuji pada SQLite dan PostgreSQL lokal, bukan bukti kapasitas produksi atau akses akun Midtrans asli.
 
 ## Bukti pengujian dan batasnya
 

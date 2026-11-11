@@ -5,11 +5,11 @@ import re
 import time
 import uuid
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.db import IntegrityError, OperationalError, transaction
 from django.utils import timezone
 from .access import owner_for_update
 from .billing import audit, retry_locked
-from .midtrans import SandboxClient, checkout_url, credentials, rupiah
+from .midtrans import GatewayUnavailable, SandboxClient, checkout_url, credentials, rupiah
 from .models import Customer, GatewayConfig, GatewayEvent, GatewayOrder, Invoice, Membership, NetworkJob, Payment
 from .permissions import capabilities, membership
 
@@ -31,7 +31,7 @@ def save_config(actor, enabled, version, verified_at, access_version):
     if (config.version if config else 0) != version:
         raise ValidationError("Setelan berubah. Muat ulang sebelum menyimpan.")
     if enabled:
-        merchant, _ = credentials(member.tenant_id)
+        merchant = credentials(member.tenant_id)[0]
         if GatewayOrder.objects.filter(tenant=member.tenant).exclude(merchant_id=merchant).exists():
             raise ValidationError("Merchant tidak boleh diganti setelah order dibuat. Rekonsiliasi akun lama terlebih dahulu.")
     else:
@@ -124,11 +124,12 @@ def apply_status(order_id, payload):
     txn, status, paid, fingerprint = verified_status(order, payload)
     if order.transaction_id and order.transaction_id != txn:
         raise ValidationError("Identitas transaksi gateway berubah.")
+    order.last_checked_at = order.last_verified_at = timezone.now()
     existing_event = GatewayEvent.objects.filter(order=order, fingerprint=fingerprint).first()
     if existing_event and (order.payment_id or not paid):
         # Rotate reconciled pending orders behind unexamined work without duplicating events.
         order.updated_at = timezone.now()
-        order.save(update_fields=["updated_at"])
+        order.save(update_fields=["updated_at", "last_checked_at", "last_verified_at"])
         return order
     order.transaction_id = txn
     before_status = order.status
@@ -171,4 +172,15 @@ def apply_status(order_id, payload):
 
 
 def refresh_order(order):
-    return apply_status(order.pk, SandboxClient().status(order))
+    try:
+        return apply_status(order.pk, SandboxClient().status(order))
+    except (GatewayUnavailable, ValidationError, IntegrityError, OperationalError):
+        mark_unavailable(order.pk)
+        raise
+
+
+@retry_locked
+def mark_unavailable(order_id):
+    # Attempt time is distinct from evidence of a verified status. Never refresh
+    # the verification timestamp when the remote response could not be checked.
+    GatewayOrder.objects.filter(pk=order_id).update(last_checked_at=timezone.now())

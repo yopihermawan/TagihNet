@@ -271,6 +271,37 @@ class GatewayConfig(models.Model):
     updated_at = models.DateTimeField(default=timezone.now)
 
 
+class GatewayReconciliationPolicy(models.Model):
+    STATES = [("never", "Belum dijalankan"), ("idle", "Tidak ada order untuk diperiksa"),
+        ("completed", "Pemeriksaan selesai"), ("partial", "Sebagian belum terverifikasi"),
+        ("failed", "Gateway belum dapat diverifikasi"), ("blocked", "Perlu persetujuan ulang")]
+    tenant = models.OneToOneField(Tenant, on_delete=models.PROTECT)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)
+    authorization_version = models.PositiveIntegerField(default=0)
+    merchant_id = models.CharField(max_length=64, blank=True)
+    enabled = models.BooleanField(default=False)
+    include_settled = models.BooleanField(default=False)
+    interval_seconds = models.PositiveIntegerField(default=60)
+    version = models.PositiveIntegerField(default=1)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    next_run_at = models.DateTimeField(default=timezone.now)
+    lease_token = models.UUIDField(null=True, blank=True)
+    lease_until = models.DateTimeField(null=True, blank=True)
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    last_success_at = models.DateTimeField(null=True, blank=True)
+    last_status = models.CharField(max_length=16, choices=STATES, default="never")
+    last_verified = models.PositiveIntegerField(default=0)
+    last_unavailable = models.PositiveIntegerField(default=0)
+    failure_streak = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=Q(interval_seconds__in=[60, 300, 900]), name="gateway_policy_interval"),
+            models.CheckConstraint(condition=(Q(lease_token__isnull=True, lease_until__isnull=True)
+                | Q(lease_token__isnull=False, lease_until__isnull=False)), name="gateway_policy_lease_pair"),
+        ]
+
+
 class GatewayOrder(models.Model):
     STATES = [("creating", "Menyiapkan checkout"), ("pending", "Menunggu pembayaran"),
         ("settled", "Pembayaran tercatat"), ("deny", "Ditolak"), ("cancel", "Dibatalkan gateway"),
@@ -288,6 +319,12 @@ class GatewayOrder(models.Model):
     reason = models.CharField(max_length=250, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    last_verified_at = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def verification_failed(self):
+        return bool(self.last_checked_at and (not self.last_verified_at or self.last_checked_at > self.last_verified_at))
 
     @property
     def order_id(self):

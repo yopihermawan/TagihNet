@@ -2,7 +2,9 @@
 <a class="back-link" href="{% url 'invoice_detail' order.invoice_id %}">← Kembali ke faktur</a>
 <p><a href="{% url 'gateway_orders' %}">Lihat riwayat pembayaran gateway</a></p>
 <div class="page-heading"><div><span class="eyebrow">MIDTRANS SANDBOX</span><h1>Pembayaran sandbox</h1><p class="muted">Pengujian tanpa uang nyata.</p></div></div>
-<section class="panel padded narrow"><h2>{{ order.get_status_display }}</h2><p class="amount">{{ order.amount|idr }}</p><p class="muted gateway-reference">Order {{ order.order_id }}<br>Diperbarui {{ order.updated_at|date:'d M Y H:i' }} WIB</p>
+<section class="panel padded narrow"><h2>{{ order.get_status_display }}</h2><p class="amount">{{ order.amount|idr }}</p><p class="muted gateway-reference">Order {{ order.order_id }}<br>Dibuat {{ order.created_at|date:'d M Y H:i' }} WIB</p>
+<p class="muted">Verifikasi status terakhir: {% if order.last_verified_at %}{{ order.last_verified_at|date:'d M Y H:i' }} WIB{% else %}Belum ada status terverifikasi{% endif %}</p>
+{% if order.verification_failed %}<p class="info-note">Pemeriksaan terakhir gagal pada {{ order.last_checked_at|date:'d M Y H:i' }} WIB. Status yang ditampilkan belum diperbarui dari gateway. Periksa lagi sebelum mengambil tindakan.</p>{% endif %}
 {% if order.reason %}<p class="info-note">{{ order.reason }}</p>{% endif %}
 {% if order.checkout_url and order.status == 'pending' %}<a class="button primary" href="{{ order.checkout_url }}" target="_blank" rel="noopener noreferrer">Buka pembayaran Midtrans Sandbox ↗</a>{% endif %}
 {% if can_refresh %}<form method="post" action="{% url 'gateway_refresh' order.pk %}" class="stack-form">{% csrf_token %}<button class="button">Periksa status pembayaran</button></form>{% endif %}

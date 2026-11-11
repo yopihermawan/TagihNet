@@ -167,22 +167,55 @@ with patch("core.gateway.SandboxClient.create",return_value="https://app.sandbox
             page.wait_for_url("**/payments/orders/*/")
             assert page.url!=expiring_url
             expect(page.get_by_role("heading", name="Menunggu pembayaran", exact=True)).to_be_visible()
+            page.goto(base + "/settings/payment-gateway/")
+            page.get_by_label("Aktifkan pemeriksaan status otomatis").check()
+            page.get_by_label("Jeda antar pemeriksaan").select_option("60")
+            page.get_by_label("Saya menyetujui pemeriksaan berkala", exact=False).check()
+            page.get_by_role("button", name="Simpan pemeriksaan otomatis dengan MFA", exact=True).click()
+            expect(page.get_by_text("Kebijakan pemeriksaan otomatis disimpan.", exact=False)).to_be_visible()
+            worker_code = '''
+import django
+django.setup()
+from unittest.mock import patch
+from django.core.management import call_command
+def status(order):
+    return {"order_id":order.order_id,"merchant_id":"G-BROWSER","gross_amount":f"{order.amount}.00",
+        "currency":"IDR","transaction_id":f"txn-{order.pk.hex}","transaction_status":
+        "refund" if order.payment_id else "settlement","fraud_status":"accept","status_code":"200"}
+with patch("core.gateway.SandboxClient.status",side_effect=status) as remote:
+    call_command("run_gateway_worker",once=True)
+    assert remote.call_count==2
+with patch("core.gateway.SandboxClient.status") as remote:
+    call_command("run_gateway_worker",once=True)
+    remote.assert_not_called()
+'''
+            subprocess.run([sys.executable,"-c",worker_code],cwd=ROOT,env=env,check=True)
+            page.goto(base + "/settings/payment-gateway/")
+            expect(page.get_by_text("Pemeriksaan selesai", exact=False)).to_be_visible()
+            expect(page.locator(".definition-list")).to_contain_text("2 terverifikasi")
+            for width in [360, 768, 1366, 1920]:
+                page.set_viewport_size({"width":width,"height":920})
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
+                if width in [360,1366]:
+                    page.screenshot(path=str(evidence / f"gateway-worker-{'mobile' if width==360 else 'desktop'}.png"),full_page=True,animations="disabled")
             assert not errors, errors
             browser.close()
         verify = '''
 import django
 django.setup()
-from core.models import Payment,GatewayEvent,GatewayExpiry,GatewayOrder,NetworkJob,Invoice
-assert Payment.objects.count()==NetworkJob.objects.count()==1
-assert GatewayEvent.objects.count()==5
+from core.models import Payment,GatewayEvent,GatewayExpiry,GatewayOrder,GatewayReconciliationPolicy,NetworkJob,Invoice
+assert Payment.objects.count()==NetworkJob.objects.count()==2
+assert GatewayEvent.objects.count()==6
 assert set(GatewayEvent.objects.values_list("gateway_status",flat=True))=={"pending","settlement","refund","expire"}
-assert [invoice.balance for invoice in Invoice.objects.order_by("pk")]==[0,249750]
-assert Payment.objects.get().gatewayorder.status=="review"
+assert [invoice.balance for invoice in Invoice.objects.order_by("pk")]==[0,0]
+assert Payment.objects.filter(gatewayorder__status="review").count()==1
 assert GatewayExpiry.objects.count()==1 and GatewayExpiry.objects.get().status=="confirmed"
 assert GatewayOrder.objects.filter(invoice_id=2).count()==2
+assert GatewayReconciliationPolicy.objects.get().last_status=="completed"
+assert GatewayReconciliationPolicy.objects.get().last_verified==2
 '''
         subprocess.run([sys.executable, "-c", verify], cwd=ROOT, env=env, check=True)
-        print("PASS: Chromium login/MFA, checkout/history/refund, owner-reviewed expiry/replay and replacement checkout; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
+        print("PASS: Chromium login/MFA, checkout/history/refund/expiry and owner-opted polling worker recovering a missed payment; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
     finally:
         process.terminate()
         process.wait(timeout=10)

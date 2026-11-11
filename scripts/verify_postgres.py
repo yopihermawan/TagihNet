@@ -44,6 +44,32 @@ def child(data):
 
     def action():
         case = data["case"]
+        if case in {"gateway_polling", "gateway_polling_revoked"}:
+            from core.gateway_worker import process_policy
+            from core.models import Membership
+            from core.tests.test_payment_gateway import status_payload
+            def wait_for(name):
+                deadline=time.monotonic()+15
+                while not (gate_dir/name).exists():
+                    if time.monotonic()>deadline:
+                        raise TimeoutError("Polling process gate timed out")
+                    time.sleep(.01)
+            if case=="gateway_polling_revoked" and data["role"]==1:
+                wait_for("polling-inflight")
+                Membership.objects.filter(user=actor).update(session_version=2)
+                (gate_dir/"polling-revoked").touch()
+                return "revoked"
+            calls=0
+            def status(order):
+                nonlocal calls
+                calls+=1
+                if case=="gateway_polling_revoked":
+                    (gate_dir/"polling-inflight").touch()
+                    wait_for("polling-revoked")
+                return status_payload(order,merchant_id=order.merchant_id)
+            with patch("core.gateway.SandboxClient.status",side_effect=status):
+                result=process_policy(data["gateway_policy"])
+            return {"processed":result is not None,"calls":calls,"status":result.last_status if result else None}
         if case == "gateway_reserve":
             from core.gateway import reserve_order
             return str(reserve_order(actor, data["invoice"]).pk)
@@ -418,6 +444,35 @@ def verify():
         assert results[0]["ok"]["status"]=="blocked" and GatewayExpiry.objects.get(order=racing_order).status=="blocked"
         assert racing_invoice.balance==0 and Payment.objects.count()==payments_before+1 and NetworkJob.objects.count()==jobs_before+1
         print("PASS: 2 processes, payment wins expiry race -> 1 payment, blocked expiry, no lost ledger entry", flush=True)
+        from core.gateway_worker import save_policy as save_gateway_policy
+        from core.models import GatewayReconciliationPolicy
+        polling_tenant, polling_actor, polling_customer=tenants[1], owners[1], customers[1]
+        settings.MIDTRANS_SANDBOX_ACCOUNT_KEYS[str(polling_tenant.pk)]={"merchant_id":"G-POLL","server_key":"SB-Mid-server-pg-polling-fixture"}
+        os.environ["TAGIHNET_MIDTRANS_SANDBOX_ACCOUNT_KEYS"]=json.dumps(settings.MIDTRANS_SANDBOX_ACCOUNT_KEYS)
+        GatewayConfig.objects.create(tenant=polling_tenant,merchant_id="G-POLL",enabled=True)
+        polling_invoice,_=issue_invoice(polling_tenant,polling_customer.pk,date(2027,3,1),polling_actor)
+        reserve_order(polling_actor,polling_invoice.pk)
+        polling_policy=save_gateway_policy(polling_actor,True,False,60,0,time.time(),1)
+        polling_common={"actor":polling_actor.pk,"tenant":polling_tenant.pk,"customer":polling_customer.pk,"gateway_policy":polling_policy.pk}
+        jobs_before,payments_before=NetworkJob.objects.count(),Payment.objects.count()
+        results=parallel("gateway_polling",polling_common)
+        assert sum(result["ok"]["processed"] for result in results)==1 and sum(result["ok"]["calls"] for result in results)==1
+        assert polling_invoice.balance==0 and Payment.objects.count()==payments_before+1 and NetworkJob.objects.count()==jobs_before+1
+        polling_policy.refresh_from_db()
+        assert polling_policy.last_verified==1 and polling_policy.lease_token is None
+        print("PASS: 2 processes, polling lease -> 1 status request/payment/job",flush=True)
+        revoked_invoices=[]
+        for month in [4,5]:
+            new_invoice,_=issue_invoice(polling_tenant,polling_customer.pk,date(2027,month,1),polling_actor)
+            reserve_order(polling_actor,new_invoice.pk)
+            revoked_invoices.append(new_invoice)
+        save_gateway_policy(polling_actor,True,False,60,polling_policy.version,time.time(),1)
+        results=parallel("gateway_polling_revoked",polling_common)
+        assert results[0]["ok"]["calls"]==1 and results[0]["ok"]["status"]=="blocked" and results[1]["ok"]=="revoked"
+        assert revoked_invoices[0].balance==0 and revoked_invoices[1].balance==revoked_invoices[1].total
+        assert Payment.objects.count()==payments_before+2 and NetworkJob.objects.count()==jobs_before+2
+        assert not GatewayReconciliationPolicy.objects.get(pk=polling_policy.pk).enabled
+        print("PASS: 2 processes, consent revoked in flight -> verified payment preserved, next order not polled",flush=True)
         import pyotp
         from core.models import MFADevice
         from core.security import encrypt_secret, decrypt_secret

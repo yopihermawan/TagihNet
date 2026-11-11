@@ -55,6 +55,7 @@ from core.gateway import reserve_order, apply_status
 from core.models import GatewayConfig
 from core.tests.test_payment_gateway import account_keys, status_payload
 from core.gateway_expiry import expire_order
+from core.gateway_worker import claim_policy, save_policy as save_gateway_policy
 from unittest.mock import patch
 import time
 tenants, owners, customers = fixtures()
@@ -70,6 +71,8 @@ with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(tenants[0])):
     ending_order = reserve_order(owners[0], ending.pk)
     with patch("core.gateway.SandboxClient.status", side_effect=[status_payload(ending_order,"pending"),status_payload(ending_order,"expire")]), patch("core.gateway_expiry.SandboxClient.expire",return_value={}):
         assert expire_order(owners[0],ending_order.pk,uuid.uuid4(),"Permintaan akhir checkout untuk restore drill",time.time(),1).status=="confirmed"
+    polling_policy=save_gateway_policy(owners[0],True,False,60,0,time.time(),1)
+    assert claim_policy(polling_policy.pk).lease_token is not None
 recovery = hashlib.sha256(b"tagihnet-isolated-drill-only").hexdigest()[:32]
 MFADevice.objects.create(user=owners[0], encrypted_secret=encrypt_secret(TEST_TOTP_SECRET), recovery_hashes=[recovery_digest(recovery)])
 '''
@@ -114,7 +117,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client
 from core.tests.auth_helpers import TEST_TOTP_SECRET
 from core.security import verify_factor
-from core.models import Invoice, GatewayOrder, GatewayEvent, GatewayExpiry, Payment
+from core.models import Invoice, GatewayOrder, GatewayEvent, GatewayExpiry, GatewayReconciliationPolicy, Payment
 client = Client(enforce_csrf_checks=True)
 client.get("/login/")
 csrf = client.cookies["csrftoken"].value
@@ -135,8 +138,24 @@ assert GatewayOrder.objects.filter(status="settled", payment__source="midtrans_s
 assert GatewayOrder.objects.filter(status="creating", payment__isnull=True).count() == 1
 assert GatewayEvent.objects.count() == 3 and Payment.objects.count() == 2
 assert GatewayExpiry.objects.get().status=="confirmed"
+policy=GatewayReconciliationPolicy.objects.get()
+assert policy.enabled and policy.lease_token is not None and policy.approved_by==user
+from datetime import timedelta
+from django.test import override_settings
+from django.utils import timezone
+from unittest.mock import patch
+from core.gateway_worker import claim_policy, process_policy
+from core.tests.test_payment_gateway import account_keys, status_payload
+assert claim_policy(policy.pk) is None
+GatewayReconciliationPolicy.objects.filter(pk=policy.pk).update(lease_until=timezone.now()-timedelta(seconds=1))
+pending=GatewayOrder.objects.get(status="creating")
+with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(user.membership.tenant)), patch("core.gateway.SandboxClient.status",return_value=status_payload(pending,"pending")):
+    recovered=process_policy(policy.pk)
+assert recovered.last_verified==1 and recovered.lease_token is None and recovered.last_status=="completed"
+assert Payment.objects.count()==2
 '''
     run("manage.py", "shell", "-c", authenticate, env=restored_env)
     assert fingerprint(source/"tagihnet.sqlite3") == before
     print("PASS: restored password + TOTP login with CSRF, OTP/recovery replay rejected, balance reconciles; wrong MFA key fails independently.", flush=True)
+    print("PASS: restored polling approval and active lease preserved; expired lease resumes one verified status check without duplicate payment.",flush=True)
 print("PASS: temporary source/restored databases, plaintext staging, keys and archive cleaned; user demo untouched.")

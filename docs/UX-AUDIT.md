@@ -74,3 +74,7 @@ Menu Pembayaran gateway menyediakan ringkasan seluruh cakupan sebelum filter, pe
 ## Pengakhiran checkout — 11 November 2026 WIB
 
 Form owner pada detail order meminta alasan dan peninjauan; hasil membedakan Diminta, Belum dapat dipastikan, Dikonfirmasi berakhir dan Tidak dapat diakhiri. Form retry mempertahankan alasan/UUID awal. Browser mengakhiri order pending, mereplay formulir dengan CSRF dan membuat checkout pengganti tanpa melunasi faktur. Empat viewport diperiksa; tangkapan layar menonaktifkan animasi agar resize tidak menangkap sidebar saat transisi. Bukti: [mobile](evidence/gateway-expiry-mobile.png), [desktop](evidence/gateway-expiry-desktop.png). Semua menggunakan data dan transport Midtrans tiruan.
+
+## Jadwal pemeriksaan gateway — 11 November 2026 WIB
+
+Setelan owner memakai checkbox opt-in, interval 1/5/15 menit, opsi pemeriksaan transaksi tercatat dan persetujuan pencatatan otomatis. Form checkout dan polling memakai ID label berbeda. Status membedakan belum dijalankan, idle, selesai, sebagian, gagal dan perlu persetujuan ulang; hasil belum tersedia tidak ditampilkan sebagai keberhasilan nol. Detail/daftar order memisahkan waktu percobaan dan verifikasi sukses, dengan peringatan failure. Browser menjalankan worker dari kebijakan UI dan memverifikasi hasil pembayaran yang webhook-nya dilewatkan. Empat viewport dan bukti [mobile](evidence/gateway-worker-mobile.png)/[desktop](evidence/gateway-worker-desktop.png) memakai data dan transport tiruan.

@@ -1,8 +1,8 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, OperationalError
-from django.utils import timezone
-from core.gateway import refresh_order
+from django.db.models import F
+from core.gateway import mark_unavailable, refresh_order
 from core.midtrans import GatewayUnavailable
 from core.models import GatewayOrder
 
@@ -24,7 +24,7 @@ class Command(BaseCommand):
         orders = GatewayOrder.objects.filter(status__in=states)
         if options["tenant"] is not None:
             orders = orders.filter(tenant_id=options["tenant"])
-        orders = orders.order_by("updated_at", "pk")[:options["limit"]]
+        orders = orders.order_by(F("last_checked_at").asc(nulls_first=True), "created_at", "pk")[:options["limit"]]
         checked, failed = 0, 0
         for order in list(orders):
             try:
@@ -32,7 +32,7 @@ class Command(BaseCommand):
             except (ValidationError, GatewayUnavailable, IntegrityError, OperationalError):
                 failed += 1
                 # A failed merchant/order must not starve every later batch forever.
-                GatewayOrder.objects.filter(pk=order.pk).update(updated_at=timezone.now())
+                mark_unavailable(order.pk)
             else:
                 checked += 1
         self.stdout.write(f"Midtrans Sandbox: verified={checked}; unavailable={failed}. No new checkout created.")
