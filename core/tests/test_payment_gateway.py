@@ -11,6 +11,7 @@ import urllib.error
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.db import close_old_connections
 from django.test import Client, SimpleTestCase, TestCase, TransactionTestCase, override_settings
 from core.billing import issue_invoice, record_payment, reverse_payment
@@ -255,6 +256,37 @@ class PaymentGatewayTests(TestCase):
         self.assertIsNone(result.payment_id)
         self.assertEqual(Payment.objects.count(), 1)
 
+    def test_dispute_before_late_success_cannot_credit_payment(self):
+        for month, disputed in enumerate(["refund", "partial_refund", "chargeback", "partial_chargeback"], start=6):
+            invoice, _ = issue_invoice(self.tenants[0], self.customers[0].pk, date(2026, month, 1), self.owners[0])
+            order = reserve_order(self.owners[0], invoice.pk)
+            with self.subTest(disputed=disputed):
+                apply_status(order.pk, status_payload(order, disputed))
+                for late in ["settlement", "capture"]:
+                    result = apply_status(order.pk, status_payload(order, late))
+                    self.assertEqual(result.status, "review")
+                    self.assertIsNone(result.payment_id)
+                self.assertEqual(invoice.balance, invoice.total)
+        self.assertFalse(Payment.objects.exists())
+        self.assertFalse(NetworkJob.objects.exists())
+
+    def test_conflicted_settlement_recovers_after_manual_balance_correction(self):
+        order = self.order()
+        manual = Payment.objects.create(tenant=self.tenants[0], invoice=self.invoice, amount=self.invoice.total,
+            event_key=uuid.uuid4(), recorded_by=self.owners[0])
+        payload = status_payload(order)
+        self.assertEqual(apply_status(order.pk, payload).status, "review")
+        reverse_payment(self.tenants[0], manual.pk, "Koreksi pencatatan manual yang keliru", self.owners[0])
+        with patch("core.gateway.SandboxClient.status", return_value=payload):
+            result = refresh_order(order)
+            replayed = refresh_order(order)
+        self.assertEqual(result.status, "settled")
+        self.assertEqual(result.payment_id, replayed.payment_id)
+        self.assertEqual(Payment.objects.filter(source="midtrans_sandbox").count(), 1)
+        self.assertEqual(GatewayEvent.objects.count(), 1)
+        self.assertEqual(GatewayEvent.objects.get().outcome, "review")
+        self.assertEqual(self.invoice.balance, 0)
+
     def test_gateway_outage_returns_retryable_webhook_response(self):
         order = self.order()
         with patch("core.gateway.SandboxClient.status", side_effect=GatewayUnavailable):
@@ -341,6 +373,76 @@ class PaymentGatewayTests(TestCase):
         response = self.client.get(f"/payments/orders/{order.pk}/?redirect_url=https://evil.invalid/")
         self.assertNotContains(response, "evil.invalid")
         self.assertEqual(response["Cache-Control"], "no-store")
+
+    def test_order_list_scopes_summary_and_omits_private_checkout_url(self):
+        order = self.order()
+        GatewayOrder.objects.filter(pk=order.pk).update(checkout_url=URL)
+        other = GatewayOrder.objects.create(tenant=self.tenants[1], invoice=self.other_invoice,
+            created_by=self.owners[1], merchant_id="G-OTHER", amount=self.other_invoice.total)
+        with patch("core.gateway.SandboxClient.status") as status:
+            response = self.client.get(f"/payments/orders/?tenant_id={self.tenants[1].pk}")
+        status.assert_not_called()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item.pk for item in response.context["page"]], [order.pk])
+        self.assertEqual(response.context["summary"], {"total": 1, "waiting": 1, "review": 0, "settled": 0})
+        self.assertNotContains(response, other.order_id)
+        self.assertNotContains(response, URL)
+        self.assertNotContains(response, KEY)
+
+    def test_portal_order_list_excludes_other_customers_in_same_tenant(self):
+        own_order = self.order()
+        sibling = Customer.objects.create(tenant=self.tenants[0], code="TN-LIST", name="Private sibling",
+            phone="081299977712", username="gateway-list", address="Alamat", area="Lab", plan=self.customers[0].plan)
+        sibling_invoice, _ = issue_invoice(self.tenants[0], sibling.pk, date(2026, 4, 1), self.owners[0])
+        sibling_order = reserve_order(self.owners[0], sibling_invoice.pk)
+        user = get_user_model().objects.create_user(username="gateway-list-customer")
+        Membership.objects.create(user=user, tenant=self.tenants[0], role="customer", customer=self.customers[0])
+        verified_login(self.client, user)
+        response = self.client.get("/payments/orders/")
+        self.assertEqual([item.pk for item in response.context["page"]], [own_order.pk])
+        self.assertEqual(response.context["summary"]["total"], 1)
+        self.assertNotContains(response, sibling_order.order_id)
+        self.assertNotContains(response, "Private sibling")
+
+    def test_order_list_denies_anonymous_noc_and_post(self):
+        self.assertEqual(Client().get("/payments/orders/").status_code, 403)
+        Membership.objects.filter(user=self.owners[0]).update(role="noc")
+        self.assertEqual(self.client.get("/payments/orders/").status_code, 403)
+        self.assertEqual(self.client.post("/payments/orders/").status_code, 405)
+
+    def test_order_list_filters_keep_summary_scope_and_escape_search(self):
+        order = self.order()
+        apply_status(order.pk, status_payload(order))
+        response = self.client.get("/payments/orders/", {"status": "pending", "size": 25})
+        self.assertEqual(response.context["page"].paginator.count, 0)
+        self.assertEqual(response.context["summary"]["settled"], 1)
+        response = self.client.get("/payments/orders/", {"q": order.order_id, "status": "settled", "size": 25})
+        self.assertEqual([item.pk for item in response.context["page"]], [order.pk])
+        self.assertEqual(response.context["page"].paginator.per_page, 25)
+        response = self.client.get("/payments/orders/", {"q": '<script>alert("x")</script>'})
+        self.assertNotContains(response, '<script>alert("x")</script>')
+        self.assertEqual(response.context["page"].paginator.count, 0)
+
+    def test_include_settled_reconciliation_finds_missed_refund_and_filters_tenant(self):
+        order = self.order()
+        apply_status(order.pk, status_payload(order))
+        GatewayOrder.objects.create(tenant=self.tenants[1], invoice=self.other_invoice,
+            created_by=self.owners[1], merchant_id="G-OTHER", amount=self.other_invoice.total)
+        with patch("core.gateway.SandboxClient.status", return_value=status_payload(order, "refund")) as status:
+            call_command("reconcile_gateway_payments", tenant=self.tenants[0].pk, stdout=StringIO())
+            status.assert_not_called()
+            call_command("reconcile_gateway_payments", include_settled=True, tenant=self.tenants[0].pk, stdout=StringIO())
+        self.assertEqual(status.call_count, 1)
+        self.assertEqual(status.call_args.args[0].pk, order.pk)
+        order.refresh_from_db()
+        self.assertEqual(order.status, "review")
+        self.assertIsNotNone(order.payment_id)
+        self.assertEqual(self.invoice.balance, 0)
+
+    def test_reconciliation_rejects_invalid_limits_and_tenant(self):
+        for options in [{"limit": 0}, {"limit": 501}, {"tenant": 0}]:
+            with self.subTest(options=options), self.assertRaises(CommandError):
+                call_command("reconcile_gateway_payments", **options, stdout=StringIO())
 
 
 class MidtransBoundaryTests(SimpleTestCase):

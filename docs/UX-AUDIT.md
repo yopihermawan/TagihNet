@@ -66,3 +66,7 @@ Bukti: [preview desktop](evidence/customer-import-preview.png), [selesai](eviden
 ## Midtrans Sandbox — 4 November 2026 WIB
 
 Halaman konfigurasi owner dan order pembayaran diuji pada 360/768/1366/1920 px menggunakan Chromium dan data sementara, tanpa overflow seluruh halaman. Status pending/lunas, jumlah, sumber sandbox dan waktu WIB ditampilkan. Referensi order dapat membungkus di mobile. Checkout eksternal memakai tab baru; halaman kembali tidak memalsukan status lunas. Pengujian transport memakai respons Midtrans tiruan. Bukti: [mobile](evidence/gateway-mobile.png), [desktop](evidence/gateway-desktop.png).
+
+## Riwayat gateway — 11 November 2026 WIB
+
+Menu Pembayaran gateway menyediakan ringkasan seluruh cakupan sebelum filter, pencarian nama/ID order, status dan pagination. Tabel memakai gulir lokal dengan detail tetap terlihat; 360/768/1366/1920 px diperiksa tanpa overflow horizontal seluruh halaman. Riwayat verifikasi memakai label Indonesia dan menjelaskan hasil saat pertama diterima. Browser memverifikasi filter pending/review serta refund lalu respons sukses terlambat yang tetap perlu rekonsiliasi. Bukti: [daftar mobile](evidence/gateway-history-mobile.png), [daftar desktop](evidence/gateway-history-desktop.png). Transport Midtrans tiruan, tanpa transaksi eksternal.

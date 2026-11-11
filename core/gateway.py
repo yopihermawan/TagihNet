@@ -14,6 +14,7 @@ from .models import Customer, GatewayConfig, GatewayEvent, GatewayOrder, Invoice
 from .permissions import capabilities, membership
 
 OPEN_STATES = ["creating", "pending", "review"]
+DISPUTE_STATES = {"refund", "partial_refund", "chargeback", "partial_chargeback"}
 
 
 def can_checkout(member):
@@ -123,17 +124,23 @@ def apply_status(order_id, payload):
     txn, status, paid, fingerprint = verified_status(order, payload)
     if order.transaction_id and order.transaction_id != txn:
         raise ValidationError("Identitas transaksi gateway berubah.")
-    if GatewayEvent.objects.filter(order=order, fingerprint=fingerprint).exists():
+    existing_event = GatewayEvent.objects.filter(order=order, fingerprint=fingerprint).first()
+    if existing_event and (order.payment_id or not paid):
         # Rotate reconciled pending orders behind unexamined work without duplicating events.
         order.updated_at = timezone.now()
         order.save(update_fields=["updated_at"])
         return order
     order.transaction_id = txn
-    if status in {"refund", "partial_refund", "chargeback", "partial_chargeback"}:
+    before_status = order.status
+    if status in DISPUTE_STATES:
         order.status, order.reason = "review", "Refund/chargeback perlu rekonsiliasi. Ledger asli tidak diubah otomatis."
     elif order.payment_id:
         # Notifications arriving late cannot undo a recorded payment.
         pass
+    elif paid and order.events.filter(gateway_status__in=DISPUTE_STATES).exists():
+        # An earlier API request can finish after a refund has already been applied.
+        # Its stale success must not create a payment for a disputed transaction.
+        order.status, order.reason = "review", "Refund/chargeback pernah terverifikasi. Rekonsiliasi diperlukan sebelum mengubah ledger."
     elif paid:
         if order.amount > invoice.balance:
             order.status, order.reason = "review", "Nominal telah dibayar di gateway tetapi melebihi saldo faktur. Rekonsiliasi diperlukan."
@@ -154,8 +161,12 @@ def apply_status(order_id, payload):
         order.status = "pending"
     order.updated_at = timezone.now()
     order.save()
-    GatewayEvent.objects.create(order=order, fingerprint=fingerprint, gateway_status=status, outcome=order.status)
-    audit(order.tenant, None, "gateway.status", order.pk, f"{status} → {order.status}")
+    _, created = GatewayEvent.objects.get_or_create(order=order, fingerprint=fingerprint,
+        defaults={"gateway_status": status, "outcome": order.status})
+    # Keep the first event outcome as historical evidence. A fresh status check may
+    # recover an unpaid settlement after a ledger correction, with a separate audit.
+    if created or before_status != order.status:
+        audit(order.tenant, None, "gateway.status", order.pk, f"{status} → {order.status}")
     return order
 
 

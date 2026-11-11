@@ -50,6 +50,18 @@ def child(data):
         if case == "gateway_settle":
             from core.gateway import apply_status
             return str(apply_status(data["gateway_order"], data["status_payload"]).payment_id)
+        if case == "gateway_dispute":
+            from core.gateway import apply_status
+            if data["role"] == 1:
+                deadline = time.monotonic() + 15
+                while not (gate_dir/"dispute-applied").exists():
+                    if time.monotonic() > deadline:
+                        raise TimeoutError("Dispute commit gate timed out")
+                    time.sleep(.01)
+            result = apply_status(data["gateway_order"], data["status_payload"])
+            if data["role"] == 0:
+                (gate_dir/"dispute-applied").touch()
+            return {"status": result.status, "payment_id": result.payment_id}
         if case == "issue":
             return issue_invoice(tenant, data["customer"], date.fromisoformat(data["period"]), actor)[0].pk
         if case in {"payment", "cross_payment"}:
@@ -335,6 +347,30 @@ def verify():
         assert gateway_order.payment_id and gateway_order.events.count() == 1
         assert gateway_invoice.balance == 0 and NetworkJob.objects.count() == jobs_before + 1
         print("PASS: 2 processes, gateway settlement replay -> 1 payment/event/network job", flush=True)
+        from core.gateway import apply_status
+        from core.billing import reverse_payment
+        recovery_invoice, _ = issue_invoice(tenant, customer.pk, date(2026, 10, 1), actor)
+        recovery_order = reserve_order(actor, recovery_invoice.pk)
+        mistaken = Payment.objects.create(tenant=tenant, invoice=recovery_invoice, amount=recovery_invoice.total,
+            event_key=uuid.uuid4(), recorded_by=actor)
+        assert apply_status(recovery_order.pk, status_payload(recovery_order)).status == "review"
+        reverse_payment(tenant, mistaken.pk, "Koreksi pembayaran fixture yang keliru", actor)
+        jobs_before = NetworkJob.objects.count()
+        results = parallel("gateway_settle", {**common, "gateway_order": str(recovery_order.pk), "status_payload": status_payload(recovery_order)})
+        assert results[0]["ok"] == results[1]["ok"]
+        recovery_order.refresh_from_db()
+        assert recovery_order.payment_id and recovery_order.events.count() == 1
+        assert recovery_order.events.get().outcome == "review" and recovery_order.status == "settled"
+        assert recovery_invoice.balance == 0 and NetworkJob.objects.count() == jobs_before + 1
+        print("PASS: 2 processes, corrected settlement replay -> 1 recovered payment; original review event preserved", flush=True)
+        disputed_invoice, _ = issue_invoice(tenant, customer.pk, date(2026, 11, 1), actor)
+        disputed_order = reserve_order(actor, disputed_invoice.pk)
+        jobs_before = NetworkJob.objects.count()
+        results = parallel("gateway_dispute", {**common, "gateway_order": str(disputed_order.pk)},
+            [{"status_payload": status_payload(disputed_order, "refund")}, {"status_payload": status_payload(disputed_order)}])
+        assert all(result["ok"] == {"status": "review", "payment_id": None} for result in results)
+        assert disputed_invoice.balance == disputed_invoice.total and NetworkJob.objects.count() == jobs_before
+        print("PASS: 2 processes, refund commits before late settlement -> review, no payment/network job", flush=True)
         import pyotp
         from core.models import MFADevice
         from core.security import encrypt_secret, decrypt_secret

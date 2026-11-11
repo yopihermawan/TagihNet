@@ -309,6 +309,18 @@ class GatewayEvent(models.Model):
     outcome = models.CharField(max_length=32)
     created_at = models.DateTimeField(default=timezone.now)
 
+    @property
+    def status_label(self):
+        return {"pending": "Menunggu pembayaran", "capture": "Pembayaran kartu diproses", "settlement": "Pembayaran lunas",
+            "deny": "Ditolak", "cancel": "Dibatalkan gateway", "expire": "Kedaluwarsa di gateway",
+            "refund": "Pengembalian dana", "partial_refund": "Pengembalian sebagian dana",
+            "chargeback": "Sengketa pembayaran", "partial_chargeback": "Sengketa sebagian pembayaran",
+            "failure": "Transaksi gagal"}.get(self.gateway_status, self.gateway_status)
+
+    @property
+    def outcome_label(self):
+        return dict(GatewayOrder.STATES).get(self.outcome, self.outcome)
+
     class Meta:
         ordering = ["created_at", "pk"]
         constraints = [models.UniqueConstraint(fields=["order", "fingerprint"], name="unique_gateway_event")]

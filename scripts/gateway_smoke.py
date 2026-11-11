@@ -93,15 +93,25 @@ with patch("core.gateway.SandboxClient.create",return_value="https://app.sandbox
             assert page.get_by_role("link", name="Buka pembayaran Midtrans Sandbox").get_attribute("href").startswith("https://app.sandbox.midtrans.com/")
             page.get_by_role("button", name="Periksa status pembayaran").click()
             expect(page.get_by_role("heading", name="Menunggu pembayaran", exact=True)).to_be_visible()
+            page.goto(base + "/payments/orders/")
+            page.get_by_label("Cari pelanggan atau ID order").fill(order_id)
+            page.get_by_label("Status", exact=True).select_option("pending")
+            page.get_by_role("button", name="Terapkan filter").click()
+            expect(page.get_by_role("link", name=f"Lihat order {order_id}")).to_be_visible()
+            page.get_by_label("Status", exact=True).select_option("review")
+            page.get_by_role("button", name="Terapkan filter").click()
+            expect(page.get_by_role("heading", name="Tidak ada order yang cocok")).to_be_visible()
             evidence = ROOT / "docs/evidence"
             for width in [360, 768, 1366, 1920]:
                 page.set_viewport_size({"width": width, "height": 920})
-                for route in [order_url, base + "/settings/payment-gateway/", base + "/invoices/1/"]:
+                for route in [order_url, base + "/settings/payment-gateway/", base + "/invoices/1/", base + "/payments/orders/"]:
                     page.goto(route)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, route)
                 if width in [360, 1366]:
                     page.goto(order_url)
                     page.screenshot(path=str(evidence / f"gateway-{'mobile' if width == 360 else 'desktop'}.png"), full_page=True)
+                    page.goto(base + "/payments/orders/")
+                    page.screenshot(path=str(evidence / f"gateway-history-{'mobile' if width == 360 else 'desktop'}.png"), full_page=True)
             payload = {"order_id": order_id, "status_code": "200", "gross_amount": "249750.00"}
             payload["signature_key"] = "0" * 128
             assert context.request.post(base + "/payments/midtrans/notifications/", data=payload).status == 403
@@ -115,6 +125,16 @@ with patch("core.gateway.SandboxClient.create",return_value="https://app.sandbox
             expect(page.get_by_text("Lunas", exact=True)).to_be_visible()
             expect(page.get_by_text("Midtrans Sandbox", exact=True)).to_be_visible()
             assert page.get_by_role("button", name="Buat reversal", exact=True).count() == 0
+            (temporary / "remote-status").write_text("refund")
+            page.goto(order_url)
+            page.get_by_role("button", name="Periksa status pembayaran").click()
+            expect(page.get_by_role("heading", name="Perlu rekonsiliasi", exact=True)).to_be_visible()
+            expect(page.get_by_role("heading", name="Riwayat verifikasi", exact=True)).to_be_visible()
+            (temporary / "remote-status").write_text("settlement")
+            page.get_by_role("button", name="Periksa status pembayaran").click()
+            expect(page.get_by_role("heading", name="Perlu rekonsiliasi", exact=True)).to_be_visible()
+            page.goto(base + "/payments/orders/?status=review")
+            expect(page.get_by_role("link", name=f"Lihat order {order_id}")).to_be_visible()
             assert not errors, errors
             browser.close()
         verify = '''
@@ -122,12 +142,13 @@ import django
 django.setup()
 from core.models import Payment,GatewayEvent,NetworkJob,Invoice
 assert Payment.objects.count()==NetworkJob.objects.count()==1
-assert GatewayEvent.objects.count()==2
-assert set(GatewayEvent.objects.values_list("gateway_status",flat=True))=={"pending","settlement"}
+assert GatewayEvent.objects.count()==3
+assert set(GatewayEvent.objects.values_list("gateway_status",flat=True))=={"pending","settlement","refund"}
 assert Invoice.objects.get().balance==0
+assert Payment.objects.get().gatewayorder.status=="review"
 '''
         subprocess.run([sys.executable, "-c", verify], cwd=ROOT, env=env, check=True)
-        print("PASS: Chromium login/MFA, gateway opt-in, checkout, pending/status, signed callback/replay and settled ledger; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
+        print("PASS: Chromium login/MFA, gateway opt-in, checkout, history/filter, signed callback/replay, settled ledger and refund/late-success review; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
     finally:
         process.terminate()
         process.wait(timeout=10)

@@ -1,6 +1,6 @@
 # Laporan pengujian — 1 November 2026, WIB
 
-Laporan awal di bawah bersifat historis. Hasil terbaru checkpoint Midtrans Sandbox pada **4 November 2026 WIB**: **286 tes pada SQLite dan 286 pada PostgreSQL**, tanpa fail/skip/expected-failure; rincian ada di bagian akhir.
+Laporan awal di bawah bersifat historis. Hasil terbaru checkpoint rekonsiliasi Midtrans Sandbox pada **11 November 2026 WIB**: **294 tes pada SQLite dan 294 pada PostgreSQL**, tanpa fail/skip/expected-failure; rincian ada di bagian akhir.
 
 Target: checkpoint billing, operasional, pengingat, PSB dan monitoring NAS simulasi TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite dan PostgreSQL 16.15 (psycopg 3.3.6), Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
 
@@ -138,3 +138,15 @@ Kedua browser regresi tetap lulus, termasuk restore kompatibilitas SQLite. PDF14
 `verify_encrypted_backup.py` lulus untuk pemulihan konfigurasi/order settled + pembayaran gateway dan reservasi order lain yang belum dibayar, fingerprint seluruh tabel, saldo ledger, password+TOTP/CSRF serta replay OTP/recovery. System check, migration drift check, pip check dan diff whitespace check lulus. Instalasi runtime/dev/PostgreSQL terpin juga diuji pada `.venv` workspace. Tidak ada dependensi runtime baru.
 
 Kontrak client dicek terhadap SDK resmi Midtrans/midtrans-python-client dan artefak midtransclient 1.4.2. Kredensial sandbox asli dan URL HTTPS publik belum tersedia; tidak ada request transaksi ke merchant, uji metode pembayaran sandbox nyata, pengiriman webhook publik, refund provider, atau rilis produksi. GitHub Actions ditambah dengan gateway_smoke; keberhasilan CI remote belum dikonfirmasi. Panduan lengkap: PAYMENT-GATEWAY.md.
+
+## Checkpoint rekonsiliasi gateway — 11 November 2026 WIB
+
+Delapan tes tambahan, **294 tes pada SQLite dan 294 pada PostgreSQL 16.15**, lulus tanpa fail/skip/expected-failure. Dua regresi finansial direproduksi sebelum perbaikan: refund/partial-refund/chargeback/partial-chargeback yang lebih dahulu terverifikasi disusul sukses lama dapat mencatat payment; settlement yang tertahan oleh saldo tidak pulih sesudah koreksi karena receipt dideduplikasi terlalu awal. Sesudah perbaikan, seluruh status sengketa menahan kredit sukses terlambat; saldo yang dikoreksi dapat menerima settlement terverifikasi tepat sekali, dengan receipt review asli tetap tersimpan. Kasus diperiksa melalui API status tiruan dan transaksi database nyata.
+
+Enam tes tambahan mencakup batas tenant dan pelanggan pada daftar/ringkasan order, GET tanpa network call, URL checkout/key tidak bocor melalui daftar, pengguna anonim/NOC/method, pencarian ID dan status, ukuran halaman dan output escaping, filter tenant CLI, validasi argumen dan deteksi refund saat `--include-settled`. Scope pelanggan satu ISP tetap diuji terpisah dari lintas ISP.
+
+`verify_postgres.py` lulus **14 skenario dua proses**, termasuk pemulihan settlement bersamaan setelah reversal koreksi: satu payment/event/network job baru, receipt awal outcome review tidak diubah. Skenario kedua memaksa refund commit lebih dahulu sebelum respons settlement lama diterapkan di proses lain: status tetap review, tanpa payment/job. Dump/restore logis dan terenkripsi membandingkan seluruh tabel, termasuk order yang pulih dan order sengketa. Database verifikasi sementara dibersihkan.
+
+`gateway_smoke.py` lulus dengan Chromium dan HTTP nyata serta transport Midtrans tiruan: login/MFA/opt-in, checkout, pencarian/filter pending/review, callback palsu/replay, settlement, refund, dan sukses terlambat yang tetap review. List/detail/setelan/faktur diperiksa pada 360/768/1366/1920 px tanpa overflow horizontal seluruh halaman; tabel memiliki gulir lokal; **0 browser errors**. Screenshot riwayat gateway mobile/desktop diperiksa. Satu payment, tiga status verifikasi (pending/settlement/refund), satu job, dan saldo tetap konsisten.
+
+Encrypted SQLite restore, system check, migration drift, pip check dan diff whitespace check lulus. Tidak ada migrasi skema atau dependensi baru. Kredensial sandbox privat belum ada pada process dan domain Midtrans masih baru berada dalam draft, belum di kebijakan runtime; transaksi merchant dan webhook HTTPS publik belum diuji. Domain publik belum ditentukan. Bukti lokal bukan bukti akun Midtrans atau CI remote siap.

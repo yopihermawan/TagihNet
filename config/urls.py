@@ -10,6 +10,7 @@ from core import reminder_views as reminders
 from core import monitoring_views as monitoring
 
 urlpatterns = [
+    path("payments/orders/", gateway.order_list, name="gateway_orders"),
     path("settings/payment-gateway/", gateway.gateway_settings, name="gateway_settings"),
     path("invoices/<int:pk>/checkout/", gateway.checkout, name="gateway_checkout"),
     path("payments/orders/<uuid:pk>/", gateway.order_detail, name="gateway_order"),

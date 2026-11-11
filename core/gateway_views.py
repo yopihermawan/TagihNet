@@ -3,6 +3,7 @@ from django import forms
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, OperationalError
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
@@ -11,10 +12,10 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 from .gateway import can_checkout, refresh_order, save_config, start_checkout
 from .midtrans import GatewayUnavailable, credentials, json_object, valid_signature
 from .models import GatewayConfig, GatewayOrder
-from .permissions import membership, require
+from .permissions import capabilities, membership, require
 from .security import throttle
 from .security_views import recent_factor
-from .views import allowed_invoice
+from .views import allowed_invoice, paginate
 
 
 class ConfigForm(forms.Form):
@@ -69,18 +70,49 @@ def checkout(request, pk):
 
 
 def allowed_order(request, pk):
+    return get_object_or_404(scoped_orders(request), pk=pk)
+
+
+def scoped_orders(request):
     if not request.user.is_authenticated:
         raise PermissionDenied
     member = membership(request.user)
-    order = get_object_or_404(GatewayOrder, pk=pk, tenant=member.tenant)
-    allowed_invoice(request, order.invoice_id)
-    return order
+    if not {"invoices", "portal"} & capabilities(member):
+        raise PermissionDenied
+    orders = GatewayOrder.objects.filter(tenant=member.tenant, invoice__tenant=member.tenant)
+    if member.role == "customer":
+        orders = orders.filter(invoice__customer_id=member.customer_id)
+    return orders.select_related("invoice", "created_by")
+
+
+@require_GET
+def order_list(request):
+    orders = scoped_orders(request)
+    counts = dict(orders.order_by().values("status").annotate(total=Count("pk")).values_list("status", "total"))
+    query = request.GET.get("q", "").strip()[:100]
+    state = request.GET.get("status", "")
+    if state in dict(GatewayOrder.STATES):
+        orders = orders.filter(status=state)
+    if query:
+        search = Q(invoice__customer_name__icontains=query)
+        try:
+            identifier = uuid.UUID(query.removeprefix("TN-SBX-"))
+        except ValueError:
+            pass
+        else:
+            search |= Q(pk=identifier)
+        orders = orders.filter(search)
+    return render(request, "gateway/list.html", {"page": paginate(request, orders), "query": query,
+        "selected_status": state, "states": GatewayOrder.STATES, "summary": {
+            "total": sum(counts.values()), "waiting": counts.get("creating", 0) + counts.get("pending", 0),
+            "review": counts.get("review", 0), "settled": counts.get("settled", 0)}})
 
 
 @require_GET
 def order_detail(request, pk):
     order = allowed_order(request, pk)
-    return render(request, "gateway/order.html", {"order": order, "can_refresh": can_checkout(membership(request.user))})
+    return render(request, "gateway/order.html", {"order": order, "can_refresh": can_checkout(membership(request.user)),
+        "events": order.events.order_by("-created_at", "-pk")[:20]})
 
 
 @require_POST
