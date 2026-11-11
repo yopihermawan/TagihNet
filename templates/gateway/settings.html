@@ -1,5 +1,6 @@
 {% extends 'base.html' %}{% block content %}
 <div class="page-heading"><div><span class="eyebrow">PAYMENT GATEWAY</span><h1>Midtrans Sandbox</h1><p class="muted">Uji pembayaran tanpa uang nyata. Hanya pemilik ISP dapat mengubah setelan ini.</p></div></div>
+{% include 'gateway/readiness.html' %}
 <section class="panel padded narrow"><h2>Koneksi merchant</h2>
 {% if ready %}<p class="info-note">Kredensial sandbox tersedia untuk merchant {{ merchant_id }}. Koneksi belum otomatis berarti pembayaran berhasil.</p>{% else %}<p class="info-note">Kredensial sandbox ISP belum tersedia atau belum valid. Administrator server perlu menyiapkan konfigurasi privat sebelum gateway dapat diaktifkan.</p>{% endif %}
 <form method="post" class="stack-form">{% csrf_token %}{{ form.as_p }}<button class="button primary">Simpan dengan verifikasi MFA</button></form>

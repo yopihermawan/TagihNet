@@ -4,6 +4,8 @@ Checkout Snap redirect, notifikasi terverifikasi, dan rekonsiliasi kini diimplem
 
 ## Konfigurasi merchant
 
+Untuk memeriksa konfigurasi lokal tanpa request provider, owner melihat **Kesiapan konfigurasi** atau administrator menjalankan `manage.py check_payment_gateway --tenant <ID> --json`. Hasil memisahkan checkout yang dikonfigurasi dari alamat HTTPS; exit 0 belum membuktikan koneksi akun atau pengiriman notifikasi. Panduan: [GATEWAY-READINESS](GATEWAY-READINESS.md).
+
 Administrator menyiapkan environment process privat `TAGIHNET_MIDTRANS_SANDBOX_ACCOUNT_KEYS` berisi objek JSON berikut. Contoh ini skema placeholder, bukan kredensial yang dapat dipakai:
 
 ```json

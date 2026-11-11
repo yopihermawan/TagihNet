@@ -105,6 +105,22 @@ with patch("core.gateway.SandboxClient.create",side_effect=create), patch("core.
             page.get_by_label("Saya memahami ini pengujian sandbox").check()
             page.get_by_role("button", name="Simpan dengan verifikasi MFA").click()
             expect(page.get_by_text("Setelan Midtrans Sandbox disimpan.", exact=False)).to_be_visible()
+            readiness_section=page.locator("section").filter(has=page.get_by_role("heading",name="Kesiapan konfigurasi",exact=True))
+            expect(readiness_section).to_contain_text("Lokal saja")
+            expect(readiness_section).to_contain_text("Checkout sandbox sudah diaktifkan owner.")
+            cli=subprocess.run([sys.executable,"manage.py","check_payment_gateway","--tenant","1","--json"],cwd=ROOT,env=env,
+                stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            assert cli.returncode==1
+            readiness=json.loads(cli.stdout)
+            assert readiness["checkout_configured"] and not readiness["public_urls_configured"]
+            assert readiness["remote_verification"]=="not_performed" and KEY not in cli.stdout
+            evidence=ROOT/"docs/evidence"
+            for width in [360,768,1366,1920]:
+                page.set_viewport_size({"width":width,"height":920})
+                page.evaluate("document.activeElement.blur(); window.scrollTo(0, 0)")
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"),width
+                if width in [360,1366]:
+                    readiness_section.screenshot(path=str(evidence/f"gateway-readiness-{'mobile' if width==360 else 'desktop'}.png"),animations="disabled")
             creation_fixture='from django.contrib.auth import get_user_model; from core.gateway import prepare_checkout; prepare_checkout(get_user_model().objects.get(username="owner0"),1)'
             subprocess.run([sys.executable,"manage.py","shell","-c",creation_fixture],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             page.goto(base + "/invoices/1/")
@@ -339,7 +355,7 @@ assert notification.delivery_count==3 and notification.last_outcome=="verified" 
         subprocess.run([sys.executable, "-c", verify], cwd=ROOT, env=env, check=True)
         creation_posts=(temporary/"checkout-posts").read_text().splitlines()
         assert len(creation_posts)==len(set(creation_posts))==3
-        print("PASS: Chromium busy checkout lease/retry same ID, notification retry, login/MFA/return, expiry/polling/refund and report/CSV; privacy; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
+        print("PASS: Chromium local-readiness/CLI redaction, busy checkout/resume, notification retry, MFA/return, expiry/polling/refund and report/CSV; privacy; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
     finally:
         process.terminate()
         process.wait(timeout=10)

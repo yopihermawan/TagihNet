@@ -108,3 +108,9 @@ Browser menguji outage 503 lalu retry sukses, pending tidak lunas, portal menyem
 Order yang belum mempunyai URL menunjukkan Menyiapkan checkout, waktu dapat mencoba lagi dalam WIB dan tautan Muat ulang halaman checkout. Saat lease habis, pengguna berizin dapat memilih Lanjutkan checkout yang sama. Tidak ada auto-POST atau anggapan invoice lunas. Resume ditolak bila status/order telah berubah agar formulir lama tidak membuat checkout pengganti secara diam-diam. Tombol disembunyikan saat checkout nonaktif, URL tersedia, atau akses tidak memadai.
 
 Chromium memeriksa busy -> reload -> lease fixture kedaluwarsa -> POST resume -> URL pending pada ID yang sama. Empat viewport tanpa overflow dan 0 browser errors. Bukti [mobile](evidence/gateway-creation-mobile.png)/[desktop](evidence/gateway-creation-desktop.png) memakai data dan transport tiruan; token lease tidak ditampilkan. Audit screen reader/WCAG penuh dan checkout merchant eksternal belum diuji.
+
+## Kesiapan konfigurasi gateway — 12 November 2026 WIB
+
+Panel owner memakai daftar tujuh pemeriksaan dengan label Sesuai, Belum sesuai, Belum dapat diperiksa dan Lokal saja. Penjelasan/tindakan tersedia per item, dengan waktu pemeriksaan WIB. Checkout yang telah diaktifkan dan origin loopback ditampilkan sebagai hasil berbeda; ringkasan tetap belum lengkap untuk pengujian HTTPS. Teks menjelaskan pemeriksaan lokal belum membuktikan koneksi merchant/notifikasi berhasil. Tidak ada input kredensial baru pada alur produk.
+
+Chromium menguji panel setelah owner opt-in dan CLI pada database yang sama, empat viewport tanpa overflow halaman dan 0 browser errors. Nama environment panjang membungkus pada ponsel. Bukti [mobile](evidence/gateway-readiness-mobile.png)/[desktop](evidence/gateway-readiness-desktop.png) hanya menampilkan diagnostik dengan data fiktif, tanpa nilai secret/merchant/QR/OTP. Audit screen reader/WCAG lengkap dan pengujian merchant/HTTPS publik belum dilakukan.

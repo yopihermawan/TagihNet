@@ -16,6 +16,7 @@ from .checkout_return import SESSION_KEY, remember_checkout_return
 from .gateway_expiry import expire_order
 from .gateway_refunds import reconcile_refund
 from .gateway_notifications import notification_overview, process_notification
+from .gateway_readiness import readiness_report
 from .gateway_worker import save_policy as save_reconciliation_policy
 from .midtrans import GatewayUnavailable, credentials, json_object, valid_signature
 from .models import GatewayConfig, GatewayNotificationState, GatewayOrder, GatewayReconciliationPolicy, GatewayRefundResolution
@@ -85,6 +86,7 @@ def settings_response(request, form=None, policy_form=None, status=200):
     return render(request, "gateway/settings.html", {"form": form, "ready": ready, "merchant_id": merchant,
         "policy": policy, "policy_form": policy_form, "public_origin": settings.PUBLIC_ORIGIN,
         "notifications": notification_overview(request.member.tenant),
+        "readiness": readiness_report(request.member.tenant_id),
         "notification_url": settings.PUBLIC_ORIGIN + reverse("midtrans_notification") if settings.PUBLIC_ORIGIN else ""}, status=status)
 
 

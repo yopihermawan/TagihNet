@@ -20,6 +20,7 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 - Midtrans Sandbox opt-in: checkout redirect, signature + GET status terverifikasi, pencatatan atomik/idempoten, riwayat/filter order, pengakhiran checkout oleh owner/MFA, worker status terjadwal opt-in, dan pencatatan refund penuh terverifikasi dengan owner/MFA; koneksi akun sandbox asli masih perlu diuji.
 - Pembuatan checkout memakai lease 60 detik: permintaan bersamaan memakai satu order, retry terikat order setelah proses terputus, tanpa membebaskan invoice berdasarkan waktu lokal.
 - Status notifikasi gateway untuk owner: jumlah pengiriman terautentikasi, hasil/waktu terakhir, pemisahan dari polling/manual, tanpa menyimpan payload atau signature.
+- Kesiapan konfigurasi gateway untuk owner dan CLI JSON: skema, kredensial, merchant, opt-in, origin dan host; pemeriksaan lokal tanpa request pembayaran. [Panduan](docs/GATEWAY-READINESS.md).
 - Laporan ledger gateway: pembayaran/refund/koreksi per periode WIB, total bersih, pagination dan CSV dengan perlindungan formula; akses owner/keuangan atau izin kustom. [Panduan](docs/GATEWAY-REPORTS.md).
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.
 - Antrean rekonsiliasi jaringan **simulasi** dengan pengecekan ulang tunggakan, backoff, dan maksimal tiga percobaan. Pembayaran tetap tercatat bila adapter gagal.
@@ -200,6 +201,13 @@ Panduan konfigurasi merchant, domain sandbox, URL notifikasi HTTPS, pengakhiran 
 Owner dapat mencatat refund penuh yang sudah selesai di Midtrans melalui detail order. GET status baru wajib membuktikan seluruh nominal refund; koreksi membuka kembali sisa tagihan tanpa mengirim permintaan refund baru. Pembayaran asal dan bukti koreksi tetap tersimpan; refund sebagian/sengketa memerlukan peninjauan. Panduan: [PAYMENT-GATEWAY](docs/PAYMENT-GATEWAY.md).
 
 Administrator dapat mengatur `TAGIHNET_PUBLIC_ORIGIN` ke origin HTTPS aplikasi dan hostname yang sama pada `TAGIHNET_ALLOWED_HOSTS`. Checkout baru menyertakan alamat kembali untuk order tersebut; sesi yang habis meminta login/MFA lalu melanjutkan ke order. Kembali dari checkout tidak melunasi faktur. Setelan owner menampilkan alamat notifikasi dari origin yang sama.
+
+Checkpoint `feature/tagihnet-gateway-readiness` menambah panel **Kesiapan konfigurasi** dan CLI berikut. Ganti ID dengan tenant yang terdaftar. Exit 0 berarti konfigurasi lokal sesuai; exit 1 berarti belum lengkap. Tidak ada request ke Midtrans atau pengujian akses HTTPS publik. Panduan hasil/JSON dan tindakan perbaikan: [GATEWAY-READINESS](docs/GATEWAY-READINESS.md).
+
+```bash
+.venv/bin/python manage.py check_payment_gateway --tenant 1 --json
+.venv/bin/python scripts/verify_gateway_readiness.py  # database sementara, tanpa akun merchant
+```
 
 ## Pengujian
 
