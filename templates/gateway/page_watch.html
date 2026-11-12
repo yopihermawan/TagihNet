@@ -1,0 +1,8 @@
+<section class="panel padded narrow" id="gateway-watch" data-url="{% url 'gateway_order_snapshot' order.pk %}" data-revision="{{ page_watch.revision }}" hidden>
+<h2>Pembaruan halaman pembayaran</h2>
+<p class="muted">Memantau perubahan yang sudah tersimpan selama dua menit saat tab terlihat. Pemantauan halaman tidak memeriksa status ke Midtrans atau memperpanjang sesi login. {% if can_refresh %}Gunakan Periksa status pembayaran untuk meminta verifikasi baru.{% else %}Muat ulang halaman untuk melihat rincian terbaru yang sudah tersimpan.{% endif %}</p>
+<p role="status" aria-live="polite" data-watch-message></p>
+<p><a href="{% url 'gateway_order' order.pk %}" data-watch-reload hidden>Tampilkan pembaruan</a></p>
+<button class="button" type="button" data-watch-button>Hentikan pemantauan</button>
+</section>
+<noscript><p class="info-note">Muat ulang halaman untuk melihat perubahan pembayaran yang sudah tersimpan.</p></noscript>

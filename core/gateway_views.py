@@ -9,6 +9,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from .gateway import can_checkout, refresh_order, save_config, start_checkout
@@ -17,6 +18,7 @@ from .gateway_expiry import expire_order
 from .gateway_refunds import reconcile_refund
 from .gateway_notifications import notification_overview, process_notification
 from .gateway_readiness import readiness_report
+from .gateway_page_updates import page_snapshot
 from .gateway_worker import save_policy as save_reconciliation_policy
 from .midtrans import GatewayUnavailable, credentials, json_object, valid_signature
 from .models import GatewayConfig, GatewayNotificationState, GatewayOrder, GatewayReconciliationPolicy, GatewayRefundResolution
@@ -66,7 +68,7 @@ def checkout_context(request, order):
     resumable = (settings.SIMULATION and not order.checkout_url and not order.payment_id
         and order.status in {"creating", "pending"} and can_checkout(membership(request.user))
         and GatewayConfig.objects.filter(tenant_id=order.tenant_id, enabled=True).exists())
-    return {"can_resume_checkout": resumable}
+    return {"can_resume_checkout": resumable, "page_watch": page_snapshot(order)}
 
 
 def settings_response(request, form=None, policy_form=None, status=200):
@@ -221,6 +223,14 @@ def order_detail(request, pk):
         "expiry_form": expiry_form(order) if owner and not order.payment_id and order.status in {"creating", "pending"} else None,
         "expiry_requests": order.expiry_requests.select_related("requested_by")[:10] if owner else [],
         **refund_context(request,order), **notification_context(request,order), **checkout_context(request,order)})
+
+
+@never_cache
+@require_GET
+def order_snapshot(request, pk):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "authentication required"}, status=401)
+    return JsonResponse(page_snapshot(allowed_order(request, pk)))
 
 
 def notification_context(request, order):

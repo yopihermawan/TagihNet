@@ -193,11 +193,24 @@ with patch("core.gateway.SandboxClient.create",side_effect=create), patch("core.
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"),width
                 if width in [360,1366]:
                     page.screenshot(path=str(evidence/f"gateway-notification-{'mobile' if width==360 else 'desktop'}.png"),full_page=True,animations="disabled")
+            page.reload()
+            draft_reason = "Alasan belum dikirim; tetap tersimpan pada formulir halaman ini"
+            page.get_by_label("Alasan mengakhiri pembayaran").fill(draft_reason)
             (temporary / "remote-status").write_text("settlement")
             for _ in range(2):
                 assert context.request.post(base + "/payments/midtrans/notifications/", data=payload).status == 200
-            page.goto(order_url)
+            watch = page.locator("#gateway-watch")
+            expect(watch.locator('[data-watch-message]')).to_contain_text("Ada pembaruan tersimpan: Pembayaran tercatat", timeout=15000)
+            expect(page.get_by_role("heading", name="Menunggu pembayaran", exact=True)).to_be_visible()
+            assert page.get_by_label("Alasan mengakhiri pembayaran").input_value() == draft_reason
+            for width in [360, 768, 1366, 1920]:
+                page.set_viewport_size({"width":width,"height":920})
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
+                if width in [360,1366]:
+                    watch.screenshot(path=str(evidence/f"gateway-updates-{'mobile' if width==360 else 'desktop'}.png"),animations="disabled")
+            page.get_by_role("link", name="Tampilkan pembaruan", exact=True).click()
             expect(page.get_by_role("heading", name="Pembayaran tercatat", exact=True)).to_be_visible()
+            assert page.locator("#gateway-watch").count() == 0
             expect(page.get_by_text("Status pengiriman terakhir terverifikasi",exact=True)).to_be_visible()
             page.goto(base + "/invoices/1/")
             expect(page.get_by_text("Lunas", exact=True)).to_be_visible()
@@ -355,7 +368,7 @@ assert notification.delivery_count==3 and notification.last_outcome=="verified" 
         subprocess.run([sys.executable, "-c", verify], cwd=ROOT, env=env, check=True)
         creation_posts=(temporary/"checkout-posts").read_text().splitlines()
         assert len(creation_posts)==len(set(creation_posts))==3
-        print("PASS: Chromium local-readiness/CLI redaction, busy checkout/resume, notification retry, MFA/return, expiry/polling/refund and report/CSV; privacy; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
+        print("PASS: Chromium persisted-status update notice/form preservation, local-readiness/CLI, checkout/resume, notification retry, MFA/return, expiry/polling/refund and report/CSV; privacy; 4 viewports; 0 browser errors. Midtrans transport stubbed.")
     finally:
         process.terminate()
         process.wait(timeout=10)

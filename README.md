@@ -21,6 +21,7 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 - Pembuatan checkout memakai lease 60 detik: permintaan bersamaan memakai satu order, retry terikat order setelah proses terputus, tanpa membebaskan invoice berdasarkan waktu lokal.
 - Status notifikasi gateway untuk owner: jumlah pengiriman terautentikasi, hasil/waktu terakhir, pemisahan dari polling/manual, tanpa menyimpan payload atau signature.
 - Kesiapan konfigurasi gateway untuk owner dan CLI JSON: skema, kredensial, merchant, opt-in, origin dan host; pemeriksaan lokal tanpa request pembayaran. [Panduan](docs/GATEWAY-READINESS.md).
+- Pemberitahuan perubahan pada halaman pembayaran: memantau status tersimpan selama dua menit, mempertahankan formulir, dan menawarkan muat ulang; tidak memperpanjang sesi atau memanggil Midtrans. [Panduan](docs/GATEWAY-PAGE-UPDATES.md).
 - Laporan ledger gateway: pembayaran/refund/koreksi per periode WIB, total bersih, pagination dan CSV dengan perlindungan formula; akses owner/keuangan atau izin kustom. [Panduan](docs/GATEWAY-REPORTS.md).
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.
 - Antrean rekonsiliasi jaringan **simulasi** dengan pengecekan ulang tunggakan, backoff, dan maksimal tiga percobaan. Pembayaran tetap tercatat bila adapter gagal.
@@ -210,6 +211,8 @@ Checkpoint `feature/tagihnet-gateway-readiness` menambah panel **Kesiapan konfig
 ```
 
 ## Pengujian
+
+Checkpoint `feature/tagihnet-gateway-page-updates` menambah pemberitahuan perubahan tersimpan pada order yang masih menunggu. Hasil webhook/worker dapat terlihat tanpa meminta verifikasi merchant berulang; pengguna memilih **Tampilkan pembaruan** agar formulir yang belum dikirim tetap utuh. Panduan: [GATEWAY-PAGE-UPDATES](docs/GATEWAY-PAGE-UPDATES.md).
 
 ```bash
 python manage.py check

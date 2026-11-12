@@ -173,6 +173,8 @@ Owner dan Keuangan dapat membuka **Ledger gateway**, memilih periode WIB dan men
 
 ## Bukti pengujian dan batasnya
 
+Halaman order yang masih menyiapkan/menunggu memantau snapshot aplikasi setiap lima detik, maksimal dua menit. Hasil tersimpan baru menampilkan pemberitahuan dan tautan **Tampilkan pembaruan**, tanpa memuat ulang formulir otomatis atau memanggil Midtrans. Pemantauan tidak memperpanjang sesi dan berhenti saat akses/koneksi gagal. Panduan: [GATEWAY-PAGE-UPDATES](GATEWAY-PAGE-UPDATES.md).
+
 Suite domain/HTTP mencakup autentikasi, MFA/CSRF/izin/tenant/customer, nominal server, signature palsu, pengambilan status, replay, fraud, status terlambat, penolakan lebih bayar, timeout, disable, merchant reuse, serta race checkout/settlement. Verifier PostgreSQL menjalankan dua proses independen untuk reservasi dan pencatatan settlement. Restore terenkripsi SQLite/PostgreSQL membandingkan tabel gateway dan ledger selain data lama. `scripts/gateway_smoke.py` memakai Chromium sesungguhnya pada server/database sementara, transport Midtrans tiruan, dan empat viewport 360/768/1366/1920; tidak membuka situs pembayaran eksternal atau mengirim uang.
 
 Kontrak endpoint dan bentuk payload diperiksa terhadap [SDK Python resmi Midtrans](https://github.com/Midtrans/midtrans-python-client), juga artefak `midtransclient` 1.4.2. SDK tidak ditambahkan sebagai dependensi runtime. Keberhasilan tes lokal tidak membuktikan kredensial, konfigurasi merchant, pengiriman notifikasi HTTPS publik, metode pembayaran, atau CI remote sudah bekerja. Jalankan satu checkout, pending, settlement, replay notifikasi, dan rekonsiliasi terhadap akun sandbox nyata setelah konfigurasi tersedia. Gateway produksi memerlukan pekerjaan dan verifikasi tersendiri.

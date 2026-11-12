@@ -77,3 +77,4 @@ jobs:
       - run: python scripts/security_smoke.py
       - run: python scripts/operations_smoke.py
       - run: python scripts/gateway_smoke.py
+      - run: python scripts/verify_gateway_watch_browser.py

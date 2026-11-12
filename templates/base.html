@@ -3,7 +3,7 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{% block title %}TagihNet · Billing rapi, jaringan terkendali{% endblock %}</title>
 <link rel="icon" href="{% static 'brand.svg' %}" type="image/svg+xml"><link rel="stylesheet" href="{% static 'app.css' %}">
-<script src="{% static 'app.js' %}" defer></script></head>
+<script src="{% static 'app.js' %}" defer></script>{% block extra_scripts %}{% endblock %}</head>
 <body><a class="skip-link" href="#main">Lewati navigasi</a>
 {% if user.is_authenticated and member %}
 <aside class="sidebar" id="sidebar" aria-label="Navigasi utama">
