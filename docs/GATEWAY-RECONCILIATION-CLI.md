@@ -58,3 +58,5 @@ Laporan tidak memuat server key, merchant ID, checkout URL/token, nominal/nama p
 ```
 
 Drill memakai CLI subprocess, database sementara dan transport status tiruan. Seluruh jumlah/hash tabel cocok sebelum/sesudah pratinjau. Batch gagal/sebagian exit 1 dengan JSON valid, pembayaran sah bertahan pada hasil parsial, lalu complete/replay exit 0 tanpa pembayaran/job ganda. Tidak ada request ke akun Midtrans sebenarnya atau perubahan data pengguna.
+
+Drill CLI juga memverifikasi worker: putaran berhasil diikuti pencabutan persetujuan sebelum claim harus exit 1/status blocked tanpa mencetak ulang jumlah lama. Pemanggilan berikutnya melewati kebijakan nonaktif tanpa perubahan tabel. Persetujuan owner baru memulihkan pemrosesan tanpa payment/job ganda. Kontrak worker lebih lanjut ada di [PAYMENT-GATEWAY](PAYMENT-GATEWAY.md#pemeriksaan-status-otomatis).

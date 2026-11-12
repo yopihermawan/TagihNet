@@ -62,13 +62,14 @@ def block_policy(policy):
 @retry_locked
 @transaction.atomic
 def claim_policy(policy_id):
+    """Return a leased policy, a newly blocked policy, or None when skipped."""
     policy = GatewayReconciliationPolicy.objects.select_for_update().get(pk=policy_id)
     now = timezone.now()
     if not policy.enabled or policy.next_run_at > now or (policy.lease_until and policy.lease_until > now):
         return None
     if not consent_valid(policy):
         block_policy(policy)
-        return None
+        return policy
     policy.lease_token, policy.lease_until = uuid.uuid4(), now+timedelta(seconds=LEASE_SECONDS)
     policy.save(update_fields=["lease_token", "lease_until"])
     return policy
@@ -121,6 +122,10 @@ def process_policy(policy_id, limit=20):
     policy = claim_policy(policy_id)
     if not policy:
         return None
+    if not policy.enabled:
+        # A newly blocked policy is a reported outcome, not an empty cycle.
+        # It has no lease and must never enter the verification/finish path.
+        return policy
     token, version = policy.lease_token, policy.version
     verified = unavailable = 0
     try:

@@ -44,7 +44,7 @@ def child(data):
 
     def action():
         case = data["case"]
-        if case in {"gateway_polling", "gateway_polling_revoked"}:
+        if case in {"gateway_polling", "gateway_polling_revoked", "gateway_polling_blocked"}:
             from core.gateway_worker import process_policy
             from core.models import Membership
             from core.tests.test_payment_gateway import status_payload
@@ -583,6 +583,21 @@ def verify():
         assert Payment.objects.count()==payments_before+2 and NetworkJob.objects.count()==jobs_before+2
         assert not GatewayReconciliationPolicy.objects.get(pk=polling_policy.pk).enabled
         print("PASS: 2 processes, consent revoked in flight -> verified payment preserved, next order not polled",flush=True)
+        from core.models import AuditEvent, Membership
+        polling_policy.refresh_from_db()
+        save_gateway_policy(polling_actor,True,False,60,polling_policy.version,time.time(),2)
+        Membership.objects.filter(user=polling_actor).update(session_version=3)
+        blocked_before=AuditEvent.objects.filter(action="gateway.polling_blocked",tenant=polling_tenant).count()
+        payments_before,jobs_before=Payment.objects.count(),NetworkJob.objects.count()
+        results=parallel("gateway_polling_blocked",polling_common)
+        assert sum(result["ok"]["processed"] for result in results)==1
+        assert sum(result["ok"]["calls"] for result in results)==0
+        assert sorted(result["ok"]["status"] or "skipped" for result in results)==["blocked","skipped"]
+        polling_policy.refresh_from_db()
+        assert not polling_policy.enabled and polling_policy.last_status=="blocked" and polling_policy.lease_token is None
+        assert AuditEvent.objects.filter(action="gateway.polling_blocked",tenant=polling_tenant).count()==blocked_before+1
+        assert (Payment.objects.count(),NetworkJob.objects.count())==(payments_before,jobs_before)
+        print("PASS: 2 processes, revoked consent before claim -> 1 blocked result/audit, no status request/payment/job",flush=True)
         from core.models import GatewayRefundResolution, PaymentReversal
         for month, case in [(6,"gateway_refund"),(7,"gateway_refund_late")]:
             refund_invoice,_=issue_invoice(tenant,customer.pk,date(2027,month,1),actor)

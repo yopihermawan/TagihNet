@@ -183,3 +183,12 @@ Command kini mengembalikan exit 1 jika satu pemeriksaan gagal, termasuk batch pa
 Dry-run tidak memanggil provider, mengubah timestamp/config/ledger/audit, atau mengaktifkan checkout. Limit <=500 dan urutan batch dibekukan sebelum I/O. Mode normal tetap memakai client/writer yang ada; HTTP tidak dibungkus transaksi batch, callback/replay memakai idempotensi ledger yang sama. Tidak ada endpoint publik atau izin baru; host administrator dapat memilih seluruh ISP seperti sebelumnya. Pratinjau adalah snapshot lokal yang tidak disimpan sebagai persetujuan; invocation berikutnya memilih ulang.
 
 512 tes kedua backend dan drill CLI subprocess/fingerprint lulus, termasuk batch parsial dengan satu pembayaran tetap tersimpan serta replay tanpa payment/job ganda. Tidak ada perubahan worker/policy, schema atau UI. CI remote tidak dapat diverifikasi melalui API (403), dan merchant/HTTPS publik belum tersedia. [Panduan](GATEWAY-RECONCILIATION-CLI.md).
+
+
+## Pelaporan persetujuan worker — 12 November 2026 WIB
+
+Claim yang menonaktifkan kebijakan karena persetujuan tidak berlaku kini mengembalikan hasil blocked yang sudah commit, sehingga run_cycle/--once tidak menganggapnya putaran kosong. process_policy memeriksa enabled sebelum memakai token: hasil terblokir tidak memperoleh lease, tidak masuk alur GET/finish, dan tidak menyimpan timestamp sukses baru. Caller internal claim_policy dapat menerima kebijakan leased, kebijakan baru blocked, atau None jika dilewati; semua caller yang ada diperiksa. Lock transaksi/audit idempoten tetap dipakai, tanpa HTTP dalam transaksi.
+
+CLI --once exit 1 untuk kebijakan yang baru blocked dan menjelaskan kebutuhan persetujuan ulang owner/MFA. Jumlah putaran lama tetap disimpan tetapi tidak dicetak sebagai pemeriksaan baru; hasil sah yang kembali sesudah pencabutan in-flight tetap memakai writer ledger lama. Kebijakan ISP lain tetap diproses dan daemon tetap hidup. Kebijakan yang sudah nonaktif/belum jatuh tempo/berlease aktif dilewati, sehingga exit 0/hasil kosong bukan pemeriksaan kesehatan semua kebijakan.
+
+521 tes kedua backend, subprocess exit/reauthorization/fingerprint, 26 skenario proses dan restore SQLite/PostgreSQL lulus. Dua proses tanpa persetujuan menghasilkan satu blocked/audit tanpa I/O provider atau ledger baru. Tidak ada schema, credential atau izin baru, dan tanpa perubahan UI. Akun Midtrans/HTTPS publik dan CI remote belum diverifikasi.

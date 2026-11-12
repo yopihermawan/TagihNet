@@ -143,7 +143,7 @@ python scripts/postgres_lab.py run manage.py test --verbosity 1 --noinput
 python scripts/postgres_lab.py run scripts/verify_postgres.py
 ```
 
-`run` hanya mengatur environment untuk subprocess itu. Verifikasi membuat database sementara sendiri dan menghapusnya setelah 25 skenario lintas proses serta pg_dump/pg_restore. Snapshot cloud tidak menjamin container/volume Docker ikut pulih. Panduan konfigurasi TLS, kredensial, restart, backup dan batas bukti: [POSTGRESQL](docs/POSTGRESQL.md).
+`run` hanya mengatur environment untuk subprocess itu. Verifikasi membuat database sementara sendiri dan menghapusnya setelah 26 skenario lintas proses serta pg_dump/pg_restore. Snapshot cloud tidak menjamin container/volume Docker ikut pulih. Panduan konfigurasi TLS, kredensial, restart, backup dan batas bukti: [POSTGRESQL](docs/POSTGRESQL.md).
 
 ## Monitoring NAS simulasi
 
@@ -214,6 +214,9 @@ Checkpoint `feature/tagihnet-gateway-readiness` menambah panel **Kesiapan konfig
 ```
 
 ## Pengujian
+
+Checkpoint `feature/tagihnet-gateway-worker-consent` memperbaiki pelaporan worker: persetujuan owner yang sudah tidak berlaku sebelum putaran kini menghasilkan status blocked dan exit 1 pada `--once`, sambil tetap memproses ISP lain. Angka putaran lama tidak ditampilkan sebagai hasil baru; owner perlu meninjau/simpan ulang dengan MFA. [Panduan worker](docs/PAYMENT-GATEWAY.md#pemeriksaan-status-otomatis).
+
 
 Checkpoint `feature/tagihnet-gateway-reconciliation-cli` memperbaiki kode keluar rekonsiliasi: ada order gagal kini exit 1, tanpa membatalkan hasil order lain yang berhasil. `--dry-run --json` menyediakan pratinjau lokal, sedangkan `--json` pada mode normal melaporkan hasil verifikasi per order. [Panduan](docs/GATEWAY-RECONCILIATION-CLI.md).
 

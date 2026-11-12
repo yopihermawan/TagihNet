@@ -104,4 +104,44 @@ for month in [1, 2]:
         assert database.execute("SELECT COUNT(*) FROM core_payment").fetchone()[0] == 2
         assert database.execute("SELECT COUNT(*) FROM core_networkjob").fetchone()[0] == 2
     print("PASS: complete/replay batches exit 0; two order IDs produce exactly two payments/jobs, no checkout creation.", flush=True)
+    setup_policy = '''
+import time
+from django.contrib.auth import get_user_model
+from core.gateway_worker import save_policy
+owner=get_user_model().objects.get(username="owner0")
+save_policy(owner,True,True,60,0,time.time(),1)
+'''
+    run(env, "shell", "-c", setup_policy)
+    result=run({**env,"TAGIHNET_CLI_FIXTURE_MODE":"success"}, "run_gateway_worker", "--once", stubbed=True)
+    assert "status=completed verified=2" in result.stdout
+    revoke='''
+from django.utils import timezone
+from datetime import timedelta
+from core.models import GatewayReconciliationPolicy, Membership
+GatewayReconciliationPolicy.objects.update(next_run_at=timezone.now()-timedelta(seconds=1))
+Membership.objects.filter(user__username="owner0").update(session_version=2)
+'''
+    run(env,"shell","-c",revoke)
+    result=run(env,"run_gateway_worker","--once",expected=1)
+    assert "status=blocked" in result.stdout and "verified=" not in result.stdout
+    assert "persetujuan ulang" in result.stderr and "Jadwal ulang" not in result.stderr
+    before=fingerprint(path)
+    result=run(env,"run_gateway_worker","--once")
+    assert "0 kebijakan diproses" in result.stdout and fingerprint(path)==before
+    renew='''
+import time
+from django.contrib.auth import get_user_model
+from core.gateway_worker import save_policy
+from core.models import GatewayReconciliationPolicy
+owner=get_user_model().objects.get(username="owner0")
+policy=GatewayReconciliationPolicy.objects.get(tenant=owner.membership.tenant)
+save_policy(owner,True,True,60,policy.version,time.time(),2)
+'''
+    run(env,"shell","-c",renew)
+    result=run({**env,"TAGIHNET_CLI_FIXTURE_MODE":"success"},"run_gateway_worker","--once",stubbed=True)
+    assert "status=completed verified=2" in result.stdout
+    with sqlite3.connect(path) as database:
+        assert database.execute("SELECT COUNT(*) FROM core_payment").fetchone()[0]==2
+        assert database.execute("SELECT COUNT(*) FROM core_networkjob").fetchone()[0]==2
+    print("PASS: real worker exits 1 for newly blocked consent without old counts; repeat is read-only, fresh approval resumes without duplicate ledger.",flush=True)
 print("PASS: disposable CLI databases, generated development keys and fixtures cleaned; user data untouched.")

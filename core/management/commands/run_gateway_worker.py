@@ -25,9 +25,14 @@ class Command(BaseCommand):
                     self.stderr.write("Worker belum dapat dijalankan; periksa database dan mode simulasi.")
                 else:
                     for result in results:
-                        self.stdout.write(f"policy={result.pk} status={result.last_status} verified={result.last_verified} unavailable={result.last_unavailable}")
+                        if result.last_status == "blocked":
+                            self.stdout.write(f"policy={result.pk} status=blocked Perlu persetujuan ulang owner dengan MFA.")
+                        else:
+                            self.stdout.write(f"policy={result.pk} status={result.last_status} verified={result.last_verified} unavailable={result.last_unavailable}")
                     if options["once"]:
-                        if any(result.last_status in {"failed", "partial", "blocked"} for result in results):
+                        if any(result.last_status == "blocked" for result in results):
+                            raise CommandError("Ada kebijakan yang memerlukan persetujuan ulang owner dengan MFA. Lihat hasil per kebijakan; pembayaran yang sah tetap tersimpan.")
+                        if any(result.last_status in {"failed", "partial"} for result in results):
                             raise CommandError("Sebagian status belum terverifikasi. Jadwal ulang tersimpan pada kebijakan.")
                         self.stdout.write(f"Gateway worker: {len(results)} kebijakan diproses.")
                         return

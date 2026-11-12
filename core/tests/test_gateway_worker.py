@@ -170,7 +170,7 @@ class GatewayWorkerTests(TestCase):
         policy = self.policy()
         Membership.objects.filter(user=self.owners[0]).update(session_version=2)
         with patch("core.gateway.SandboxClient.status") as status:
-            self.assertIsNone(process_policy(policy.pk))
+            self.assertEqual(process_policy(policy.pk).last_status, "blocked")
         status.assert_not_called()
         policy.refresh_from_db()
         self.assertFalse(policy.enabled)
