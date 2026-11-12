@@ -174,3 +174,12 @@ GET snapshot memakai scope tenant/customer/izin halaman order, mengembalikan han
 Idle/absolute expiry dan revocation tetap diperiksa pada setiap request. GET snapshot pasif yang tidak memodifikasi sesi tidak memperbarui aktivitas, cookie atau database sesi walaupun save-every-request aktif untuk request biasa. Logout/rotation/mutasi nyata tetap disimpan melalui middleware Django. Client memakai same-origin GET, no-store, redirect error, timeout/batas dua menit, membatalkan saat hidden/navigasi dan berhenti pada kegagalan. Label dirender sebagai teks, CSP tetap ketat; tidak ada auto-POST atau reload formulir.
 
 494 tes kedua backend, SQL no-write assertions, Chromium virtual clock/error/timeout, browser webhook/form preservation, security smoke dan regresi proses/restore lulus. Endpoint pembacaan masih memerlukan kapasitas HTTP/database sesuai jumlah tab aktif; batas client bukan rate limiter keamanan. Akun merchant/HTTPS publik, beban dan audit produksi belum diverifikasi. [Panduan](GATEWAY-PAGE-UPDATES.md).
+
+
+## Hasil rekonsiliasi CLI — 12 November 2026 WIB
+
+Command kini mengembalikan exit 1 jika satu pemeriksaan gagal, termasuk batch parsial; hasil sah yang sudah commit tetap tersimpan. Tenant tidak dikenal atau pemilihan database gagal tidak dianggap batch kosong. Report JSON per order hanya membawa ID order/ISP, hasil dan status lokal; kredensial, merchant, URL checkout, nominal/customer, payload/signature serta detail exception tidak dicetak. Failed status null tidak mengklaim snapshot lama sebagai hasil terbaru. Stdout JSON terpisah dari CommandError umum di stderr, dan waktu laporan memakai WIB.
+
+Dry-run tidak memanggil provider, mengubah timestamp/config/ledger/audit, atau mengaktifkan checkout. Limit <=500 dan urutan batch dibekukan sebelum I/O. Mode normal tetap memakai client/writer yang ada; HTTP tidak dibungkus transaksi batch, callback/replay memakai idempotensi ledger yang sama. Tidak ada endpoint publik atau izin baru; host administrator dapat memilih seluruh ISP seperti sebelumnya. Pratinjau adalah snapshot lokal yang tidak disimpan sebagai persetujuan; invocation berikutnya memilih ulang.
+
+512 tes kedua backend dan drill CLI subprocess/fingerprint lulus, termasuk batch parsial dengan satu pembayaran tetap tersimpan serta replay tanpa payment/job ganda. Tidak ada perubahan worker/policy, schema atau UI. CI remote tidak dapat diverifikasi melalui API (403), dan merchant/HTTPS publik belum tersedia. [Panduan](GATEWAY-RECONCILIATION-CLI.md).

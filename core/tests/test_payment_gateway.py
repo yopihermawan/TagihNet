@@ -347,7 +347,8 @@ class PaymentGatewayTests(TestCase):
                 raise GatewayUnavailable
             return status_payload(order)
         with patch("core.gateway.SandboxClient.status", side_effect=remote):
-            call_command("reconcile_gateway_payments", limit=1, stdout=StringIO())
+            with self.assertRaises(CommandError):
+                call_command("reconcile_gateway_payments", limit=1, stdout=StringIO())
             call_command("reconcile_gateway_payments", limit=1, stdout=StringIO())
         pending[1].refresh_from_db()
         self.assertEqual(pending[1].status, "settled")

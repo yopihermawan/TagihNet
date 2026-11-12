@@ -21,6 +21,7 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 - Pembuatan checkout memakai lease 60 detik: permintaan bersamaan memakai satu order, retry terikat order setelah proses terputus, tanpa membebaskan invoice berdasarkan waktu lokal.
 - Status notifikasi gateway untuk owner: jumlah pengiriman terautentikasi, hasil/waktu terakhir, pemisahan dari polling/manual, tanpa menyimpan payload atau signature.
 - Kesiapan konfigurasi gateway untuk owner dan CLI JSON: skema, kredensial, merchant, opt-in, origin dan host; pemeriksaan lokal tanpa request pembayaran. [Panduan](docs/GATEWAY-READINESS.md).
+- Rekonsiliasi CLI dengan pratinjau lokal, hasil JSON dan exit gagal untuk batch parsial/gagal; pembayaran yang berhasil tetap tersimpan. [Panduan](docs/GATEWAY-RECONCILIATION-CLI.md).
 - Pemberitahuan perubahan pada halaman pembayaran: memantau status tersimpan selama dua menit, mempertahankan formulir, dan menawarkan muat ulang; tidak memperpanjang sesi atau memanggil Midtrans. [Panduan](docs/GATEWAY-PAGE-UPDATES.md).
 - Laporan ledger gateway: pembayaran/refund/koreksi per periode WIB, total bersih, pagination dan CSV dengan perlindungan formula; akses owner/keuangan atau izin kustom. [Panduan](docs/GATEWAY-REPORTS.md).
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.
@@ -191,6 +192,8 @@ Panduan konfigurasi merchant, domain sandbox, URL notifikasi HTTPS, pengakhiran 
 
 ```bash
 .venv/bin/python manage.py reconcile_gateway_payments --limit 100
+# Pratinjau saja tanpa request atau perubahan data (ganti ID ISP yang terdaftar):
+.venv/bin/python manage.py reconcile_gateway_payments --tenant 1 --dry-run --json
 # Setelah owner mengaktifkan Pemeriksaan status otomatis dengan MFA:
 .venv/bin/python manage.py run_gateway_worker --once --limit 20
 # Untuk layanan yang terus berjalan: .venv/bin/python manage.py run_gateway_worker
@@ -211,6 +214,8 @@ Checkpoint `feature/tagihnet-gateway-readiness` menambah panel **Kesiapan konfig
 ```
 
 ## Pengujian
+
+Checkpoint `feature/tagihnet-gateway-reconciliation-cli` memperbaiki kode keluar rekonsiliasi: ada order gagal kini exit 1, tanpa membatalkan hasil order lain yang berhasil. `--dry-run --json` menyediakan pratinjau lokal, sedangkan `--json` pada mode normal melaporkan hasil verifikasi per order. [Panduan](docs/GATEWAY-RECONCILIATION-CLI.md).
 
 Checkpoint `feature/tagihnet-gateway-page-updates` menambah pemberitahuan perubahan tersimpan pada order yang masih menunggu. Hasil webhook/worker dapat terlihat tanpa meminta verifikasi merchant berulang; pengguna memilih **Tampilkan pembaruan** agar formulir yang belum dikirim tetap utuh. Panduan: [GATEWAY-PAGE-UPDATES](docs/GATEWAY-PAGE-UPDATES.md).
 

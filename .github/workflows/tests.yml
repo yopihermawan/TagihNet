@@ -20,6 +20,7 @@ jobs:
       - run: python manage.py collectstatic --noinput
       - run: python scripts/verify_encrypted_backup.py
       - run: python scripts/verify_gateway_readiness.py
+      - run: python scripts/verify_gateway_reconciliation_cli.py
   postgresql:
     runs-on: ubuntu-latest
     services:
