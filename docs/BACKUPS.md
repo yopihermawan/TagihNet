@@ -94,3 +94,8 @@ Tanpa --key-file, ini **SQLite tanpa enkripsi** dan output menyatakannya. Mode t
 20 tes baru (245 pada tiap backend) mencakup key/format/tamper/limit/stream/atomic publication/target rejection. Drill SQLite memeriksa semua tabel, restore MFA dan replay. Verifier PG mempertahankan 10 race proses, menambah encrypted restore dengan rekonsiliasi semua tabel/MFA payload, wrong-key/source/occupied target rejection serta authenticated envelope berisi dump invalid yang tidak meninggalkan objek publik. Semua fixture/database/key temporary dibersihkan; akun demo pengguna tidak diubah.
 
 CLI dan hard-link publication diuji pada Linux/POSIX; Windows/full application Docker runtime belum diverifikasi. Tidak ada scheduler/offsite upload, vault/rotasi otomatis, retensi, PITR/failover, RPO/RTO produksi atau klaim production-ready. Snapshot cloud tidak menjamin volume Docker atau pemisahan key/archive. Hasil lokal dan CI yang baru didaftarkan dijelaskan di [TEST-REPORT](TEST-REPORT.md).
+
+
+## Lease pengakhiran gateway
+
+Migrasi 0015 menyimpan pasangan token/deadline lease pada intent pengakhiran. Arsip yang dibuat sesudah migrasi mempertahankan pasangan tersebut bersama alasan/request key, status dan ledger; tidak memulihkan proses HTTP. Setelah restore, lease aktif tetap menahan pengiriman baru sampai kedaluwarsa. Retry memeriksa status order yang sama sebelum operasi, dan deadline tidak melepaskan reservasi invoice. Drill PostgreSQL membandingkan seluruh tabel termasuk kolom lease; SQLite juga menguji lease aktif dan resume intent yang sama setelah deadline tanpa payment/job ganda. Backup sebelum migrasi tetap memiliki skema lama dan memerlukan migrasi yang sesuai ketika dipulihkan pada kode terbaru.

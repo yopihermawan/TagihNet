@@ -143,7 +143,7 @@ python scripts/postgres_lab.py run manage.py test --verbosity 1 --noinput
 python scripts/postgres_lab.py run scripts/verify_postgres.py
 ```
 
-`run` hanya mengatur environment untuk subprocess itu. Verifikasi membuat database sementara sendiri dan menghapusnya setelah 26 skenario lintas proses serta pg_dump/pg_restore. Snapshot cloud tidak menjamin container/volume Docker ikut pulih. Panduan konfigurasi TLS, kredensial, restart, backup dan batas bukti: [POSTGRESQL](docs/POSTGRESQL.md).
+`run` hanya mengatur environment untuk subprocess itu. Verifikasi membuat database sementara sendiri dan menghapusnya setelah 29 skenario lintas proses serta pg_dump/pg_restore. Snapshot cloud tidak menjamin container/volume Docker ikut pulih. Panduan konfigurasi TLS, kredensial, restart, backup dan batas bukti: [POSTGRESQL](docs/POSTGRESQL.md).
 
 ## Monitoring NAS simulasi
 
@@ -214,6 +214,8 @@ Checkpoint `feature/tagihnet-gateway-readiness` menambah panel **Kesiapan konfig
 ```
 
 ## Pengujian
+
+Checkpoint `feature/tagihnet-gateway-expiry-lease` menambah lease 60 detik untuk pengakhiran order, termasuk permintaan bersamaan dengan request key berbeda. Owner melihat status proses/muat ulang dan dapat melanjutkan intent yang sama setelah proses terputus; kedaluwarsa lease tidak membebaskan invoice. Migrasi `0015` diperlukan setelah backup. [Panduan](docs/PAYMENT-GATEWAY.md#lease-permintaan-pengakhiran).
 
 Checkpoint `feature/tagihnet-gateway-worker-consent` memperbaiki pelaporan worker: persetujuan owner yang sudah tidak berlaku sebelum putaran kini menghasilkan status blocked dan exit 1 pada `--once`, sambil tetap memproses ISP lain. Angka putaran lama tidak ditampilkan sebagai hasil baru; owner perlu meninjau/simpan ulang dengan MFA. [Panduan worker](docs/PAYMENT-GATEWAY.md#pemeriksaan-status-otomatis).
 

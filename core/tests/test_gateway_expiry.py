@@ -267,8 +267,9 @@ class ExpiryConcurrencyTests(TransactionTestCase):
                     close_old_connections()
             with patch("core.gateway.SandboxClient.status", side_effect=status), patch("core.gateway_expiry.SandboxClient.expire", side_effect=expire), ThreadPoolExecutor(max_workers=2) as pool:
                 results = list(pool.map(run, range(2)))
-        self.assertEqual(results[0], results[1])
-        self.assertEqual(results[0][1], "confirmed")
+        self.assertEqual(results[0][0], results[1][0])
+        self.assertIn("confirmed", [result[1] for result in results])
+        self.assertTrue({result[1] for result in results} <= {"requested", "confirmed"})
         self.assertEqual(GatewayExpiry.objects.count(), 1)
         self.assertEqual(AuditEvent.objects.filter(action="gateway.expiry_confirmed").count(), 1)
         self.assertFalse(Payment.objects.exists())

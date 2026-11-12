@@ -8,6 +8,7 @@ from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_variables
@@ -93,12 +94,14 @@ def settings_response(request, form=None, policy_form=None, status=200):
 
 
 def expiry_form(order, data=None):
-    previous = order.expiry_requests.filter(status__in=["requested", "unavailable"]).first()
+    active = order.expiry_requests.filter(lease_until__gt=timezone.now()).first()
+    previous = active or order.expiry_requests.filter(status__in=["requested", "unavailable"]).first()
     form = ExpiryForm(data, initial={"request_key": previous.request_key if previous else uuid.uuid4(),
         "reason": previous.reason if previous else ""})
     if previous:
         form.fields["reason"].disabled = True
         form.fields["reason"].help_text = "Coba ulang permintaan yang sama; alasan awal tetap disimpan."
+    form.processing_until = active.lease_until if active else None
     return form
 
 

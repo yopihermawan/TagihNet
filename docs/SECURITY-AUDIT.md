@@ -192,3 +192,12 @@ Claim yang menonaktifkan kebijakan karena persetujuan tidak berlaku kini mengemb
 CLI --once exit 1 untuk kebijakan yang baru blocked dan menjelaskan kebutuhan persetujuan ulang owner/MFA. Jumlah putaran lama tetap disimpan tetapi tidak dicetak sebagai pemeriksaan baru; hasil sah yang kembali sesudah pencabutan in-flight tetap memakai writer ledger lama. Kebijakan ISP lain tetap diproses dan daemon tetap hidup. Kebijakan yang sudah nonaktif/belum jatuh tempo/berlease aktif dilewati, sehingga exit 0/hasil kosong bukan pemeriksaan kesehatan semua kebijakan.
 
 521 tes kedua backend, subprocess exit/reauthorization/fingerprint, 26 skenario proses dan restore SQLite/PostgreSQL lulus. Dua proses tanpa persetujuan menghasilkan satu blocked/audit tanpa I/O provider atau ledger baru. Tidak ada schema, credential atau izin baru, dan tanpa perubahan UI. Akun Midtrans/HTTPS publik dan CI remote belum diverifikasi.
+
+
+## Lease pengakhiran — 12 November 2026 WIB
+
+Semua intent pengakhiran pada satu order berbagi satu lease aktif melalui lock order, termasuk key berbeda/row legacy. Token/deadline diperoleh dalam transaksi singkat sebelum preflight, diperbarui sebelum POST dan tidak dikirim ke browser. Pemeriksaan owner/tenant/MFA/CSRF/throttle yang ada tetap berlaku; field lease dari browser diabaikan. HTTP berada di luar transaksi/retry database. Finish harus memiliki token yang masih sama; takeover membatalkan token intent lama sehingga completion lama tidak dapat melepas lease baru atau mengganti hasil.
+
+Kegagalan yang diketahui menyelesaikan claim miliknya; proses terputus meninggalkan lease sampai deadline. Kedaluwarsa hanya mengizinkan retry, tidak melepas invoice atau membuktikan expire. Preflight/postflight tetap mengandalkan GET terautentikasi, dan status/payment sah dari request lama tetap memakai writer idempoten. Lease bukan exactly-once provider: request lama yang hidup melampaui deadline dapat overlap dengan takeover pada order ID sama. Tidak ada pengiriman refund atau reversal otomatis.
+
+536 tes kedua backend, tiga skenario proses expiry baru (29 total), Chromium, restore SQLite/PG dan constraint pasangan lease lulus. Migrasi 0015 diterapkan pada development sesudah encrypted backup/verify; payload lama 40 tabel dan integritas tetap sesuai. Owner melihat status proses/deadline/muat ulang, tanpa token atau auto-POST. Tidak ada izin, dependency atau layanan baru. Merchant/HTTPS publik dan kapasitas produksi belum diverifikasi.

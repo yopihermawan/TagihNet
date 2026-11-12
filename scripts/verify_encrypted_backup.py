@@ -77,6 +77,11 @@ with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(tenants[0])):
         assert Client().post("/payments/midtrans/notifications/",data=json.dumps(notification_payload(order)),content_type="application/json").status_code==200
     pending, _ = issue_invoice(tenants[0], customers[0].pk, date(2026, 11, 1), owners[0])
     prepare_checkout(owners[0], pending.pk)
+    from core.models import GatewayOrder
+    from core.gateway_expiry import prepare_expiry, claim_expiry
+    pending_order=GatewayOrder.objects.get(invoice=pending)
+    expiry=prepare_expiry(owners[0],pending_order.pk,uuid.uuid4(),"Pengakhiran belum selesai sebelum backup",time.time(),1)
+    assert claim_expiry(expiry.pk)[1] is not None
     ending, _ = issue_invoice(tenants[0], customers[0].pk, date(2026, 12, 1), owners[0])
     ending_order = reserve_order(owners[0], ending.pk)
     with patch("core.gateway.SandboxClient.status", side_effect=[status_payload(ending_order,"pending"),status_payload(ending_order,"expire")]), patch("core.gateway_expiry.SandboxClient.expire",return_value={}):
@@ -157,7 +162,8 @@ resolution=GatewayRefundResolution.objects.get()
 assert PaymentReversal.objects.count()==1 and resolution.reversal.payment_id==resolution.order.payment_id
 assert resolution.amount==resolution.order.amount==resolution.reversal.payment.amount
 assert resolution.transaction_id==resolution.order.transaction_id and len(resolution.proof_digest)==64
-assert GatewayExpiry.objects.get().status=="confirmed"
+assert GatewayExpiry.objects.filter(status="confirmed").count()==1
+assert GatewayExpiry.objects.get(status="requested").lease_token is not None
 from core.models import GatewayNotificationState
 notification=GatewayNotificationState.objects.get()
 assert notification.delivery_count==2 and notification.last_outcome=="verified" and notification.last_completed_at is not None
@@ -194,6 +200,21 @@ assert GatewayOrder.objects.get(pk=pending.pk).checkout_lease_token is None
 with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(user.membership.tenant)), patch("core.gateway.SandboxClient.status",return_value=status_payload(pending,"pending")):
     recovered=process_policy(policy.pk)
 assert recovered.last_verified==1 and recovered.lease_token is None and recovered.last_status=="completed"
+from core.gateway_expiry import expire_order
+import time
+active_expiry=GatewayExpiry.objects.get(status="requested")
+expiry_token=active_expiry.lease_token
+GatewayExpiry.objects.filter(pk=active_expiry.pk).update(lease_until=timezone.now()+timedelta(seconds=60))
+with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(user.membership.tenant)),patch("core.gateway.SandboxClient.status") as status,patch("core.gateway_expiry.SandboxClient.expire") as remote:
+    busy=expire_order(user,pending.pk,active_expiry.request_key,active_expiry.reason,time.time(),1)
+status.assert_not_called()
+remote.assert_not_called()
+assert GatewayExpiry.objects.get(pk=active_expiry.pk).lease_token==expiry_token
+GatewayExpiry.objects.filter(pk=active_expiry.pk).update(lease_until=timezone.now()-timedelta(seconds=1))
+with override_settings(MIDTRANS_SANDBOX_ACCOUNT_KEYS=account_keys(user.membership.tenant)),patch("core.gateway.SandboxClient.status",side_effect=[status_payload(pending,"pending"),status_payload(pending,"expire")]),patch("core.gateway_expiry.SandboxClient.expire",return_value={}) as remote:
+    completed=expire_order(user,pending.pk,active_expiry.request_key,active_expiry.reason,time.time(),1)
+assert completed.pk==active_expiry.pk and completed.lease_token is None and completed.status=="confirmed"
+assert remote.call_count==1 and remote.call_args.args[0].pk==pending.pk
 assert Payment.objects.count()==3 and GatewayRefundResolution.objects.count()==PaymentReversal.objects.count()==1
 from core.gateway_reports import WIB, ledger_report
 today=timezone.localdate(timezone=WIB)
@@ -215,4 +236,5 @@ assert len(rows)==3 and sum(int(row["perubahan_bersih_rupiah"]) for row in rows)
     print("PASS: restored gateway ledger report/CSV reconciles 2 payments and 1 refund; manual payment excluded; no merchant access needed.",flush=True)
     print("PASS: restored authenticated notification count/result/timestamps preserved without raw webhook payload or signature.",flush=True)
     print("PASS: restored checkout creation lease preserved; active lease avoids POST, expired lease retries same order without duplicate or freed invoice.",flush=True)
+    print("PASS: restored expiry lease blocks HTTP while active; expired lease resumes same request/order, verifies terminal status without payment duplication.",flush=True)
 print("PASS: temporary source/restored databases, plaintext staging, keys and archive cleaned; user demo untouched.")

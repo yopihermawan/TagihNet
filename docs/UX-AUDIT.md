@@ -120,3 +120,10 @@ Chromium menguji panel setelah owner opt-in dan CLI pada database yang sama, emp
 Halaman order menunggu memiliki panel Pembaruan halaman pembayaran dengan batas dua menit, tombol Hentikan pemantauan/Pantau lagi dan pesan status aria-live polite. Pemberitahuan menyebut hasil baru yang sudah tersimpan serta tautan Tampilkan pembaruan. Tidak ada auto-reload yang menghapus formulir. Tanpa JavaScript ada petunjuk muat ulang manual; order selesai tidak menampilkan watcher. Teks membedakan pemantauan halaman dari verifikasi langsung ke Midtrans.
 
 Chromium pada aplikasi sementara memverifikasi hasil notifikasi settlement/replay tampil sebagai pemberitahuan, alasan pengakhiran tetap utuh dan muat ulang eksplisit membuka pembayaran tercatat. Empat viewport tanpa overflow atau browser errors. Bukti [mobile](evidence/gateway-updates-mobile.png)/[desktop](evidence/gateway-updates-desktop.png) memakai data/transport tiruan tanpa secret/QR/OTP. Drill virtual clock memeriksa stop/restart, deadline, controlled visibility/offline, error dan timeout. Audit screen reader/WCAG menyeluruh dan merchant/HTTPS publik belum dilakukan.
+
+
+## Pengakhiran sedang diproses — 12 November 2026 WIB
+
+Selama lease aktif, kartu Akhiri pembayaran sandbox menampilkan batas retry WIB dan tautan Muat ulang permintaan pengakhiran. Tombol POST disembunyikan; keterangan menegaskan waktu tersebut bukan konfirmasi pembayaran berakhir. Sesudah lease habis, form menggunakan request key/alasan tersimpan dan owner tetap meninjau ulang. Tidak ada auto-POST, pelepasan reservasi berdasarkan jam lokal, atau perubahan label lunas hanya karena respons pengakhiran.
+
+Chromium memeriksa busy/reload/expired fixture/retry/terminal/replay pada empat viewport tanpa overflow dan 0 browser errors. Bukti [mobile](evidence/gateway-expiry-lease-mobile.png)/[desktop](evidence/gateway-expiry-lease-desktop.png) memakai data dan transport tiruan, tanpa lease token, key merchant, QR atau OTP. Audit screen reader/WCAG lengkap dan pengiriman ke akun sandbox asli belum dilakukan.

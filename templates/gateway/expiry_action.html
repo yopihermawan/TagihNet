@@ -1,0 +1,6 @@
+{% if expiry_form.processing_until %}
+<p class="info-note">Permintaan pengakhiran sedang diproses. Bila belum ada hasil, Anda dapat mencoba lagi setelah {{ expiry_form.processing_until|date:'H:i:s' }} WIB. Waktu ini bukan konfirmasi pembayaran berakhir.</p>
+<p><a href="{% url 'gateway_order' order.pk %}">Muat ulang permintaan pengakhiran</a></p>
+{% else %}
+<form method="post" action="{% url 'gateway_expire' order.pk %}" class="stack-form">{% csrf_token %}{{ expiry_form.as_p }}<button class="button danger">Minta pengakhiran pembayaran</button></form>
+{% endif %}

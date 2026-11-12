@@ -240,6 +240,23 @@ with patch("core.gateway.SandboxClient.create",side_effect=create), patch("core.
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
                 if width in [360, 1366]:
                     page.screenshot(path=str(evidence / f"gateway-expiry-{'mobile' if width==360 else 'desktop'}.png"), full_page=True, animations="disabled")
+            expiry_order=expiring_url.rstrip('/').split('/')[-1]
+            expiry_claim=f'from django.contrib.auth import get_user_model; from core.gateway_expiry import prepare_expiry,claim_expiry; import time,uuid; actor=get_user_model().objects.get(username="owner0"); intent=prepare_expiry(actor,uuid.UUID({expiry_order!r}),uuid.UUID({expiry_key!r}),{reason!r},time.time(),1); claim_expiry(intent.pk)'
+            subprocess.run([sys.executable,"manage.py","shell","-c",expiry_claim],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
+            page.reload()
+            expiry_section=page.locator('section').filter(has=page.get_by_role('heading',name='Akhiri pembayaran sandbox',exact=True))
+            expect(expiry_section).to_contain_text('Permintaan pengakhiran sedang diproses')
+            assert page.get_by_role('button',name='Minta pengakhiran pembayaran',exact=True).count()==0
+            for width in [360,768,1366,1920]:
+                page.set_viewport_size({'width':width,'height':920})
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'),width
+                if width in [360,1366]:
+                    expiry_section.screenshot(path=str(evidence/f"gateway-expiry-lease-{'mobile' if width==360 else 'desktop'}.png"),animations='disabled')
+            expired_claim='from core.models import GatewayExpiry; from django.utils import timezone; from datetime import timedelta; GatewayExpiry.objects.filter(lease_token__isnull=False).update(lease_until=timezone.now()-timedelta(seconds=1))'
+            subprocess.run([sys.executable,'manage.py','shell','-c',expired_claim],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
+            page.reload()
+            assert page.locator('input[name="request_key"]').input_value()==expiry_key
+            page.get_by_label('Saya meminta pengakhiran di gateway',exact=False).check()
             page.get_by_role("button", name="Minta pengakhiran pembayaran", exact=True).click()
             expect(page.get_by_role("heading", name="Kedaluwarsa di gateway", exact=True)).to_be_visible()
             expect(page.get_by_text("Dikonfirmasi berakhir", exact=True)).to_be_visible()

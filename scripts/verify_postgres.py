@@ -198,6 +198,41 @@ def child(data):
             if data["role"] == 0:
                 (gate_dir/"dispute-applied").touch()
             return {"status": result.status, "payment_id": result.payment_id}
+        if case in {"expiry_lease_overlap", "expiry_lease_takeover"}:
+            from django.db import connection
+            from django.utils import timezone
+            from core.gateway_expiry import expire_order
+            from core.models import GatewayExpiry, GatewayOrder
+            from core.tests.test_payment_gateway import status_payload
+            current=GatewayOrder.objects.get(pk=data["gateway_order"])
+            def wait_for(name):
+                deadline=time.monotonic()+15
+                while not (gate_dir/name).exists():
+                    if time.monotonic()>deadline:
+                        raise TimeoutError("Expiry lease gate timed out")
+                    time.sleep(.01)
+            if data["role"]==1:
+                wait_for("expiry-post-start")
+                if case=="expiry_lease_takeover":
+                    GatewayExpiry.objects.filter(order=current).update(lease_until=timezone.now()-timedelta(seconds=1))
+            def status(order):
+                assert not connection.in_atomic_block
+                return status_payload(order,"expire" if (gate_dir/"remote-expired").exists() else "pending")
+            def expire(order):
+                assert not connection.in_atomic_block
+                (gate_dir/f"expiry-post-{data['role']}").touch()
+                if data["role"]==0:
+                    (gate_dir/"expiry-post-start").touch()
+                    wait_for("expiry-second-finished")
+                (gate_dir/"remote-expired").touch()
+                return {}
+            key=data["second_key"] if data["role"]==1 else data["expiry_key"]
+            with patch("core.gateway.SandboxClient.status",side_effect=status),patch("core.gateway_expiry.SandboxClient.expire",side_effect=expire):
+                result=expire_order(actor,current.pk,key,"Permintaan pengakhiran dengan lease dua proses",time.time(),1)
+            if data["role"]==1:
+                (gate_dir/"expiry-second-finished").touch()
+            return {"request":str(result.pk),"status":result.status,"updated_at":str(result.updated_at),
+                "posted":(gate_dir/f"expiry-post-{data['role']}").exists()}
         if case in {"gateway_expiry", "gateway_expiry_payment"}:
             from core.gateway import apply_status
             from core.gateway_expiry import expire_order
@@ -544,7 +579,9 @@ def verify():
         ending_order = reserve_order(actor, ending_invoice.pk)
         jobs_before, payments_before = NetworkJob.objects.count(), Payment.objects.count()
         results = parallel("gateway_expiry", {**common,"gateway_order":str(ending_order.pk),"expiry_key":str(uuid.uuid4())})
-        assert results[0]["ok"] == results[1]["ok"] and results[0]["ok"]["status"]=="confirmed"
+        assert results[0]["ok"]["request"] == results[1]["ok"]["request"]
+        assert "confirmed" in [result["ok"]["status"] for result in results]
+        assert {result["ok"]["status"] for result in results}<={"requested","confirmed"}
         assert GatewayExpiry.objects.filter(order=ending_order).count()==1
         assert ending_invoice.balance==ending_invoice.total and NetworkJob.objects.count()==jobs_before and Payment.objects.count()==payments_before
         print("PASS: 2 processes, repeated expiry intent -> 1 confirmed request, no payment/network job", flush=True)
@@ -554,6 +591,23 @@ def verify():
         assert results[0]["ok"]["status"]=="blocked" and GatewayExpiry.objects.get(order=racing_order).status=="blocked"
         assert racing_invoice.balance==0 and Payment.objects.count()==payments_before+1 and NetworkJob.objects.count()==jobs_before+1
         print("PASS: 2 processes, payment wins expiry race -> 1 payment, blocked expiry, no lost ledger entry", flush=True)
+        for month,case,different in [(1,"expiry_lease_overlap",False),(2,"expiry_lease_overlap",True),(3,"expiry_lease_takeover",False)]:
+            lease_invoice,_=issue_invoice(tenant,customer.pk,date(2028,month,1),actor)
+            lease_order=reserve_order(actor,lease_invoice.pk)
+            key=uuid.uuid4()
+            before_payment,before_job=Payment.objects.count(),NetworkJob.objects.count()
+            results=parallel(case,{**common,"gateway_order":str(lease_order.pk),"expiry_key":str(key),"second_key":str(uuid.uuid4() if different else key)})
+            assert results[0]["ok"]["status"]=="confirmed"
+            assert sum(result["ok"]["posted"] for result in results)==(2 if case=="expiry_lease_takeover" else 1)
+            assert not GatewayExpiry.objects.filter(order=lease_order,lease_token__isnull=False).exists()
+            assert (Payment.objects.count(),NetworkJob.objects.count())==(before_payment,before_job)
+            assert lease_invoice.balance==lease_invoice.total
+            if case=="expiry_lease_takeover":
+                assert results[0]["ok"]["updated_at"]==results[1]["ok"]["updated_at"]
+                print("PASS: 2 processes, expired expiry lease takeover -> same request/order, stale completion cannot overwrite result",flush=True)
+            else:
+                assert results[1]["ok"]["status"] in {"requested","unavailable"}
+                print("PASS: 2 processes, overlapping expiry "+("different keys" if different else "same key")+" -> 1 POST outside transactions, no payment/job",flush=True)
         from core.gateway_worker import save_policy as save_gateway_policy
         from core.models import GatewayReconciliationPolicy
         polling_tenant, polling_actor, polling_customer=tenants[1], owners[1], customers[1]

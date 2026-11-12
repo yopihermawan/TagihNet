@@ -26,7 +26,7 @@ Izinkan HTTPS keluar hanya ke:
 
 Client menggunakan proxy/CA bawaan lingkungan, Basic Auth server-side, timeout 10 detik, respons maksimal 64 KiB, dan penolakan redirect HTTP. Browser membuka halaman checkout di tab baru tanpa SDK atau script eksternal; CSP aplikasi tetap ketat. Client key tidak diperlukan untuk checkout redirect ini. Detail identitas pelanggan tidak dikirim; payload hanya membawa ID order acak, nominal, dan deskripsi tagihan generik. Permintaan kartu mengaktifkan `credit_card.secure=true`.
 
-Jalankan migrasi sampai `0014` setelah mencadangkan database yang sudah berisi data (`0008`: gateway/payment source; `0009`: pengakhiran; `0010`: kebijakan polling; `0011`: waktu pemeriksaan/verifikasi; `0012`: bukti pencatatan refund penuh; `0013`: metadata penerimaan notifikasi; `0014`: lease pembuatan checkout). Migrasi tidak membalik ledger lama, menebak histori notifikasi, atau membebaskan reservasi:
+Jalankan migrasi sampai `0015` setelah mencadangkan database yang sudah berisi data (`0008`: gateway/payment source; `0009`: pengakhiran; `0010`: kebijakan polling; `0011`: waktu pemeriksaan/verifikasi; `0012`: bukti pencatatan refund penuh; `0013`: metadata penerimaan notifikasi; `0014`: lease pembuatan checkout; `0015`: lease pengakhiran). Migrasi tidak membalik ledger lama, menebak histori notifikasi, atau membebaskan reservasi:
 
 ```bash
 .venv/bin/python manage.py migrate --noinput
@@ -144,6 +144,16 @@ Urutan pemeriksaan:
 Status awal **Diminta** juga dapat dipakai ulang jika proses berhenti sebelum hasil tersimpan. Tidak ada umur lokal yang otomatis membebaskan order. Setelah pengakhiran terkonfirmasi, checkout pengganti memakai UUID order baru dan sisa tagihan dari server; faktur lama tetap belum lunas. Menonaktifkan checkout baru pada setelan tidak menghalangi pengakhiran order lama, selama kredensial sandbox tetap tersedia dan SIMULATION=1. Pencabutan izin/sesi atau lewatnya batas MFA setelah preflight mencegah pengiriman write baru.
 
 Riwayat maksimal sepuluh permintaan ditampilkan hanya kepada owner, termasuk alasan plaintext dan waktu WIB. Seluruh intent masuk backup/restore terenkripsi. Audit dan penyiapan intent berada di transaksi yang dapat dicoba ulang, sedangkan operasi HTTP berada di luar transaksi; retry lock database tidak mengulangi POST jaringan. Jika layanan gagal setelah remote request, ulangi UUID yang sama untuk memeriksa kebenaran status terlebih dahulu.
+
+### Lease permintaan pengakhiran
+
+Migrasi 0015 menambah pasangan token/deadline nullable pada permintaan pengakhiran, tanpa mengubah intent lama atau ledger. Cadangkan database berisi data sebelum migrasi. Setiap order hanya memakai satu lease aktif selama 60 detik melalui lock order, termasuk ketika ada beberapa intent lama dengan request key berbeda. Lease diperoleh sebelum pemeriksaan status pertama dan diperbarui sebelum POST; seluruh HTTP di luar transaksi. Permintaan bersamaan menerima informasi bahwa order sedang diproses, tanpa GET/POST kedua selama lease aktif. Respons busy bukan konfirmasi berakhir.
+
+Owner melihat batas waktu WIB dan tautan **Muat ulang permintaan pengakhiran**; tombol POST disembunyikan selama proses aktif. Setelah deadline berlalu, muat ulang untuk mencoba permintaan tersimpan kembali dengan MFA yang masih berlaku. Alasan/request key tetap dipertahankan pada retry standar, dan field lease dari browser tidak dipakai. Tidak ada auto-POST atau anggapan pembayaran berakhir berdasarkan jam lokal.
+
+Kegagalan yang diketahui melepaskan lease miliknya setelah menyimpan hasil yang dapat dibuktikan. Proses yang terputus meninggalkan lease sampai kedaluwarsa. Takeover mempertahankan order ID dan mengganti token; respons/penyelesaian lama tidak boleh melepas lease baru atau menimpa hasil baru. Token pada intent lain yang kedaluwarsa dibatalkan saat pengambilan lease berikutnya. Lease expiry tidak melepaskan reservasi invoice: hanya status terminal terverifikasi yang melakukannya. Status sah dari request lama tetap melewati writer ledger idempoten agar pembayaran yang benar tidak hilang.
+
+Lease adalah koordinasi berbatas waktu, bukan exactly-once pada provider. Jika proses lama masih hidup melewati deadline, retry/takeover dapat mengirim POST lagi pada order ID yang sama. POST sukses atau timeout tetap memerlukan GET status; tidak ada refund/reversal otomatis. Lease dan intent ikut backup/restore, tetapi proses HTTP tidak dipulihkan. Setelah restore, lease aktif menghalangi pengiriman baru sampai habis; retry tetap memeriksa status lebih dahulu.
 
 ## Pemeriksaan status otomatis
 

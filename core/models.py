@@ -399,12 +399,16 @@ class GatewayExpiry(models.Model):
     reason = models.CharField(max_length=250)
     status = models.CharField(max_length=16, choices=STATES, default="requested")
     result = models.CharField(max_length=250, blank=True)
+    lease_token = models.UUIDField(null=True, blank=True)
+    lease_until = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["-created_at", "-pk"]
-        constraints = [models.UniqueConstraint(fields=["order", "request_key"], name="gateway_expiry_request_once")]
+        constraints = [models.UniqueConstraint(fields=["order", "request_key"], name="gateway_expiry_request_once"),
+            models.CheckConstraint(condition=(Q(lease_token__isnull=True, lease_until__isnull=True)
+                | Q(lease_token__isnull=False, lease_until__isnull=False)), name="gateway_expiry_lease_pair")]
 
 
 class GatewayRefundResolution(models.Model):
