@@ -11,7 +11,7 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 | Generic error / account recovery | applicable | pass terbatas | HTTP response generik, token acak framework, sekali pakai dan 30 menit; timing enumeration belum diuji |
 | Session fixation/logout/reset invalidation | applicable | pass | Test rotasi key, POST logout, reset mencabut sesi |
 | Idle/absolute session lifetime | applicable | pass | Middleware 30 menit/8 jam, test expiry |
-| Secure/HttpOnly/SameSite cookies | applicable | pass konfigurasi / not tested HTTPS | HttpOnly/Lax; Secure dan SSL redirect saat DEBUG off, TLS deployment belum diuji |
+| Secure/HttpOnly/SameSite cookies | applicable | pass staging lokal / produksi belum | Secure/HttpOnly/Lax, HTTPS login/MFA/CSRF/session diuji pada Gunicorn TLS; domain publik belum |
 | CSRF pada cookie auth | applicable | pass | Django middleware, POST tanpa token 403 |
 | Deny-by-default action/object/tenant | applicable | pass subset | Tes role, IDOR lintas ISP, portal same-tenant customer, CSV/PDF/job |
 | Field dan assignment scope | applicable | pass subset | Allowlist ModelForm, server price; Teknisi scope penugasan tersedia; sales/wilayah geografis belum tersedia |
@@ -26,7 +26,7 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 | SSRF / router allowlist / network secrets | not applicable | not applicable | Tidak ada adapter network I/O atau URL-fetch publik |
 | Production secret storage/rotation | applicable | not tested | Secret env + key lokal 0600; MFA key terpisah, Fernet encrypted TOTP; vault/rotation belum |
 | Security headers/cache control | applicable | pass lokal | CSP/no-store/nosniff/frame DENY HTTP tests |
-| HTTPS/HSTS/proxy deployment | applicable | not tested | Konfigurasi DEBUG-off tersedia, target deployment belum ada |
+| HTTPS/HSTS/proxy deployment | applicable | pass staging lokal / produksi belum | CA/hostname verification, native TLS dan forwarded-header isolation; HSTS1jam host uji/W005+W021 terdokumentasi, domain publik belum |
 | Audit actor/tenant/action/correlation | applicable | pass subset | Domain mutations/CSV/jobs dicatat; login/factor failure/step-up/MFA/access events ditambahkan; password-failure/reset audit-event lengkap belum |
 | Audit tamper resistance/retention/alarm | applicable | fail | Database admin bisa mengubah; retensi/alert belum |
 | Encrypted backup / offsite / DR | applicable | pass lokal / fail sebagian | AES-GCM SQLite/PG + authenticated restore/MFA pass; legacy plaintext tetap tersedia, vault/offsite/retensi/PITR/RPO/RTO belum |

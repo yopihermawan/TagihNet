@@ -1,0 +1,122 @@
+x-logging: &logging
+  driver: json-file
+  options: {max-size: "10m", max-file: "3"}
+
+x-app: &app
+  image: tagihnet-staging:local
+  build:
+    context: .
+    dockerfile: Dockerfile.staging
+  user: "10001:10001"
+  read_only: true
+  init: true
+  restart: unless-stopped
+  logging: *logging
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: ["/tmp:rw,noexec,nosuid,size=64m,mode=1777"]
+  mem_limit: 512m
+  cpus: 1.0
+  pids_limit: 128
+  stop_grace_period: 40s
+  environment: &runtime-env
+    DJANGO_SETTINGS_MODULE: config.staging_settings
+    TAGIHNET_DEBUG: "0"
+    TAGIHNET_SIMULATION: "1"
+    TAGIHNET_ALLOWED_HOSTS: localhost,127.0.0.1
+    TAGIHNET_SECURE_COOKIES: "1"
+    TAGIHNET_DATA_DIR: /tmp/tagihnet
+    TAGIHNET_SECRET_KEY_FILE: /run/tagihnet/session-key
+    TAGIHNET_MFA_KEY_FILE: /run/tagihnet/mfa-key
+    TAGIHNET_DB_ENGINE: postgresql
+    TAGIHNET_DB_HOST: db
+    TAGIHNET_DB_PORT: "5432"
+    TAGIHNET_DB_NAME: tagihnet_staging
+    TAGIHNET_DB_USER: tagihnet_runtime
+    TAGIHNET_DB_PASSWORD_FILE: /run/tagihnet/db-password
+    TAGIHNET_DB_SSLMODE: verify-full
+    TAGIHNET_DB_SSLROOTCERT: /run/tagihnet/ca.crt
+  volumes:
+    - runtime-secrets:/run/tagihnet:ro
+  depends_on:
+    migrate: {condition: service_completed_successfully}
+
+services:
+  prepare:
+    image: postgres:16-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938
+    user: "0:0"
+    entrypoint: [/bin/sh, /prepare-secrets.sh]
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - ${TAGIHNET_STAGING_DIR:?Set staging directory}/secrets:/source:ro
+      - ./deploy/prepare-secrets.sh:/prepare-secrets.sh:ro
+      - ./deploy:/source-config:ro
+      - runtime-secrets:/runtime
+      - migration-secrets:/migration
+      - https-secrets:/https
+      - postgres-secrets:/postgres
+    restart: "no"
+  db:
+    image: postgres:16-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938
+    restart: unless-stopped
+    logging: *logging
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m", "/var/run/postgresql:rw,nosuid,size=8m"]
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/postgres/admin-password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    command: [postgres, -c, ssl=on, -c, ssl_cert_file=/run/postgres/postgres.crt, -c, ssl_key_file=/run/postgres/postgres.key, -c, hba_file=/run/postgres/pg_hba.conf, -c, shared_buffers=64MB, -c, max_connections=50]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - postgres-secrets:/run/postgres:ro
+      - postgres-secrets:/docker-entrypoint-initdb.d:ro
+    depends_on:
+      prepare: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, pg_isready, -h, 127.0.0.1, -U, postgres, -d, postgres]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate:
+    <<: *app
+    restart: "no"
+    environment:
+      <<: *runtime-env
+      TAGIHNET_DB_USER: tagihnet_migrator
+    volumes: [migration-secrets:/run/tagihnet:ro]
+    command: [python, manage.py, migrate, --noinput]
+    healthcheck: {disable: true}
+    depends_on:
+      db: {condition: service_healthy}
+  web:
+    <<: *app
+    ports: ["127.0.0.1:${TAGIHNET_STAGING_PORT:-18443}:8443"]
+    volumes:
+      - runtime-secrets:/run/tagihnet:ro
+      - https-secrets:/run/https:ro
+  network-worker:
+    <<: *app
+    command: [python, manage.py, run_simulation_worker]
+    healthcheck: {disable: true}
+  billing-worker:
+    <<: *app
+    command: [python, manage.py, run_billing_worker]
+    healthcheck: {disable: true}
+  reminder-worker:
+    <<: *app
+    command: [python, manage.py, run_reminder_worker]
+    healthcheck: {disable: true}
+
+volumes:
+  postgres-data:
+  runtime-secrets:
+  migration-secrets:
+  https-secrets:
+  postgres-secrets:

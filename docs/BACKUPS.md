@@ -103,3 +103,7 @@ Schema0010 menyimpan foto yang dinormalisasi di WorkPhoto.content (SQLite BLOB/P
 ## Jadwal otomatis pada hasil restore
 
 Schema0011 menyimpan konfigurasi/pemberi persetujuan/revisi MFA serta siklus dan snapshot batch di database; backup mencakupnya bersama ledger. Drill SQLite/PG memakai jadwal/run nonkosong. Sebelum menyalakan worker billing pada hasil restore, tinjau/nonaktifkan jadwal dan rekonsiliasi faktur/transaksi yang mungkin terjadi setelah snapshot, lalu setujui ulang melalui UI. Restore dapat mengembalikan versi izin/MFA dan consent lama; jangan menganggap snapshot mengetahui kejadian sesudah backup. Batas snapshot rollback pada bagian pemulihan tetap berlaku. Archive development0011 terbaru bernama data/backups/encrypted/TagihNet-20261114-billing-scheduler.tnbk; key tetap terpisah, archive lama dipertahankan.
+
+## Data staging terpisah
+
+Staging Docker memakai volume PostgreSQL sendiri serta data/staging/secrets untuk session/MFA/CA/password independen. Jangan mengganti kunci tersebut dengan kunci development. Archive data/staging/TagihNet-staging-20261115.tnbk memakai key data/staging/secrets/backup-key.json, terpisah dari key archive development. Authentication/decrypt/readback pg_dump cocok; SQL restore archive khusus staging belum diuji. Container/image/volume Docker tidak dijamin ikut snapshot cloud; helper menolak up pada initialized manifest jika volume asli hilang. Backup offsite/retensi/otomasi restore staging masih pending. Pertahankan private files dan rekonsiliasi sebelum memulihkan; panduan [STAGING](STAGING.md).

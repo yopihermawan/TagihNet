@@ -3,7 +3,7 @@ from django.core.exceptions import PermissionDenied
 from .permissions import membership, capabilities
 
 def shell(request):
-    context = {"simulation": settings.SIMULATION}
+    context = {"simulation": settings.SIMULATION, "staging":getattr(settings,"STAGING",False)}
     if request.user.is_authenticated:
         try:
             member = membership(request.user)

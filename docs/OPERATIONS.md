@@ -2,7 +2,7 @@
 
 ## Lingkup runtime
 
-Checkpoint ini disiapkan untuk Linux, Python 3.12, Django 5.2, dan satu file SQLite. Semua integrasi berjalan simulasi. Image aplikasi Docker/Windows disediakan sebagai konfigurasi pengembangan, belum diverifikasi eksekusinya; server PostgreSQL lab dalam Docker telah diuji terpisah. Jangan expose Django runserver ke internet atau menganggap konfigurasi ini production-ready.
+Default development memakai Linux/Python3.12/Django5.2/SQLite dengan PostgreSQL opsional. Semua integrasi tetap simulasi. Staging Linux/Docker sekarang diuji memakai Gunicorn HTTPS, WhiteNoise dan PostgreSQL TLS terpisah; lihat [STAGING](STAGING.md). Docker/Windows development lama belum diverifikasi eksekusinya. Jangan expose runserver ke internet; rilis produksi masih memerlukan pekerjaan pada matriks.
 
 ## Instalasi berulang
 
@@ -126,3 +126,7 @@ verify_encrypted_backup.py menjalankan source/restore SQLite sementara, membandi
 ## Scheduler bulanan opt-in
 
 Schema0011 menambah jadwal dan siklus bulanan. Tidak ada jadwal yang otomatis aktif setelah migrasi/seed. Jalankan worker billing yang sama; --once kini juga mengevaluasi jadwal yang sudah disetujui owner. Tanggal bisnis WIB dan bulan berjalan, tanggal29–31 clamp; tidak ada backfill. Mengubah/menonaktifkan membatalkan sisa batch jadwal, faktur lama tetap. Perubahan izin/MFA menahan pekerjaan berikutnya. Batas500 pelanggan/siklus,10 jadwal diperiksa perputaran, snapshot dinamis saat generasi; SIMULATION harus true. Jangan mengaktifkan jadwal demo persisten hanya untuk tes. Cek riwayat/last-check/status batch dan log database_busy; restart aman mempertahankan progres. Lihat [BILLING-SCHEDULER](BILLING-SCHEDULER.md) sebelum pengoperasian.
+
+## Staging HTTPS lokal
+
+Gunakan Dockerfile.staging/compose.staging.yaml dan scripts/staging_lab.py, bukan runserver. Profil DEBUG0/SIMULATION1 memisahkan secret file, database/role migrator/runtime, static manifest dan worker; HTTPS langsung di Gunicorn. Bootstrap hanya DB kosong, tidak seed/reset demo. Stop mempertahankan volume; initialized manifest dengan volume hilang diblokir. CA lokal tidak untuk domain publik; SMTP dummy dan seluruh efek eksternal tetap simulasi. Snapshot cloud belum membuktikan Docker volume restore. Lihat [STAGING](STAGING.md) untuk langkah yang telah diuji, HSTS warning yang disengaja dan batas deployment.

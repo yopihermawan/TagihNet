@@ -3,13 +3,14 @@ import base64
 import secrets
 from pathlib import Path
 from .database import database_config
+from .secret_files import read_secret
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = os.getenv("TAGIHNET_DEBUG", "1") == "1"
 SIMULATION = os.getenv("TAGIHNET_SIMULATION", "1") == "1"
 DATA_DIR = Path(os.getenv("TAGIHNET_DATA_DIR", BASE_DIR / "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
-SECRET_KEY = os.getenv("TAGIHNET_SECRET_KEY", "")
+SECRET_KEY = read_secret(os.environ, "TAGIHNET_SECRET_KEY")
 if not SECRET_KEY:
     if not DEBUG:
         raise RuntimeError("TAGIHNET_SECRET_KEY wajib diatur saat DEBUG=0")
@@ -22,7 +23,7 @@ if not SECRET_KEY:
     SECRET_KEY = key_path.read_text().strip()
     if len(SECRET_KEY) < 50:
         raise RuntimeError("Kunci lokal tidak valid; pulihkan data/.secret_key atau gunakan TAGIHNET_SECRET_KEY.")
-MFA_ENCRYPTION_KEY = os.getenv("TAGIHNET_MFA_KEY", "")
+MFA_ENCRYPTION_KEY = read_secret(os.environ, "TAGIHNET_MFA_KEY")
 if not MFA_ENCRYPTION_KEY:
     if not DEBUG:
         raise RuntimeError("TAGIHNET_MFA_KEY wajib diatur terpisah dari database dan SECRET_KEY saat DEBUG=0.")
@@ -93,7 +94,7 @@ EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend" if DEBUG else
 EMAIL_FILE_PATH = DATA_DIR / "emails"
 EMAIL_HOST = os.getenv("TAGIHNET_EMAIL_HOST", "localhost")
 EMAIL_HOST_USER = os.getenv("TAGIHNET_EMAIL_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("TAGIHNET_EMAIL_PASSWORD", "")
+EMAIL_HOST_PASSWORD = read_secret(os.environ, "TAGIHNET_EMAIL_PASSWORD")
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = os.getenv("TAGIHNET_FROM_EMAIL", "TagihNet <noreply@example.invalid>")

@@ -92,3 +92,7 @@ Foto mengikuti akses tiket/PSB yang ada, termasuk assignment teknisi. Portal han
 ## Jadwal bulanan
 
 Capability manage_billing_schedule tersedia default hanya untuk owner; role kustom juga membutuhkan bulk_issue, issue, invoices dan customers. Jadwal/riwayat dibatasi tenant membership; rincian batch tetap privat bagi pembuat. Review bertanda tangan + MFA <=5 menit, versi konfigurasi/sesi dan replay diperiksa. Worker memeriksa user aktif/izin/tenant/session_version/revisi MFA setiap siklus/baris; pencabutan menahan sisa pekerjaan. Mengubah/menonaktifkan jadwal membatalkan sisa batch jadwal, bukan faktur lama atau batch manual. Lihat [BILLING-SCHEDULER](BILLING-SCHEDULER.md).
+
+## Akun/database staging
+
+bootstrap_isp membuat owner aplikasi awal pada database kosong, tanpa Django superuser/staff dan tanpa perangkat MFA otomatis. Pengulangan ditolak, bukan reset sandi. Role PG migrator terpisah dari runtime; runtime mendapat DML/sequence tetapi tidak CREATE schema/tabel/role/database. Credential migrator/bootstrap/CA private key tidak di-mount pada app/worker. Pemisahan tenant/role aplikasi tetap aturan yang sama. Staging tidak otomatis memberi akses pada akun demo development. Lihat [STAGING](STAGING.md).
