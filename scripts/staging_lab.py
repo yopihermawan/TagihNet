@@ -1,5 +1,6 @@
 """Isolated local HTTPS staging. Never reads the development database or its private keys."""
 import argparse
+import fcntl
 import json
 import os
 import re
@@ -10,6 +11,7 @@ import tempfile
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -31,6 +33,31 @@ def manifest(directory):
     if Path(data["directory"])!=Path(directory).resolve():
         raise ValueError("Lokasi staging tidak sesuai manifest.")
     return data
+
+
+def write_manifest(directory,data):
+    with tempfile.NamedTemporaryFile(mode='w',prefix='.manifest-',dir=directory,delete=False) as stream:
+        temporary=Path(stream.name)
+        try:
+            json.dump(data,stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+            os.replace(temporary,Path(directory)/'manifest.json')
+            parent=os.open(directory,os.O_RDONLY|os.O_DIRECTORY)
+            try:os.fsync(parent)
+            finally:os.close(parent)
+        finally: temporary.unlink(missing_ok=True)
+
+
+@contextmanager
+def operation_lock(directory):
+    descriptor=os.open(Path(directory)/'.operation.lock',os.O_CREAT|os.O_RDWR|getattr(os,'O_NOFOLLOW',0),0o600)
+    try:
+        try: fcntl.flock(descriptor,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RuntimeError('Operasi lain sedang memakai direktori staging ini.') from None
+        yield
+    finally: os.close(descriptor)
 
 
 def compose(directory,*arguments,**kwargs):
@@ -122,7 +149,14 @@ def wait_ready(directory,timeout=120):
 
 
 def up(directory,capture=False):
+    with operation_lock(directory):
+        return _up(directory,capture)
+
+
+def _up(directory,capture=False):
     data=manifest(directory)
+    if data.get("restore_state") in {"preparing","failed"}:
+        raise RuntimeError("Restore target belum berhasil; jangan menjalankan aplikasi/worker pada target ini.")
     if data.get("initialized"):
         volume=docker("volume","inspect",data["project"]+"_postgres-data",capture=True,check=False)
         if volume.returncode:
@@ -130,15 +164,29 @@ def up(directory,capture=False):
         info=json.loads(volume.stdout)[0]
         if info.get("Labels",{}).get("com.docker.compose.project")!=data["project"]:
             raise RuntimeError("Identitas volume tidak sesuai staging ini.")
-    compose(directory,"up","--detach","--no-build",capture=capture)
+    services=["web"] if data.get("recovery_pending") else []
+    compose(directory,"up","--detach","--no-build",*services,capture=capture)
     wait_ready(directory)
     data["initialized"]=True
-    (Path(directory)/"manifest.json").write_text(json.dumps(data))
+    write_manifest(directory,data)
+
+
+def resume_workers(directory,capture=False):
+    """Explicit host-operator action after restore reconciliation; never runs during restore/up."""
+    with operation_lock(directory):
+        data=manifest(directory)
+        if not data.get("initialized") or data.get("restore_state") in {"preparing","failed"}:
+            raise RuntimeError("Staging/restore belum siap untuk worker.")
+        _up(directory,capture=capture)
+        compose(directory,"up","--detach","--no-build","network-worker","billing-worker","reminder-worker",capture=capture)
+        data=manifest(directory)
+        data["recovery_pending"]=False
+        write_manifest(directory,data)
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action",choices=["prepare","build","up","bootstrap","status","stop"])
+    parser.add_argument("action",choices=["prepare","build","up","bootstrap","status","stop","resume-workers"])
     parser.add_argument("--directory",type=Path,default=ROOT/"data/staging")
     parser.add_argument("--port",type=int,default=18443)
     parser.add_argument("--proxy-ca-file",type=Path)
@@ -148,11 +196,16 @@ def main():
     elif args.action=="up":
         up(args.directory)
         print("PASS: isolated HTTPS staging is ready; database verified over TLS.")
+        if manifest(args.directory).get('recovery_pending'):
+            print('Mode pemulihan: hanya web berjalan; worker tetap ditahan sampai rekonsiliasi.')
     elif args.action=="bootstrap":
         compose(args.directory,"run","--rm","--no-deps","migrate","python","manage.py","bootstrap_isp",
             "--isp-name","ISP Staging Fiktif","--username","staging-owner","--email","staging-owner@example.invalid",
             "--password-file","/run/tagihnet/bootstrap-password")
     elif args.action=="status": compose(args.directory,"ps","--all")
+    elif args.action=="resume-workers":
+        resume_workers(args.directory)
+        print("Workers started by explicit operator action after reconciliation.")
     elif args.action=="stop":
         compose(args.directory,"stop")
         print("Own staging services stopped; named volumes and private files retained.")

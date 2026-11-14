@@ -40,8 +40,9 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | MFA dan editor role | TOTP wajib operator, QR lokal, secret Fernet, recovery sekali pakai, step-up, editor akun/peran owner | 2 · implemented lokal |
 | Profil mandiri, scope wilayah geografis | Penugasan teknisi tersedia; profil mandiri dan batas wilayah geografis belum tersedia | 4 · pending |
 | Backup/restore | AES-256-GCM streaming SQLite/PG, kunci terpisah, verify, target kosong/no-clobber, restore ledger+MFA | 5 · implemented lokal; offsite/retensi/PITR pending |
-| Backend PostgreSQL | Opsional, role non-superuser lab, 455 tes pada dua backend, 17 skenario lintas proses + pg_dump/pg_restore pada checkpoint scheduler | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
+| Backend PostgreSQL | Opsional, role non-superuser lab, 471 tes pada dua backend, 17 skenario lintas proses + pg_dump/pg_restore | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
 | Staging lokal | Gunicorn HTTPS/WhiteNoise, PG verify-full, migrator/runtime terpisah, secret file, non-root/read-only, restart worker, bootstrap/MFA dan guard volume | 5 · implemented lokal; simulasi; VPS/domain/kapasitas/offsite pending |
+| Recovery staging | Backup streaming AES-GCM, fresh-project SQL restore, identitas/empty/key/lock guards, sesi baru, MFA tetap, worker hold/review dan rekonsiliasi tabel/sequence | 5 · implemented lokal; offsite/PITR/RPO/RTO pending |
 | Rilis produksi | TLS, SMTP, secret vault, queue/capacity multiworker, beban, lab perangkat, penetration test | 5 · pending |
 
 Dukungan PostgreSQL dan race dua proses kini diuji lokal; perpindahan data/kapasitas produksi masih pending. Langkah berikutnya mencakup adapter gateway sandbox terverifikasi, router/RADIUS lab dan modul tersisa sesuai brief. Cakupan lanjutan mengikuti urutan brief, tanpa mengubah status fitur pending menjadi selesai.

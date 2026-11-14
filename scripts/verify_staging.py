@@ -6,6 +6,7 @@ import socket
 import ssl
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -13,6 +14,13 @@ from urllib.request import HTTPSHandler, HTTPCookieProcessor, Request, build_ope
 
 import pyotp
 from staging_lab import ROOT, compose, docker, manifest, prepare, up, wait_ready
+
+
+@dataclass(repr=False)
+class TestIdentity:
+    password: str
+    totp_secret: str
+    cookies: object
 
 
 def verify(directory):
@@ -155,6 +163,7 @@ print('PASS: runtime SQL permissions and TLS verification, no migration/CA priva
         assert (directory/'secrets'/name).read_text() not in logs
     assert secret not in logs and password not in logs
     print('PASS: killed worker restarts; HTTPS/session/MFA keys survive web restart; deploy checks have only two documented HSTS-scope warnings; no factors in logs.',flush=True)
+    return TestIdentity(password,secret,jar)
 
 
 if __name__=='__main__':

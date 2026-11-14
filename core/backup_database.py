@@ -107,6 +107,11 @@ def pg_command(tool, database, config, environ):
 def postgres_backup(archive, key, environ):
     config = pg_config(environ)
     command, env = pg_command("pg_dump", config["NAME"], config, environ)
+    return postgres_backup_command(archive, key, command, env)
+
+
+def postgres_backup_command(archive, key, command, env):
+    """Shared authenticated publication for explicitly selected PostgreSQL tool transports."""
     # Dump stdout streams directly into encryption. Diagnostic text never enters the archive or user output.
     with tempfile.TemporaryFile() as errors:
         process = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=errors)

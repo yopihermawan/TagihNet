@@ -130,3 +130,7 @@ Schema0011 menambah jadwal dan siklus bulanan. Tidak ada jadwal yang otomatis ak
 ## Staging HTTPS lokal
 
 Gunakan Dockerfile.staging/compose.staging.yaml dan scripts/staging_lab.py, bukan runserver. Profil DEBUG0/SIMULATION1 memisahkan secret file, database/role migrator/runtime, static manifest dan worker; HTTPS langsung di Gunicorn. Bootstrap hanya DB kosong, tidak seed/reset demo. Stop mempertahankan volume; initialized manifest dengan volume hilang diblokir. CA lokal tidak untuk domain publik; SMTP dummy dan seluruh efek eksternal tetap simulasi. Snapshot cloud belum membuktikan Docker volume restore. Lihat [STAGING](STAGING.md) untuk langkah yang telah diuji, HSTS warning yang disengaja dan batas deployment.
+
+## Restore staging ke proyek baru
+
+Gunakan staging_backup.py, fresh prepare directory/port dan MFA key asli; jangan up/bootstrap sebelum restore. Target terpakai/volume sudah ada ditolak, tidak ada --clean atau overwrite. Sesi memakai kunci target baru, MFA diverifikasi tanpa reset. Up pada recovery_pending hanya web; setelah rekonsiliasi, gunakan resume-workers secara eksplisit. Failed/preparing restore diblokir. Archive awal staging15 November sudah dipulihkan ke data/staging-recovery-20261115 pada port19443, web/DB saja; source tetap. Lihat [STAGING-RECOVERY](STAGING-RECOVERY.md).

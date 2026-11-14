@@ -96,3 +96,7 @@ Capability manage_billing_schedule tersedia default hanya untuk owner; role kust
 ## Akun/database staging
 
 bootstrap_isp membuat owner aplikasi awal pada database kosong, tanpa Django superuser/staff dan tanpa perangkat MFA otomatis. Pengulangan ditolak, bukan reset sandi. Role PG migrator terpisah dari runtime; runtime mendapat DML/sequence tetapi tidak CREATE schema/tabel/role/database. Credential migrator/bootstrap/CA private key tidak di-mount pada app/worker. Pemisahan tenant/role aplikasi tetap aturan yang sama. Staging tidak otomatis memberi akses pada akun demo development. Lihat [STAGING](STAGING.md).
+
+## Restore staging
+
+Backup/restore staging adalah operasi host-admin lewat Docker, bukan capability baru owner web. Tools memakai role migrator dalam container PG yang identitas/volumenya cocok; runtime tetap tanpa DDL. Source/used target tidak diterima. Target restore memakai MFA asli dan session key baru, old cookie ditolak. Up recovery hanya web, worker hold memerlukan explicit resume setelah operator meninjau data/akses/job. Jangan memberi akses Docker atau file archive/MFA key kepada akun aplikasi. Lihat [STAGING-RECOVERY](STAGING-RECOVERY.md).

@@ -29,7 +29,7 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 | HTTPS/HSTS/proxy deployment | applicable | pass staging lokal / produksi belum | CA/hostname verification, native TLS dan forwarded-header isolation; HSTS1jam host uji/W005+W021 terdokumentasi, domain publik belum |
 | Audit actor/tenant/action/correlation | applicable | pass subset | Domain mutations/CSV/jobs dicatat; login/factor failure/step-up/MFA/access events ditambahkan; password-failure/reset audit-event lengkap belum |
 | Audit tamper resistance/retention/alarm | applicable | fail | Database admin bisa mengubah; retensi/alert belum |
-| Encrypted backup / offsite / DR | applicable | pass lokal / fail sebagian | AES-GCM SQLite/PG + authenticated restore/MFA pass; legacy plaintext tetap tersedia, vault/offsite/retensi/PITR/RPO/RTO belum |
+| Encrypted backup / offsite / DR | applicable | pass lokal / fail sebagian | AES-GCM SQLite/PG/staging + authenticated SQL restore/MFA/session revocation/worker hold pass; legacy plaintext tersedia, vault/offsite/retensi/PITR/RPO/RTO belum |
 | Dependency vulnerabilities | applicable | pass saat scan | Sebelas runtime package, pip-audit via PyPI; monitoring kontinu belum |
 | Secret scanning | applicable | pass terbatas | Pemeriksaan diff/source manual, generated data/key diabaikan Git; scanner khusus belum |
 | Production capacity/resource limits | applicable | not tested | SQLite/single-node development; load/concurrency multi-process belum |
