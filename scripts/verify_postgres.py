@@ -330,6 +330,20 @@ def verify():
         assert package.version == 2 and package.price in {400000, 500000}
         assert AuditEvent.objects.filter(action="plan.updated", target=str(package.pk)).count() == 1
         print("PASS: 2 processes, competing package reviews -> 1 edit, 1 stale rejection", flush=True)
+        # A read-only report snapshot stays coherent while two real payment processes commit.
+        from core.billing_reports import BillingReport, report_snapshot
+        report_invoice, _ = issue_invoice(tenant, customer.pk, date(2032, 1, 1), actor)
+        report_day = timezone.localdate()
+        with report_snapshot():
+            report = BillingReport(actor, report_day.replace(day=1), report_day)
+            initial = report.summary()
+            event_count = report.rows("cash").count()
+            results = parallel("payment", {**common, "invoice": report_invoice.pk, "amount": 1234, "key": str(uuid.uuid4())})
+            assert sorted(result["ok"] for result in results) == ["created", "replayed"]
+            assert report.summary() == initial and report.rows("cash").count() == event_count
+        refreshed = BillingReport(actor, report_day.replace(day=1), report_day).summary()
+        assert refreshed["received"] == initial["received"]+1234 and refreshed["reconciles"]
+        print("PASS: repeatable read-only report snapshot across 2 committing payment processes; next read includes payment", flush=True)
         # Include a non-null mapping in the whole-database restore fingerprint.
         from core.forms import CustomerForm
         from core.models import MonitoringDevice

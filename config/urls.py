@@ -2,6 +2,7 @@ from django.contrib.auth import views as auth
 from django.urls import path
 from core import customer_import_views as customer_import
 from core import plan_views as plans
+from core import report_views as reports
 from core import views
 from core import security_views as security
 from core import bulk_views as bulk
@@ -10,6 +11,8 @@ from core import reminder_views as reminders
 from core import monitoring_views as monitoring
 
 urlpatterns = [
+    path("reports/billing/", reports.billing_report, name="billing_report"),
+    path("reports/billing/export.csv", reports.billing_report_export, name="billing_report_export"),
     path("plans/", plans.plan_list, name="plan_list"),
     path("plans/new/", plans.plan_form, name="plan_new"),
     path("plans/confirm/", plans.plan_confirm, name="plan_confirm"),

@@ -1,4 +1,6 @@
 """Owner -> technician -> portal workflow on a temporary database/server only."""
+import csv
+import io
 import os
 import socket
 import sqlite3
@@ -428,6 +430,39 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
                 assert context.request.get(profile_url+"?tab=payments").status == 403
             with sqlite3.connect(db_path) as db:
                 assert [db.execute("SELECT COUNT(*) FROM "+table).fetchone()[0] for table in ['core_customer', 'core_invoice', 'core_payment', 'core_networkjob', 'core_auditevent']] == profile_before
+            # Reports use event dates and an independent source-SQL total for this temporary fixture.
+            with sqlite3.connect(db_path) as db:
+                report_issued = db.execute("SELECT COALESCE(SUM(total),0) FROM core_invoice WHERE tenant_id=?", (owner_tenant,)).fetchone()[0]
+                report_gross = db.execute("SELECT COALESCE(SUM(amount),0) FROM core_payment WHERE tenant_id=?", (owner_tenant,)).fetchone()[0]
+                report_reversed = db.execute("SELECT COALESCE(SUM(p.amount),0) FROM core_paymentreversal r JOIN core_payment p ON p.id=r.payment_id WHERE p.tenant_id=?", (owner_tenant,)).fetchone()[0]
+                report_events = db.execute("SELECT COUNT(*) FROM core_payment WHERE tenant_id=?", (owner_tenant,)).fetchone()[0] + db.execute("SELECT COUNT(*) FROM core_paymentreversal r JOIN core_payment p ON p.id=r.payment_id WHERE p.tenant_id=?", (owner_tenant,)).fetchone()[0]
+                report_audits = db.execute("SELECT COUNT(*) FROM core_auditevent WHERE action='report.exported'").fetchone()[0]
+            def idr(amount): return "Rp"+f"{amount:,}".replace(',', '.')
+            report_url = base + "/reports/billing/"
+            page.goto(report_url)
+            expect(page.get_by_role("heading", name="Laporan penagihan", exact=True)).to_be_visible()
+            expect(page.get_by_text("Saldo cocok", exact=True)).to_be_visible()
+            metrics = page.locator('.billing-report-metrics .metric')
+            expect(metrics.filter(has_text="Penerimaan tercatat")).to_contain_text(idr(report_gross))
+            expect(metrics.filter(has_text="Koreksi (reversal)")).to_contain_text(idr(report_reversed))
+            expect(metrics.filter(has_text="Piutang akhir")).to_contain_text(idr(report_issued-report_gross+report_reversed))
+            page.screenshot(path=str(evidence / "billing-report-cash-desktop.png"), full_page=True)
+            export_url = page.get_by_role("link", name="Ekspor CSV", exact=False).get_attribute('href')
+            exported = owner.request.get(base+export_url)
+            assert exported.ok
+            csv_rows = list(csv.reader(io.StringIO(exported.body().decode('utf-8-sig'))))
+            assert len(csv_rows) == report_events+1
+            assert sum(int(row[5]) for row in csv_rows[1:]) == report_gross-report_reversed
+            for label in ["Faktur terbit", "Piutang akhir", "Penerimaan & koreksi"]:
+                page.get_by_role("navigation", name="Jenis laporan").get_by_role("link", name=label, exact=True).click()
+                expect(page.locator('[aria-label="Jenis laporan"] [aria-current="page"]')).to_have_text(label)
+                expect(page.get_by_text("Saldo cocok", exact=True)).to_be_visible()
+            assert owner.request.get(report_url+"?start=invalid&end=2026-10-31").status == 400
+            for context in [technician, customer, noc_context]:
+                assert context.request.get(report_url).status == 403
+                assert context.request.get(report_url+"export.csv").status == 403
+            with sqlite3.connect(db_path) as db:
+                assert db.execute("SELECT COUNT(*) FROM core_auditevent WHERE action='report.exported'").fetchone()[0] == report_audits+1
             # CSV imports stay inside this disposable SQLite database.
             with sqlite3.connect(db_path) as db:
                 import_plan = db.execute("SELECT p.id FROM core_plan p JOIN core_membership m ON p.tenant_id=m.tenant_id JOIN auth_user u ON m.user_id=u.id WHERE u.username='owner' ORDER BY p.id LIMIT 1").fetchone()[0]
@@ -465,7 +500,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             page.screenshot(path=str(evidence / "customer-import-completed.png"), full_page=True)
             for width in [360, 768, 1366, 1920]:
                 page.set_viewport_size({"width": width, "height": 1000})
-                for route in [filtered_customers, f"/customers/{mapped_customer}/edit/", "/plans/", "/plans/new/", package_edit, "/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/", "/customers/imports/", "/customers/imports/new/"]:
+                for route in ["/reports/billing/", "/reports/billing/?mode=invoices", "/reports/billing/?mode=receivables", filtered_customers, f"/customers/{mapped_customer}/edit/", "/plans/", "/plans/new/", package_edit, "/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/", "/customers/imports/", "/customers/imports/new/"]:
                     page.goto(base + route)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, route)
                 for tab in profile_tabs.values():
@@ -478,6 +513,8 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
                     page.goto(url)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, url)
             page.set_viewport_size({"width": 360, "height": 1000})
+            page.goto(report_url+"?mode=receivables")
+            page.screenshot(path=str(evidence / "billing-report-receivables-mobile.png"), full_page=True)
             page.goto(base + filtered_customers)
             page.wait_for_function("document.querySelector('#sidebar').getBoundingClientRect().right <= 1")
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
@@ -493,7 +530,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             subprocess.run([sys.executable, "scripts/verify_restore.py"], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
             assert failures == [], failures
             browser.close()
-        print("PASS: 7 customer tabs/permissions/ledger/scoped tickets/native links/scroll restoration; NAS mapping/due filters/export/return URL/payment/reversal; package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
+        print("PASS: billing reports/roll-forward/source SQL/CSV/scope/4 viewports; 7 customer tabs/permissions/ledger/scoped tickets/native links/scroll restoration; NAS mapping/due filters/export/return URL/payment/reversal; package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
     finally:
         server.terminate()
         try:

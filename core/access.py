@@ -24,7 +24,7 @@ def save_role(actor, name, rights, role_id=None, correlation_id=None):
     rights = set(rights)
     if not rights <= set(CAPABILITY_LABELS) or not rights <= CAPABILITIES[owner.role]:
         raise PermissionDenied("Izin di luar kewenangan pemilik.")
-    dependencies = {"manage_plans": {"customers"}, "edit_customers": {"customers"}, "issue": {"customers", "invoices"},
+    dependencies = {"billing_reports": {"invoices"}, "export_billing_reports": {"billing_reports", "invoices"}, "manage_plans": {"customers"}, "edit_customers": {"customers"}, "issue": {"customers", "invoices"},
         "pay": {"invoices"}, "reverse": {"invoices"}, "export": {"customers"},
         "bulk_issue": {"issue", "invoices", "customers"},
         "activate_installations": {"installations", "edit_customers", "issue", "invoices", "customers"},

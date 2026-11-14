@@ -85,3 +85,8 @@ Kesiapan produksi masih memerlukan TLS target, role minimum, beban/queue/pooling
 Checkpoint impor menambah migrasi 0007, dua model dan index LOWER(username)/tenant. Preflight menolak benturan data lama; tidak menggabungkan/menghapus customer. Verifier kini memiliki sepuluh race dua proses dan restore juga mencakup batch/row impor. Batas kapasitas/cutover produksi di atas tetap berlaku.
 
 Checkpoint enkripsi menambah encrypted pg_dump/restore dengan verifikasi endpoint tools memakai advisory marker, autentikasi penuh sebelum menyentuh target, pemeriksaan ownership/empty target dan single transaction. Target salah/sumber/berisi data serta dump malformed ditolak; seluruh tabel dan encrypted MFA payload cocok setelah restore. Tidak membuat database target atau menghapus objek secara otomatis. Gunakan contoh perintah di BACKUPS.md; legacy plaintext drill dipertahankan terpisah.
+
+
+## Snapshot laporan — 14 November 2026 WIB
+
+Laporan menggunakan transaksi tersendiri REPEATABLE READ, READ ONLY sebelum query pertama. Hasil halaman/CSV dibaca konsisten; audit ekspor ditulis setelah transaksi selesai. Koneksi kembali ke mode semula. `ATOMIC_REQUESTS` tetap false. `verify_postgres.py` menambah skenario ke-13: dua proses pembayaran commit saat snapshot laporan dibaca; laporan lama tetap, pembacaan baru memuat pembayaran. Restore biasa/terenkripsi tetap membandingkan seluruh tabel. Lihat [BILLING-REPORTS](BILLING-REPORTS.md).

@@ -4,6 +4,7 @@ Sumber enforcement: `core/permissions.py`, `core/views.py:allowed_invoice`, dan 
 
 | Aksi | Owner | Operasional | Keuangan | Kasir | NOC | Pelanggan |
 | --- | --- | --- | --- | --- | --- | --- |
+| Laporan penagihan / CSV laporan | Ya | Tidak | Ya | Tidak | Tidak | Tidak |
 | Dashboard billing | Ya | Ya | Ya | Ya | Tidak | Tidak |
 | Daftar/detail pelanggan | Ya | Ya | Ya | Tidak | Tidak | Milik sendiri lewat portal |
 | Filter NAS/jatuh tempo/piutang pelanggan | Ya | Ya | Ya | Tidak | Tidak | Tidak |
@@ -75,3 +76,8 @@ Backup/restore terenkripsi adalah CLI untuk administrator host, bukan capability
 ## Tab detail pelanggan — 14 November 2026 WIB
 
 Workspace membutuhkan `customers`. Ringkasan, layanan/koneksi dan lokasi mengikuti izin ini, termasuk piutang ringkasan yang sudah tersedia sebelumnya. Faktur dan Pembayaran memerlukan tambahan `invoices`, Tiket memerlukan `tickets`, Riwayat memerlukan `audit`. Menu yang disembunyikan juga ditolak di endpoint langsung. Isi tab dibatasi pelanggan+tenant; riwayat audit hanya aksi customer.created/updated pada target yang sama. Tidak ada hak tulis tambahan melalui workspace. Lihat [CUSTOMER-WORKSPACE](CUSTOMER-WORKSPACE.md).
+
+
+## Laporan penagihan — 14 November 2026 WIB
+
+`billing_reports` memerlukan `invoices`; `export_billing_reports` memerlukan keduanya. Owner dan Keuangan preset memperoleh baca/ekspor. Role kustom tidak otomatis mengikuti tambahan preset. Domain memeriksa ulang aktor aktif dan izin, data dibatasi tenant membership, input tenant di URL tidak mengubah scope. Endpoint baca/ekspor hanya GET; ekspor berhasil menambah audit dan tidak memerlukan izin ekspor pelanggan. Lihat [BILLING-REPORTS](BILLING-REPORTS.md).
