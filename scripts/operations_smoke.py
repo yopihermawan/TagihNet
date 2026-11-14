@@ -30,7 +30,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
         with sync_playwright() as driver:
             browser = driver.chromium.launch(executable_path=os.getenv("CHROMIUM_PATH") or
                 ("/usr/bin/chromium" if Path("/usr/bin/chromium").exists() else None), headless=True)
-            owner = browser.new_context(viewport={"width": 1366, "height": 1000})
+            owner = browser.new_context(viewport={"width": 1366, "height": 1000}, reduced_motion="reduce")
             for attempt in range(200):
                 try:
                     if owner.request.get(base + "/health/").ok:
@@ -68,6 +68,56 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             page.get_by_label("Preset akun").select_option("technician")
             page.get_by_role("button", name="Simpan", exact=True).click()
             page.wait_for_url(base + "/settings/access/")
+
+            # Package review is effect-free; confirmation/replay uses the same owner MFA session.
+            db_path = Path(directory) / "tagihnet.sqlite3"
+            page.goto(base + "/plans/new/")
+            page.get_by_label("Nama paket", exact=False).fill("Paket browser fiktif")
+            page.get_by_label("Kecepatan (Mbps)").fill("75")
+            page.get_by_label("Harga bulanan sebelum pajak (rupiah)").fill("350000")
+            page.get_by_role("button", name="Tinjau perubahan").click()
+            expect(page.get_by_role("heading", name="Tinjau perubahan paket")).to_be_visible()
+            with sqlite3.connect(db_path) as db:
+                assert db.execute("SELECT COUNT(*) FROM core_plan WHERE name='Paket browser fiktif'").fetchone()[0] == 0
+                invoices_before_package = db.execute("SELECT * FROM core_invoice ORDER BY id").fetchall()
+            token = page.locator('[name="token"]').input_value()
+            page.get_by_role("button", name="Konfirmasi paket").click()
+            expect(page.get_by_role("heading", name="Tinjau perubahan paket")).to_be_visible()
+            page.get_by_label("Saya menyetujui rincian paket", exact=False).check()
+            page.get_by_role("button", name="Konfirmasi paket").click()
+            page.wait_for_url(base + "/plans/")
+            csrf = next(cookie['value'] for cookie in owner.cookies() if cookie['name']=='csrftoken')
+            assert owner.request.post(base + "/plans/confirm/", form={"token": token, "reviewed": "on", "csrfmiddlewaretoken": csrf}, max_redirects=0).status == 302
+            with sqlite3.connect(db_path) as db:
+                assert db.execute("SELECT COUNT(*) FROM core_plan WHERE name='Paket browser fiktif'").fetchone()[0] == 1
+                package_id = db.execute("SELECT id FROM core_plan WHERE name='Paket browser fiktif'").fetchone()[0]
+            package_edit = f"/plans/{package_id}/edit/"
+            page.goto(base + package_edit)
+            page.get_by_label("Harga bulanan sebelum pajak (rupiah)").fill("400000")
+            page.get_by_role("button", name="Tinjau perubahan").click()
+            expect(page.get_by_role("region", name="Perubahan paket")).to_contain_text("Rp350.000")
+            expect(page.get_by_role("region", name="Perubahan paket")).to_contain_text("Rp400.000")
+            page.screenshot(path=str(evidence / "plans-review-desktop.png"), full_page=True)
+            for width in [360, 768, 1366, 1920]:
+                page.set_viewport_size({"width": width, "height": 1000})
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, "package review")
+                if width <= 850:
+                    page.wait_for_function("document.querySelector('#sidebar').getBoundingClientRect().right <= 1")
+                assert page.locator("main h1").evaluate("el => el.getBoundingClientRect().right <= innerWidth && el.scrollWidth <= el.clientWidth"), (width, "review heading clipped")
+                if width == 360:
+                    page.screenshot(path=str(evidence / "plans-review-mobile.png"), full_page=True)
+            page.set_viewport_size({"width": 1366, "height": 1000})
+            page.get_by_label("Saya menyetujui rincian paket", exact=False).check()
+            page.get_by_role("button", name="Konfirmasi paket").click()
+            page.wait_for_url(base + "/plans/")
+            page.get_by_label("Cari nama paket").fill("browser fiktif")
+            page.get_by_role("button", name="Cari", exact=True).click()
+            expect(page.locator('tbody tr')).to_have_count(1)
+            expect(page.locator('tbody')).to_contain_text("Rp400.000")
+            page.screenshot(path=str(evidence / "plans-list-desktop.png"), full_page=True)
+            with sqlite3.connect(db_path) as db:
+                assert db.execute("SELECT * FROM core_invoice ORDER BY id").fetchall() == invoices_before_package
+                assert db.execute("SELECT version FROM core_plan WHERE id=?", (package_id,)).fetchone()[0] == 2
 
             def create_ticket(title, assigned):
                 page.goto(base + "/operations/tickets/new/")
@@ -316,12 +366,14 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
                 after_import = [db.execute("SELECT COUNT(*) FROM "+table).fetchone()[0] for table in ["core_customer", "core_invoice", "core_networkjob", "core_membership"]]
                 assert after_import == [before_import[0]+2, *before_import[1:]]
                 assert db.execute("SELECT service_state,phone FROM core_customer WHERE username='csv-browser-1'").fetchone() == ("pending", "08129999771")
+            assert technician.request.get(base + "/plans/").status == 403
+            assert customer.request.get(base + "/plans/").status == 403
             assert technician.request.get(import_url).status == 403
             assert customer.request.get(import_url).status == 403
             page.screenshot(path=str(evidence / "customer-import-completed.png"), full_page=True)
             for width in [360, 768, 1366, 1920]:
                 page.set_viewport_size({"width": width, "height": 1000})
-                for route in ["/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/", "/customers/imports/", "/customers/imports/new/"]:
+                for route in ["/plans/", "/plans/new/", package_edit, "/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/", "/customers/imports/", "/customers/imports/new/"]:
                     page.goto(base + route)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, route)
                 for url in [ticket_url, order_url, reminder_url, monitor_url, import_url]:
@@ -338,7 +390,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             subprocess.run([sys.executable, "scripts/verify_restore.py"], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
             assert failures == [], failures
             browser.close()
-        print("PASS: owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
+        print("PASS: package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
     finally:
         server.terminate()
         try:

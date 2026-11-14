@@ -28,6 +28,8 @@ class Plan(models.Model):
     name = models.CharField(max_length=80)
     speed_mbps = models.PositiveIntegerField()
     price = models.PositiveIntegerField(validators=[MinValueValidator(1), MaxValueValidator(100000000)])
+    version = models.PositiveIntegerField(default=1)
+    creation_key = models.UUIDField(null=True, blank=True, unique=True, editable=False)
 
     def __str__(self):
         return f"{self.name} · {self.speed_mbps} Mbps"

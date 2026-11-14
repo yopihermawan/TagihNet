@@ -4,7 +4,7 @@ from django.core.exceptions import PermissionDenied
 from .models import Membership
 
 CAPABILITIES = {
-    "owner": {"dashboard", "customers", "edit_customers", "import_customers", "invoices", "issue", "bulk_issue", "pay", "reverse", "network", "manage_monitoring", "settings", "audit", "export", "manage_access", "tickets", "installations", "activate_installations", "reminders"},
+    "owner": {"manage_plans", "dashboard", "customers", "edit_customers", "import_customers", "invoices", "issue", "bulk_issue", "pay", "reverse", "network", "manage_monitoring", "settings", "audit", "export", "manage_access", "tickets", "installations", "activate_installations", "reminders"},
     "ops": {"dashboard", "customers", "edit_customers", "invoices", "issue", "export", "tickets", "installations"},
     "finance": {"dashboard", "customers", "invoices", "pay", "reverse", "export"},
     "cashier": {"dashboard", "invoices", "pay"},
@@ -14,6 +14,7 @@ CAPABILITIES = {
 }
 
 CAPABILITY_LABELS = {
+    "manage_plans": "Buat/ubah paket dan harga bulanan",
     "dashboard": "Lihat dashboard billing", "customers": "Lihat pelanggan",
     "edit_customers": "Tambah/ubah pelanggan", "invoices": "Lihat faktur dan PDF",
     "issue": "Terbitkan faktur", "pay": "Catat pembayaran simulasi",

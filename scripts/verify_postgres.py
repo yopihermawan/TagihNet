@@ -62,6 +62,9 @@ def child(data):
         if case == "activation":
             return activate_installation(actor, data["order"], date.fromisoformat(data["period"]),
                 data["fingerprint"], time.time(), 1).customer_id
+        if case == "plan_change":
+            from core.plans import confirm_change
+            return confirm_change(actor, data["token"], time.time(), 1).pk
         if case == "customer_import":
             from core.customer_import import confirm_import
             return confirm_import(actor, data["import_batch"], time.time(), 1).status
@@ -311,6 +314,22 @@ def verify():
         assert sorted(result["ok"] for result in results) == ["completed", "stale"]
         assert Customer.objects.filter(tenant=tenant, username="import-process-b").count() == 1
         print("PASS: 2 processes, overlapping imports -> 1 atomic import, 1 stale preview", flush=True)
+        from core.plans import review_change
+        from core.models import AuditEvent, Plan
+        token, _ = review_change(actor, {"name": "Process plan", "speed_mbps": 75, "price": 350000}, 1)
+        results = parallel("plan_change", {**common, "token": token})
+        assert results[0]["ok"] == results[1]["ok"]
+        package = Plan.objects.get(tenant=tenant, name="Process plan")
+        assert AuditEvent.objects.filter(action="plan.created", target=str(package.pk)).count() == 1
+        print("PASS: 2 processes, same package confirmation -> 1 package/audit", flush=True)
+        reviews = [review_change(actor, {"name": package.name, "speed_mbps": 75, "price": price},
+            package.version, package.pk)[0] for price in [400000, 500000]]
+        results = parallel("plan_change", common, [{"token": token} for token in reviews])
+        assert sum("ok" in result for result in results) == 1 and sum("rejected" in result for result in results) == 1
+        package.refresh_from_db()
+        assert package.version == 2 and package.price in {400000, 500000}
+        assert AuditEvent.objects.filter(action="plan.updated", target=str(package.pk)).count() == 1
+        print("PASS: 2 processes, competing package reviews -> 1 edit, 1 stale rejection", flush=True)
         import pyotp
         from core.models import MFADevice
         from core.security import encrypt_secret, decrypt_secret

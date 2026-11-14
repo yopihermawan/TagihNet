@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Checkpoint `feature/tagihnet-network-monitoring` menambah monitoring NAS dan snapshot sesi contoh. Checkpoint `feature/tagihnet-postgresql-hardening` menambah backend PostgreSQL opsional dan pengujian transaksi lintas proses. Checkpoint `feature/tagihnet-customer-import` menambah impor CSV pelanggan dengan pratinjau dan konfirmasi atomik. Checkpoint `feature/tagihnet-encrypted-backups` menambah backup AES-256-GCM dan restore terverifikasi untuk SQLite/PostgreSQL. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Checkpoint `feature/tagihnet-network-monitoring` menambah monitoring NAS dan snapshot sesi contoh. Checkpoint `feature/tagihnet-postgresql-hardening` menambah backend PostgreSQL opsional dan pengujian transaksi lintas proses. Checkpoint `feature/tagihnet-customer-import` menambah impor CSV pelanggan dengan pratinjau dan konfirmasi atomik. Checkpoint `feature/tagihnet-encrypted-backups` menambah backup AES-256-GCM dan restore terverifikasi untuk SQLite/PostgreSQL. Checkpoint `feature/tagihnet-plan-management` menambah pengelolaan paket/harga dengan tinjauan dan konfirmasi MFA. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Yang bisa digunakan
 
@@ -15,6 +15,7 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 - Dashboard yang menghitung data dari ledger, disertai definisi metrik, periode, cakupan, serta waktu pembaruan WIB.
 - Cari/filter/sort pelanggan, pagination server-side 10/25/50 yang tersimpan di URL, tambah/ubah/detail, dan ekspor CSV berizin.
 - Impor CSV pelanggan: template, maksimal 200 baris/128 KiB, validasi/duplikat, laporan CSV aman, konfirmasi MFA atomik dan replay tanpa duplikasi.
+- [Pengelolaan paket](docs/PLANS.md): katalog tenant, buat/ubah nama/kecepatan/harga, tinjauan dampak, MFA, versi dan audit sebelum/sesudah.
 - Satu layanan/paket per pelanggan; faktur bulanan idempoten, snapshot harga/pajak, diskon, pembayaran sebagian, penolakan lebih bayar, dan reversal penuh dengan histori.
 - Faktur massal: pratinjau maksimal 500 pelanggan, MFA konfirmasi, snapshot disetujui, worker resumable, duplikat dilewati, serta pembatalan sisa pekerjaan.
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.
@@ -71,7 +72,7 @@ python manage.py runserver 127.0.0.1:8000 --noreload
 
 `seed_demo` membuat kata sandi acak dan menampilkannya sekali untuk akun baru. Untuk kata sandi lokal yang Anda pilih sendiri (minimal 12 karakter), set `TAGIHNET_DEMO_PASSWORD` sebelum seed. Seed ditolak saat `DEBUG=0` atau `SIMULATION=0`; pengulangan tidak mereset kata sandi maupun menimpa data yang sudah ada. Tidak ada kata sandi produksi bawaan.
 
-Akun seed: `owner`, `owner2` (ISP kedua), `keuangan`, `kasir`, `noc`, `pelanggan`. Semua akun baru memakai kata sandi seed pada eksekusi tersebut. Dalam instance cloud yang disiapkan pada 31 Oktober 2026, kata sandi **khusus lokal** adalah `TagihNet-Lokal-2026!`. Jangan gunakan akun/kata sandi ini untuk deployment publik.
+Akun seed: `owner`, `owner2` (ISP kedua), `keuangan`, `kasir`, `noc`, `pelanggan`. Semua akun baru memakai kata sandi seed pada eksekusi tersebut. Dalam instance cloud dengan data demo baru pada 14 November 2026, kata sandi **khusus lokal** adalah `TagihNet-Lokal-2026!`. Jangan gunakan akun/kata sandi ini untuk deployment publik.
 
 Login pertama operator sekarang meminta pendaftaran MFA. Pindai QR dengan authenticator, verifikasi kode, dan simpan sepuluh kode pemulihan. Tidak ada perangkat MFA bawaan. Pelanggan portal dapat mengaktifkan MFA secara sukarela. Sesi sebelum checkpoint akses akan diminta login ulang. Panduan lengkap: [AUTHENTICATION](docs/AUTHENTICATION.md).
 
