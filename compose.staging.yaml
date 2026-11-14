@@ -26,6 +26,7 @@ x-app: &app
     TAGIHNET_ALLOWED_HOSTS: localhost,127.0.0.1
     TAGIHNET_SECURE_COOKIES: "1"
     TAGIHNET_DATA_DIR: /tmp/tagihnet
+    TAGIHNET_HEARTBEAT_DIR: /tmp/tagihnet-heartbeats
     TAGIHNET_SECRET_KEY_FILE: /run/tagihnet/session-key
     TAGIHNET_MFA_KEY_FILE: /run/tagihnet/mfa-key
     TAGIHNET_DB_ENGINE: postgresql

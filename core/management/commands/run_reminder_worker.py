@@ -7,6 +7,7 @@ from django.db.models import F, Q
 from django.utils import timezone
 from core.models import Reminder, ReminderPolicy
 from core.reminders import plan_reminders, process_reminder
+from core.worker_heartbeat import heartbeat
 
 
 class Command(BaseCommand):
@@ -23,10 +24,12 @@ class Command(BaseCommand):
             raise CommandError("--limit harus 1–500.")
         try:
             while True:
+                heartbeat('reminder','busy')
                 failed = False
                 policies = list(ReminderPolicy.objects.filter(Q(billing_enabled=True) | Q(sla_enabled=True))
                     .order_by(F("last_checked_at").asc(nulls_first=True), "pk").values_list("pk", flat=True)[:10])
                 for policy_id in policies:
+                    heartbeat('reminder','busy')
                     try:
                         count = plan_reminders(policy_id, options["limit"])
                         self.stdout.write(f"policy={policy_id} planned={count}")
@@ -36,6 +39,7 @@ class Command(BaseCommand):
                 ids = list(Reminder.objects.filter(status__in=["pending", "failed"], attempts__lt=3,
                     next_attempt_at__lte=timezone.now()).order_by("created_at", "pk").values_list("pk", flat=True)[:options["limit"]])
                 for reminder_id in ids:
+                    heartbeat('reminder','busy')
                     try:
                         reminder = process_reminder(reminder_id)
                         self.stdout.write(f"reminder={reminder_id} status={reminder.status} attempts={reminder.attempts}")
@@ -43,10 +47,12 @@ class Command(BaseCommand):
                     except (OperationalError, ValidationError):
                         failed = True
                         self.stderr.write(f"reminder={reminder_id} not_processed; inspect policy and retry later")
+                heartbeat('reminder','degraded' if failed else 'ok')
                 if options["once"]:
                     if failed:
                         raise CommandError("Sebagian pengingat belum berhasil diproses. Progres tersimpan; periksa status simulasi.")
                     return
                 time.sleep(5)
         except KeyboardInterrupt:
+            heartbeat('reminder','stopping')
             self.stdout.write("Worker pengingat dihentikan.")

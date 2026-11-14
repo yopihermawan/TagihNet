@@ -20,6 +20,7 @@ from core.backup_archive import ArchiveError, encrypt_stream, generate_key, read
 from staging_lab import compose, manifest, prepare, up
 from scripts.staging_backup import EMPTY_SQL, backup, restore, query, database_container
 from verify_staging import verify
+from scripts.ops_smoke import verify_source, verify_recovery
 
 
 def port():
@@ -108,6 +109,7 @@ def drill(root):
     try:
         source=fresh('source')
         identity=verify(source)
+        verify_source(source)
         compose(source,'stop','web','network-worker','billing-worker','reminder-worker',capture=True)
         shell(source,FIXTURE)
         before=fingerprint(source)
@@ -168,6 +170,7 @@ def drill(root):
         services=compose(target,'ps','--services','--filter','status=running',capture=True).stdout.split()
         assert not {'network-worker','billing-worker','reminder-worker'} & set(services),services
         print('PASS: all application/auth tables, sequences, binary photos and ledger match after SQL restore; web-only startup holds every worker.',flush=True)
+        verify_recovery(target)
 
         base=f"https://localhost:{manifest(target)['port']}"
         context=ssl.create_default_context(cafile=str(target/'secrets/ca.crt'))

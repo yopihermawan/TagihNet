@@ -4,6 +4,7 @@ from django.db import OperationalError
 from core.bulk_billing import process_batch
 from core.models import BillingBatch
 from core.billing_scheduler import run_schedules
+from core.worker_heartbeat import heartbeat
 
 
 class Command(BaseCommand):
@@ -18,6 +19,7 @@ class Command(BaseCommand):
             raise CommandError("--limit harus 1–500.")
         try:
             while True:
+                heartbeat('billing','busy')
                 failed = False
                 try:
                     count = run_schedules()
@@ -29,6 +31,7 @@ class Command(BaseCommand):
                 ids = list(BillingBatch.objects.filter(status__in=["queued", "processing"])
                            .order_by("created_at").values_list("pk", flat=True)[:10])
                 for batch_id in ids:
+                    heartbeat('billing','busy')
                     try:
                         count = process_batch(batch_id, limit=options["limit"])
                         batch = BillingBatch.objects.get(pk=batch_id)
@@ -36,10 +39,12 @@ class Command(BaseCommand):
                     except OperationalError:
                         failed = True
                         self.stderr.write(f"batch={batch_id} database_busy; progress retained, retry later")
+                heartbeat('billing','degraded' if failed else 'ok')
                 if options["once"]:
                     if failed:
                         raise CommandError("Sebagian batch belum selesai karena database sibuk. Progres tersimpan; ulangi nanti.")
                     return
                 time.sleep(5)
         except KeyboardInterrupt:
+            heartbeat('billing','stopping')
             self.stdout.write("Worker billing dihentikan.")

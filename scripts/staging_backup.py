@@ -34,11 +34,11 @@ def environment():
 
 def database_container(directory):
     state=manifest(directory)
-    result=compose(directory,'ps','--quiet','db',capture=True)
+    result=compose(directory,'ps','--quiet','db',capture=True,timeout=15)
     ids=result.stdout.split()
     if len(ids)!=1:
         raise ArchiveError('Database staging harus tersedia dan berjalan.')
-    info=json.loads(docker('inspect',ids[0],capture=True).stdout)[0]
+    info=json.loads(docker('inspect',ids[0],capture=True,timeout=15).stdout)[0]
     labels=info['Config'].get('Labels',{})
     volume=state['project']+'_postgres-data'
     if (labels.get('com.docker.compose.project')!=state['project'] or labels.get('com.docker.compose.service')!='db'

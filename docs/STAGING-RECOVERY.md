@@ -60,3 +60,5 @@ Perintah ini memulai ketiga worker dan menghapus hold pada manifest. Up berikutn
 Pada instance ini arsip awal `data/staging/TagihNet-staging-20261115.tnbk` yang sebelumnya hanya dibaca ulang kini juga dipulihkan ke `data/staging-recovery-20261115`, port19443. Semua payload aplikasi/auth cocok dengan staging sumber:1 ISP/owner,0 MFA/pelanggan/faktur. Web/database clone sehat; worker clone tetap ditahan dan tidak diaktifkan untuk tes. Source dan kunci/arsip lama dipertahankan.
 
 CI staging kini menjalankan verifier gabungan; hasil remote belum dikonfirmasi. Ini bukan offsite/PITR/HA, uji kapasitas atau RPO/RTO produksi. Container/volume tidak dijamin ikut snapshot cloud; pertahankan archive, key, MFA key dan metadata di media yang dapat dipulihkan, dengan custody terpisah. Panduan runtime: [STAGING](STAGING.md).
+
+Checkpoint operasi berikutnya menyediakan watcher lokal dan backup berkala opt-in; panduan [STAGING-OPERATIONS](STAGING-OPERATIONS.md). Ini tidak mengubah batas restore/recovery hold atau menambahkan offsite/systemd/retensi.

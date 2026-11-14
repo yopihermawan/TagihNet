@@ -134,3 +134,7 @@ Gunakan Dockerfile.staging/compose.staging.yaml dan scripts/staging_lab.py, buka
 ## Restore staging ke proyek baru
 
 Gunakan staging_backup.py, fresh prepare directory/port dan MFA key asli; jangan up/bootstrap sebelum restore. Target terpakai/volume sudah ada ditolak, tidak ada --clean atau overwrite. Sesi memakai kunci target baru, MFA diverifikasi tanpa reset. Up pada recovery_pending hanya web; setelah rekonsiliasi, gunakan resume-workers secara eksplisit. Failed/preparing restore diblokir. Archive awal staging15 November sudah dipulihkan ke data/staging-recovery-20261115 pada port19443, web/DB saja; source tetap. Lihat [STAGING-RECOVERY](STAGING-RECOVERY.md).
+
+## Pemantauan dan backup berkala staging
+
+`staging_ops.py once/status/start/stop/configure` memeriksa TLS, SQL, sertifikat, kemajuan worker dan antrean. Worker hidup tanpa kemajuan terdeteksi dari heartbeat privat, bukan PID saja. Backup opt-in membuat pg_dump terenkripsi baru dan memverifikasi autentikasi; error/backoff/missing/overdue terlihat di status dan log transisi lokal. Recovery_pending tetap menahan worker/backup. Daemon lokal belum memakai systemd/cron, tidak mengirim pesan atau melakukan autoheal; setelah host restart perlu diperiksa/dijalankan kembali. Retensi arsip/offsite tetap tanggung jawab terpisah. Panduan lengkap: [STAGING-OPERATIONS](STAGING-OPERATIONS.md).

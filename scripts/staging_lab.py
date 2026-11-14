@@ -19,11 +19,11 @@ ROOT = Path(__file__).resolve().parent.parent
 PG_IMAGE = "postgres:16-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938"
 
 
-def docker(*arguments, capture=False, check=True):
+def docker(*arguments, capture=False, check=True, timeout=None):
     env = {key:value for key,value in os.environ.items() if key not in {
         "DOCKER_HOST","DOCKER_CONTEXT","DOCKER_TLS","DOCKER_TLS_VERIFY","DOCKER_CERT_PATH"}}
     return subprocess.run(["docker","--host=unix:///var/run/docker.sock",*map(str,arguments)],env=env,
-        check=check,text=True,stdout=subprocess.PIPE if capture else None,stderr=subprocess.PIPE if capture else None)
+        check=check,text=True,stdout=subprocess.PIPE if capture else None,stderr=subprocess.PIPE if capture else None,timeout=timeout)
 
 
 def manifest(directory):
