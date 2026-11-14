@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.debug import sensitive_post_parameters
 from .billing import audit, issue_invoice, record_payment, reverse_payment
 from .forms import BillingSettingsForm, CustomerForm, InvoiceForm, PaymentForm
+from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, with_financial_summary
 from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment
 from .pdf import render_invoice
 from .permissions import require, membership, capabilities
@@ -91,8 +92,8 @@ def dashboard(request):
     return render(request, "core/dashboard.html", context)
 
 
-def customer_query(request):
-    result = Customer.objects.filter(tenant=request.member.tenant).select_related("plan")
+def customer_query(request, today=None):
+    result = Customer.objects.filter(tenant=request.member.tenant).select_related("plan", "nas")
     query = request.GET.get("q", "").strip()[:100]
     if query:
         result = result.filter(Q(name__icontains=query) | Q(code__icontains=query) | Q(username__icontains=query) | Q(phone__icontains=query))
@@ -100,11 +101,13 @@ def customer_query(request):
     if state in {"active", "isolated", "pending"}:
         result = result.filter(service_state=state)
     plan = request.GET.get("plan", "")
-    if plan.isdigit():
-        result = result.filter(plan_id=plan)
+    if plan:
+        plan_id = positive_id(plan)
+        result = result.filter(plan_id=plan_id, plan__tenant=request.member.tenant) if plan_id else result.none()
     area = request.GET.get("area", "").strip()[:80]
     if area:
         result = result.filter(area=area)
+    result = apply_service_filters(result, request.member.tenant, request.GET, today=today)
     ordering = request.GET.get("sort", "name")
     if ordering not in {"name", "-name", "code", "-created_at"}:
         ordering = "name"
@@ -119,14 +122,19 @@ def paginate(request, result):
 
 @require("customers")
 def customers(request):
-    return render(request, "core/customers.html", {"page": paginate(request, customer_query(request)),
+    today = timezone.localdate()
+    return render(request, "core/customers.html", {"page": paginate(request,
+                  with_financial_summary(customer_query(request, today=today), request.member.tenant)),
                   "plans": request.member.tenant.plan_set.all(),
+                  "devices": request.member.tenant.monitoringdevice_set.all(), "due_choices": DUE_CHOICES,
+                  "today": today, "updated_at": timezone.now(),
                   "areas": Customer.objects.filter(tenant=request.member.tenant).values_list("area", flat=True).distinct().order_by("area")})
 
 
 @require("edit_customers")
 def customer_form(request, pk=None):
     customer = get_object_or_404(Customer, tenant=request.member.tenant, pk=pk) if pk else Customer()
+    previous_nas = customer.nas_id
     form = CustomerForm(request.POST or None, instance=customer, tenant=request.member.tenant)
     if request.method == "POST" and form.is_valid():
         try:
@@ -136,7 +144,7 @@ def customer_form(request, pk=None):
                     item.code = "TN-" + uuid.uuid4().hex[:10].upper()
                 item.save()
                 audit(request.member.tenant, request.user, "customer.updated" if pk else "customer.created", item.pk,
-                      "Identitas atau layanan pelanggan disimpan.", request.correlation_id)
+                      f"Identitas atau layanan pelanggan disimpan. NAS: {previous_nas or 'belum dipetakan'} → {item.nas_id or 'belum dipetakan'}.", request.correlation_id)
             messages.success(request, "Pelanggan berhasil disimpan.")
             return redirect("customer_detail", pk=item.pk)
         except IntegrityError:
@@ -147,7 +155,7 @@ def customer_form(request, pk=None):
 
 @require("customers")
 def customer_detail(request, pk):
-    item = get_object_or_404(Customer.objects.select_related("plan"), tenant=request.member.tenant, pk=pk)
+    item = get_object_or_404(Customer.objects.select_related("plan", "nas"), tenant=request.member.tenant, pk=pk)
     invoices = list(Invoice.objects.filter(tenant=request.member.tenant, customer=item))
     return render(request, "core/customer_detail.html", {"customer": item, "invoices": invoices,
                   "balance": sum(invoice.balance for invoice in invoices),

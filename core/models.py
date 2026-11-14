@@ -3,6 +3,7 @@ import uuid
 from datetime import date
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q, Sum
 from django.utils import timezone
@@ -45,6 +46,8 @@ class Customer(models.Model):
     area = models.CharField(max_length=80)
     username = models.SlugField(max_length=64)
     plan = models.ForeignKey(Plan, on_delete=models.PROTECT)
+    nas = models.ForeignKey("MonitoringDevice", null=True, blank=True, on_delete=models.PROTECT,
+                            related_name="mapped_customers")
     service_state = models.CharField(max_length=16, choices=[("active", "Aktif"), ("isolated", "Diisolir"), ("pending", "Menunggu provisioning")], default="active")
     router_available = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -60,6 +63,11 @@ class Customer(models.Model):
 
     def __str__(self):
         return f"{self.code} · {self.name}"
+
+    def clean(self):
+        super().clean()
+        if self.nas_id and not MonitoringDevice.objects.filter(pk=self.nas_id, tenant_id=self.tenant_id).exists():
+            raise ValidationError({"nas": "NAS harus berasal dari ISP pelanggan ini."})
 
 
 class CustomerImportBatch(models.Model):
@@ -425,6 +433,9 @@ class MonitoringDevice(models.Model):
     authorization_version = models.PositiveIntegerField(default=0)
     next_poll_at = models.DateTimeField(null=True, blank=True, default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return self.name
 
     class Meta:
         ordering = ["name", "pk"]

@@ -6,6 +6,8 @@ Sumber enforcement: `core/permissions.py`, `core/views.py:allowed_invoice`, dan 
 | --- | --- | --- | --- | --- | --- | --- |
 | Dashboard billing | Ya | Ya | Ya | Ya | Tidak | Tidak |
 | Daftar/detail pelanggan | Ya | Ya | Ya | Tidak | Tidak | Milik sendiri lewat portal |
+| Filter NAS/jatuh tempo/piutang pelanggan | Ya | Ya | Ya | Tidak | Tidak | Tidak |
+| Simpan/hapus pemetaan NAS pelanggan | Ya | Ya | Tidak | Tidak | Tidak | Tidak |
 | Tambah/ubah pelanggan | Ya | Ya | Tidak | Tidak | Tidak | Tidak |
 | Daftar/detail faktur | Ya | Ya | Ya | Ya | Tidak | Milik sendiri |
 | Terbitkan faktur/diskon | Ya | Ya | Tidak | Tidak | Tidak | Tidak |

@@ -67,3 +67,8 @@ Migrasi 0006 menambah MonitoringDevice/MonitoringPoll, constraint dan index. Bac
 `verify_restore.py` membandingkan konfigurasi/versi/jadwal monitoring serta payload/status/waktu snapshot, selain ledger dan state operasional. Browser memakai database sementara dengan seluruh skenario sebelum restore drill. Backup tetap belum terenkripsi dan autentikasi hasil restore memerlukan kunci MFA terpisah. Riwayat monitoring belum memiliki retensi otomatis; pemakaian jangka panjang memerlukan pembatasan storage/retensi dan monitoring worker.
 
 25 tes baru (187 total), browser NOC/Owner pada empat viewport, serta pemeriksaan migrasi/restore memberi bukti lokal. Lihat [TEST-REPORT](TEST-REPORT.md) dan [UX-AUDIT](UX-AUDIT.md). Gateway, router/RADIUS lab, trafik/polling nyata, PostgreSQL multi-process, TLS deployment dan kesiapan produksi tetap pekerjaan lanjutan.
+
+
+## Pemetaan administratif pelanggan — 14 November 2026 WIB
+
+Pelanggan kini dapat dipetakan secara opsional ke NAS simulasi ISP sendiri melalui edit pelanggan. NAS nonaktif tetap dapat dipilih. Ini hanya relasi administratif untuk pencarian/filter pelanggan; sesi PPPoE sintetis tidak diatribusikan ke pelanggan dan tidak menetapkan status online. Tidak ada pengambilan snapshot/perintah router saat menyimpan pemetaan. Lihat [CUSTOMER-FILTERS](CUSTOMER-FILTERS.md).

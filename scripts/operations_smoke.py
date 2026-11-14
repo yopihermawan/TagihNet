@@ -336,6 +336,55 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             assert noc_context.request.get(monitor_url+"edit/").status == 403
             assert noc_context.request.get(base+"/network/monitoring/new/").status == 403
             assert "Rp" not in noc.inner_text("main")
+            # Administrative NAS mapping and ledger-based due filters, in this disposable DB only.
+            with sqlite3.connect(db_path) as db:
+                owner_tenant = db.execute("SELECT tenant_id FROM core_membership m JOIN auth_user u ON m.user_id=u.id WHERE u.username='owner'").fetchone()[0]
+                mapped_customer, mapped_name, mapped_code, due_invoice, due_amount = db.execute(
+                    "SELECT c.id,c.name,c.code,i.id,i.total FROM core_customer c JOIN core_invoice i ON i.customer_id=c.id "
+                    "WHERE c.tenant_id=? AND i.tenant_id=? AND i.due_date<? "
+                    "AND NOT EXISTS (SELECT 1 FROM core_payment p WHERE p.invoice_id=i.id) ORDER BY i.id LIMIT 1",
+                    (owner_tenant, owner_tenant, datetime.now(ZoneInfo('Asia/Jakarta')).date().isoformat())).fetchone()
+                mapping_before = [db.execute("SELECT COUNT(*) FROM "+table).fetchone()[0] for table in ['core_invoice', 'core_payment', 'core_networkjob', 'core_monitoringpoll']]
+            mapped_nas = int(monitor_url.rstrip('/').split('/')[-1])
+            mapped_detail = base + f"/customers/{mapped_customer}/"
+            page.goto(mapped_detail + "edit/")
+            page.get_by_label("NAS simulasi", exact=False).select_option(str(mapped_nas))
+            page.get_by_role("button", name="Simpan", exact=True).click()
+            page.wait_for_url(mapped_detail)
+            expect(page.locator("dd").filter(has_text="NAS Bandung Fiktif")).to_be_visible()
+            with sqlite3.connect(db_path) as db:
+                assert db.execute("SELECT nas_id FROM core_customer WHERE id=?", (mapped_customer,)).fetchone()[0] == mapped_nas
+                assert [db.execute("SELECT COUNT(*) FROM "+table).fetchone()[0] for table in ['core_invoice', 'core_payment', 'core_networkjob', 'core_monitoringpoll']] == mapping_before
+            filtered_customers = f"/customers/?nas={mapped_nas}&due=overdue&q={mapped_code}&sort=name&size=25"
+            page.goto(base + filtered_customers)
+            expect(page.locator('tbody tr')).to_have_count(1)
+            expect(page.locator('tbody')).to_contain_text(mapped_name)
+            expect(page.locator('tbody')).to_contain_text("Menunggak")
+            csv_response = owner.request.get(base + filtered_customers.replace('/customers/', '/customers/export/'))
+            assert csv_response.ok and mapped_code in csv_response.text()
+            page.screenshot(path=str(evidence / "customer-filters-desktop.png"), full_page=True)
+            page.locator("a.customer-cell").filter(has_text=mapped_name).click()
+            page.wait_for_url(mapped_detail)
+            page.get_by_role("link", name="Kembali ke pelanggan", exact=False).click()
+            page.wait_for_url(base + filtered_customers)
+            # A payment changes the next filtered request; reversal restores overdue membership.
+            page.goto(base + f"/invoices/{due_invoice}/")
+            page.get_by_label("Nominal pembayaran (rupiah)").fill(str(due_amount))
+            page.once("dialog", lambda dialog: dialog.accept())
+            page.get_by_role("button", name="Catat pembayaran simulasi", exact=True).click()
+            expect(page.locator('.invoice-brand .pill')).to_have_text("Lunas")
+            page.goto(base + filtered_customers)
+            expect(page.get_by_role("heading", name="Tidak ada pelanggan ditemukan")).to_be_visible()
+            page.goto(base + f"/invoices/{due_invoice}/")
+            page.get_by_text("Koreksi pembayaran", exact=True).click()
+            page.get_by_label("Alasan koreksi").fill("Pembayaran uji filter perlu dikoreksi kembali.")
+            page.once("dialog", lambda dialog: dialog.accept())
+            page.get_by_role("button", name="Buat reversal", exact=True).click()
+            page.goto(base + filtered_customers)
+            expect(page.locator('tbody')).to_contain_text(mapped_name)
+            assert noc_context.request.get(base + filtered_customers).status == 403
+            assert technician.request.get(base + filtered_customers).status == 403
+            assert customer.request.get(base + filtered_customers).status == 403
             # CSV imports stay inside this disposable SQLite database.
             with sqlite3.connect(db_path) as db:
                 import_plan = db.execute("SELECT p.id FROM core_plan p JOIN core_membership m ON p.tenant_id=m.tenant_id JOIN auth_user u ON m.user_id=u.id WHERE u.username='owner' ORDER BY p.id LIMIT 1").fetchone()[0]
@@ -373,13 +422,18 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             page.screenshot(path=str(evidence / "customer-import-completed.png"), full_page=True)
             for width in [360, 768, 1366, 1920]:
                 page.set_viewport_size({"width": width, "height": 1000})
-                for route in ["/plans/", "/plans/new/", package_edit, "/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/", "/customers/imports/", "/customers/imports/new/"]:
+                for route in [filtered_customers, f"/customers/{mapped_customer}/edit/", "/plans/", "/plans/new/", package_edit, "/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/", "/customers/imports/", "/customers/imports/new/"]:
                     page.goto(base + route)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, route)
                 for url in [ticket_url, order_url, reminder_url, monitor_url, import_url]:
                     page.goto(url)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, url)
             page.set_viewport_size({"width": 360, "height": 1000})
+            page.goto(base + filtered_customers)
+            page.wait_for_function("document.querySelector('#sidebar').getBoundingClientRect().right <= 1")
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            assert page.locator("tbody tr").first.bounding_box()["height"] < 170
+            page.screenshot(path=str(evidence / "customer-filters-mobile.png"), full_page=True)
             page.goto(base + "/operations/reminders/")
             assert page.locator("tbody tr").first.bounding_box()["height"] < 170
             page.screenshot(path=str(evidence / "reminders-mobile.png"), full_page=True)
@@ -390,7 +444,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             subprocess.run([sys.executable, "scripts/verify_restore.py"], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
             assert failures == [], failures
             browser.close()
-        print("PASS: package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
+        print("PASS: NAS mapping/due filters/export/return URL/payment/reversal; package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
     finally:
         server.terminate()
         try:

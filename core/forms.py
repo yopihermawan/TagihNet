@@ -7,15 +7,18 @@ from .validation import normalize_phone
 class CustomerForm(forms.ModelForm):
     class Meta:
         model = Customer
-        fields = ["name", "email", "phone", "username", "plan", "area", "address"]
+        fields = ["name", "email", "phone", "username", "plan", "nas", "area", "address"]
         labels = {"name": "Nama pelanggan", "email": "Email", "phone": "Telepon", "username": "Username layanan",
-                  "plan": "Paket", "area": "Wilayah", "address": "Alamat"}
+                  "plan": "Paket", "nas": "NAS simulasi (opsional)", "area": "Wilayah", "address": "Alamat"}
         widgets = {"address": forms.Textarea(attrs={"rows": 3})}
 
     def __init__(self, *args, tenant, **kwargs):
         super().__init__(*args, **kwargs)
         self.instance.tenant = tenant
         self.fields["plan"].queryset = tenant.plan_set.all()
+        self.fields["nas"].queryset = tenant.monitoringdevice_set.all()
+        self.fields["nas"].empty_label = "Belum dipetakan"
+        self.fields["nas"].help_text = "Pemetaan administratif; tidak menghubungkan sesi PPPoE atau mengubah router."
 
     def clean_phone(self):
         return normalize_phone(self.cleaned_data["phone"])

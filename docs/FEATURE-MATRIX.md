@@ -9,7 +9,8 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Monitoring NOC | NAS/snapshot sesi PPPoE contoh, segar/stale/gagal, nol vs unknown, ringkasan bersumber/cakupan; histori dan collector idempoten | 3 · simulated; trafik/polling nyata pending |
 | Pelanggan | Satu paket/layanan, cari/filter/sort/URL/pagination, tambah/ubah/detail, deteksi duplikat, CSV | 2 · implemented |
 | Paket/profil | Katalog tenant, buat/ubah, tinjauan rincian/dampak, MFA, versi/replay/audit; faktur lama dan batch disetujui mempertahankan snapshot | 2 · implemented lokal; arsip/jadwal harga/profil router nyata pending |
-| Filter NAS/jatuh tempo; drawer bertab | NAS simulasi monitoring terpisah, belum dipetakan ke pelanggan; detail berupa halaman, URL daftar dipertahankan di sessionStorage | 3 · pending |
+| Filter NAS/jatuh tempo | Pemetaan NAS simulasi nullable per pelanggan, tenant/CSRF/audit, filter NAS/unassigned dan overdue/today/next7/unpaid/clear berbasis ledger, piutang/tanggal terawal, query ekspor sama | 3 · implemented lokal; sesi/router nyata pending |
+| Drawer/detail bertab | Detail berupa halaman dan URL daftar dipertahankan; tab bertema layanan/pembayaran/tiket belum dibuat | 3 · pending |
 | Multi-tenant | Membership satu ISP per akun; tenant dari login, dua tenant seed, objek/PDF/CSV terbatasi | 2 · implemented |
 | Role dan cakupan | Tujuh preset termasuk Teknisi dan peran kustom tenant; owner membuat/mengubah akun dan izin, sesi dicabut, owner terakhir dilindungi. Teknisi dibatasi penugasan; sales dan scope wilayah geografis belum | 2 · limited |
 | Faktur | Bulanan full month, tanggal akhir bulan, snapshot harga/pajak/diskon, constraint satu pelanggan/periode | 2 · implemented |
@@ -36,7 +37,7 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | MFA dan editor role | TOTP wajib operator, QR lokal, secret Fernet, recovery sekali pakai, step-up, editor akun/peran owner | 2 · implemented lokal |
 | Profil mandiri, scope wilayah geografis | Penugasan teknisi tersedia; profil mandiri dan batas wilayah geografis belum tersedia | 4 · pending |
 | Backup/restore | AES-256-GCM streaming SQLite/PG, kunci terpisah, verify, target kosong/no-clobber, restore ledger+MFA | 5 · implemented lokal; offsite/retensi/PITR pending |
-| Backend PostgreSQL | Opsional, role non-superuser lab, 272 tes pada dua backend, 12 race proses + pg_dump/pg_restore | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
+| Backend PostgreSQL | Opsional, role non-superuser lab, 300 tes pada dua backend, 12 race proses + pg_dump/pg_restore | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
 | Rilis produksi | TLS, SMTP, secret vault, queue/capacity multiworker, beban, lab perangkat, penetration test | 5 · pending |
 
 Dukungan PostgreSQL dan race dua proses kini diuji lokal; perpindahan data/kapasitas produksi masih pending. Langkah berikutnya mencakup adapter gateway sandbox terverifikasi, router/RADIUS lab dan modul tersisa sesuai brief. Cakupan lanjutan mengikuti urutan brief, tanpa mengubah status fitur pending menjadi selesai.

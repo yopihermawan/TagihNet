@@ -330,6 +330,14 @@ def verify():
         assert package.version == 2 and package.price in {400000, 500000}
         assert AuditEvent.objects.filter(action="plan.updated", target=str(package.pk)).count() == 1
         print("PASS: 2 processes, competing package reviews -> 1 edit, 1 stale rejection", flush=True)
+        # Include a non-null mapping in the whole-database restore fingerprint.
+        from core.forms import CustomerForm
+        from core.models import MonitoringDevice
+        nas = MonitoringDevice.objects.create(tenant=tenant, name="Restore mapping fixture")
+        fields = {key: getattr(customer, key) for key in ["name", "email", "phone", "username", "area", "address"]}
+        form = CustomerForm({**fields, "plan": customer.plan_id, "nas": nas.pk}, tenant=tenant, instance=customer)
+        assert form.is_valid(), form.errors
+        form.save()
         import pyotp
         from core.models import MFADevice
         from core.security import encrypt_secret, decrypt_secret
