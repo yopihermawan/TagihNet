@@ -17,6 +17,7 @@ from django.views.decorators.debug import sensitive_post_parameters
 from .billing import audit, issue_invoice, record_payment, reverse_payment
 from .forms import BillingSettingsForm, CustomerForm, InvoiceForm, PaymentForm
 from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, with_financial_summary
+from .customer_profile import invoice_rows, profile_context
 from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment
 from .pdf import render_invoice
 from .permissions import require, membership, capabilities
@@ -154,12 +155,20 @@ def customer_form(request, pk=None):
 
 
 @require("customers")
+@require_GET
 def customer_detail(request, pk):
-    item = get_object_or_404(Customer.objects.select_related("plan", "nas"), tenant=request.member.tenant, pk=pk)
-    invoices = list(Invoice.objects.filter(tenant=request.member.tenant, customer=item))
-    return render(request, "core/customer_detail.html", {"customer": item, "invoices": invoices,
-                  "balance": sum(invoice.balance for invoice in invoices),
-                  "jobs": NetworkJob.objects.filter(tenant=request.member.tenant, customer=item)[:5]})
+    query = with_financial_summary(Customer.objects.select_related("plan", "nas"), request.member.tenant)
+    item = get_object_or_404(query, tenant=request.member.tenant, pk=pk)
+    selected = request.GET.get("tab", "summary") or "summary"
+    context, rows = profile_context(request.member, item, selected)
+    context.update(today=timezone.localdate(), updated_at=timezone.now())
+    size = request.GET.get("size", "10")
+    context["profile_size"] = size if size in {"10", "25", "50"} else "10"
+    if rows is not None:
+        context["page"] = paginate(request, rows)
+        if selected == "invoices":
+            context["invoice_rows"] = invoice_rows(context["page"].object_list, context["today"])
+    return render(request, "core/customer_detail.html", context)
 
 
 @require("export")

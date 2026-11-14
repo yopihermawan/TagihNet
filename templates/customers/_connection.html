@@ -1,0 +1,3 @@
+<dt>Status layanan</dt><dd><span class="pill {% if customer.service_state == 'active' %}teal{% else %}amber{% endif %}">{{ customer.get_service_state_display }} · simulasi</span></dd>
+<dt>NAS simulasi</dt><dd>{% if customer.nas and customer.nas.tenant_id == customer.tenant_id %}{{ customer.nas.name }}{% if not customer.nas.enabled %} · pengambilan nonaktif{% endif %}{% else %}Belum dipetakan{% endif %}<small>Pemetaan administratif, tanpa hubungan otomatis ke sesi PPPoE.</small></dd>
+<dt>Sesi online</dt><dd>Belum tersedia · adapter router belum terhubung</dd>

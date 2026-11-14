@@ -69,7 +69,18 @@ window.addEventListener('online', updateConnection);
 window.addEventListener('offline', updateConnection);
 updateConnection();
 if (location.pathname === '/customers/') {
-  try { sessionStorage.setItem('tagihnet-customer-list', location.pathname + location.search); } catch { /* Optional return position. */ }
+  const listURL = location.pathname + location.search;
+  try {
+    sessionStorage.setItem('tagihnet-customer-list', listURL);
+    const position = JSON.parse(sessionStorage.getItem('tagihnet-customer-scroll') || 'null');
+    if (position?.url === listURL && Number.isFinite(position.y) && position.y >= 0) {
+      requestAnimationFrame(() => window.scrollTo(0, position.y));
+    }
+  } catch { /* Navigation still works without storage. */ }
+  window.addEventListener('pagehide', () => {
+    try { sessionStorage.setItem('tagihnet-customer-scroll', JSON.stringify({url: listURL, y: window.scrollY})); }
+    catch { /* Scroll restoration is optional. */ }
+  });
 }
 const backToList = document.querySelector('#back-to-list');
 if (backToList) {

@@ -70,3 +70,8 @@ Unggah membuat pratinjau saja. Konfirmasi memerlukan CSRF, checkbox review, MFA 
 ## Backup host administrator
 
 Backup/restore terenkripsi adalah CLI untuk administrator host, bukan capability/menu web. Arsip mencakup seluruh database, seluruh ISP, auth dan MFA ciphertext. Role Owner ISP tidak otomatis mendapat akses host, key file, archive atau Docker socket. Tidak ada endpoint download/restore publik. Kunci backup, sesi, MFA dan password DB dikelola terpisah; backup hanya mengemas database. Database PG restore harus dimiliki role yang melakukan restore dan kosong; hak CREATEDB lab bukan hak runtime produksi.
+
+
+## Tab detail pelanggan — 14 November 2026 WIB
+
+Workspace membutuhkan `customers`. Ringkasan, layanan/koneksi dan lokasi mengikuti izin ini, termasuk piutang ringkasan yang sudah tersedia sebelumnya. Faktur dan Pembayaran memerlukan tambahan `invoices`, Tiket memerlukan `tickets`, Riwayat memerlukan `audit`. Menu yang disembunyikan juga ditolak di endpoint langsung. Isi tab dibatasi pelanggan+tenant; riwayat audit hanya aksi customer.created/updated pada target yang sama. Tidak ada hak tulis tambahan melalui workspace. Lihat [CUSTOMER-WORKSPACE](CUSTOMER-WORKSPACE.md).

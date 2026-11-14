@@ -26,3 +26,5 @@ table{font-size:13px}th{font-size:11px}td strong{font-size:13px}td small{font-si
 
 /* Keep customer identities readable inside the locally scrolling table. */
 .customer-table th:first-child,.customer-table td:first-child{min-width:230px}.customer-table th:nth-child(2),.customer-table td:nth-child(2){min-width:180px}
+
+.customer-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 24px;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}.customer-tabs a{display:flex;align-items:center;min-height:44px;padding:9px 14px;border-radius:7px;font-size:12px;font-weight:600}.customer-tabs a[aria-current="page"]{background:var(--teal-soft);color:var(--teal-ink)}.profile-section{margin-top:24px}

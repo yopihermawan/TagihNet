@@ -385,6 +385,49 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             assert noc_context.request.get(base + filtered_customers).status == 403
             assert technician.request.get(base + filtered_customers).status == 403
             assert customer.request.get(base + filtered_customers).status == 403
+            # All customer tabs are real server-rendered views, scoped to one customer.
+            with sqlite3.connect(db_path) as db:
+                ticket_customer = db.execute("SELECT customer_id FROM core_ticket WHERE id=?", (int(ticket_url.rstrip('/').split('/')[-1]),)).fetchone()[0]
+                profile_before = [db.execute("SELECT COUNT(*) FROM "+table).fetchone()[0] for table in ['core_customer', 'core_invoice', 'core_payment', 'core_networkjob', 'core_auditevent']]
+            profile_url = base + f"/customers/{ticket_customer}/"
+            profile_tabs = {"Ringkasan": "summary", "Layanan & Koneksi": "service", "Faktur": "invoices", "Pembayaran": "payments", "Tiket": "tickets", "Lokasi": "location", "Riwayat": "history"}
+            page.goto(profile_url)
+            for label, tab in profile_tabs.items():
+                page.get_by_role("navigation", name="Tab pelanggan").get_by_role("link", name=label, exact=True).click()
+                page.wait_for_url(profile_url+f"?tab={tab}&size=10")
+                expect(page.locator('.customer-tabs [aria-current="page"]')).to_have_text(label)
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), tab
+                if tab == "tickets":
+                    expect(page.get_by_text("Internet lokasi fiktif terputus", exact=True)).to_be_visible()
+                    expect(page.get_by_text("Catatan internal demo: rencana pemeriksaan jalur.", exact=True)).to_have_count(0)
+            page.goto(mapped_detail+"?tab=payments&size=25")
+            expect(page.get_by_role("region", name="Pembayaran pelanggan")).to_contain_text("Direversal")
+            page.screenshot(path=str(evidence / "customer-workspace-payments-desktop.png"), full_page=True)
+            page.goto(profile_url+"?tab=tickets&size=10")
+            page.screenshot(path=str(evidence / "customer-workspace-tickets-desktop.png"), full_page=True)
+            # Native links also work when JavaScript is disabled; return-state enhancement is optional.
+            no_js = browser.new_context(java_script_enabled=False, storage_state=owner.storage_state())
+            static_page = no_js.new_page()
+            static_page.goto(profile_url)
+            static_page.get_by_role("navigation", name="Tab pelanggan").get_by_role("link", name="Faktur", exact=True).click()
+            static_page.wait_for_url(profile_url+"?tab=invoices&size=10")
+            expect(static_page.get_by_role("heading", name="Faktur pelanggan", exact=True)).to_be_visible()
+            no_js.close()
+            # Preserve exact filtered URL and vertical scroll when returning through a different tab.
+            page.set_viewport_size({"width": 360, "height": 700})
+            page.goto(base + filtered_customers)
+            page.evaluate("window.scrollTo(0, 400)")
+            page.wait_for_function("Math.abs(scrollY-400)<3")
+            page.goto(mapped_detail+"?tab=payments&size=25")
+            page.get_by_role("link", name="Kembali ke pelanggan", exact=False).click()
+            page.wait_for_url(base + filtered_customers)
+            page.wait_for_function("Math.abs(scrollY-400)<3")
+            page.evaluate("window.scrollTo(0, 0)")
+            page.set_viewport_size({"width": 1366, "height": 1000})
+            for context in [technician, customer, noc_context]:
+                assert context.request.get(profile_url+"?tab=payments").status == 403
+            with sqlite3.connect(db_path) as db:
+                assert [db.execute("SELECT COUNT(*) FROM "+table).fetchone()[0] for table in ['core_customer', 'core_invoice', 'core_payment', 'core_networkjob', 'core_auditevent']] == profile_before
             # CSV imports stay inside this disposable SQLite database.
             with sqlite3.connect(db_path) as db:
                 import_plan = db.execute("SELECT p.id FROM core_plan p JOIN core_membership m ON p.tenant_id=m.tenant_id JOIN auth_user u ON m.user_id=u.id WHERE u.username='owner' ORDER BY p.id LIMIT 1").fetchone()[0]
@@ -425,6 +468,12 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
                 for route in [filtered_customers, f"/customers/{mapped_customer}/edit/", "/plans/", "/plans/new/", package_edit, "/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/", "/customers/imports/", "/customers/imports/new/"]:
                     page.goto(base + route)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, route)
+                for tab in profile_tabs.values():
+                    page.goto(profile_url+f"?tab={tab}&size=10")
+                    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, tab)
+                    assert page.locator('.customer-tabs a').first.bounding_box()["height"] >= 44
+                    if width == 360 and tab == "invoices":
+                        page.screenshot(path=str(evidence / "customer-workspace-invoices-mobile.png"), full_page=True)
                 for url in [ticket_url, order_url, reminder_url, monitor_url, import_url]:
                     page.goto(url)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, url)
@@ -444,7 +493,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             subprocess.run([sys.executable, "scripts/verify_restore.py"], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
             assert failures == [], failures
             browser.close()
-        print("PASS: NAS mapping/due filters/export/return URL/payment/reversal; package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
+        print("PASS: 7 customer tabs/permissions/ledger/scoped tickets/native links/scroll restoration; NAS mapping/due filters/export/return URL/payment/reversal; package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
     finally:
         server.terminate()
         try:
