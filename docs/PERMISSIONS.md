@@ -16,6 +16,7 @@ Sumber enforcement: `core/permissions.py`, `core/views.py:allowed_invoice`, dan 
 | Catat pembayaran simulasi | Ya | Tidak | Ya | Ya | Tidak | Tidak |
 | Reversal penuh + alasan | Ya | Tidak | Ya | Tidak | Tidak | Tidak |
 | PDF | ISP sendiri | ISP sendiri | ISP sendiri | ISP sendiri | Tidak | Milik sendiri |
+| Kuitansi pembayaran HTML/PDF | ISP sendiri | ISP sendiri | ISP sendiri | ISP sendiri | Tidak | Milik sendiri |
 | CSV pelanggan | Ya | Ya | Ya | Tidak | Tidak | Tidak |
 | Antrean jaringan | Ya | Tidak | Tidak | Tidak | Ya | Tidak |
 | Setelan billing | Ya | Tidak | Tidak | Tidak | Tidak | Tidak |

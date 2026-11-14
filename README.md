@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-private-work-photos` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-payment-receipts` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Yang bisa digunakan
 
@@ -12,6 +12,7 @@ TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terki
 - Dua ISP fiktif dengan pembatasan tenant dari akun yang terautentikasi; preset owner, operasional, keuangan, kasir, NOC, dan pelanggan.
 - MFA wajib untuk operator: QR TOTP lokal, secret terenkripsi, kode pemulihan sekali pakai, pencegahan replay, dan verifikasi ulang aksi sensitif.
 - Editor akun/peran kustom untuk owner, perlindungan pemilik terakhir, pembatasan tenant, dan pencabutan sesi saat akses berubah.
+- [Kuitansi pembayaran](docs/PAYMENT-RECEIPTS.md): HTML/PDF A4 per transaksi, terbilang, pembayaran sebagian, status reversal dan akses portal sendiri; seluruhnya simulasi.
 - [Laporan penagihan](docs/BILLING-REPORTS.md): rentang WIB, tanggal pembayaran/reversal terpisah, saldo historis, rekonsiliasi, snapshot baca konsisten dan CSV.
 - Dashboard yang menghitung data dari ledger, disertai definisi metrik, periode, cakupan, serta waktu pembaruan WIB.
 - Cari/filter/sort pelanggan, pagination server-side 10/25/50 yang tersimpan di URL, tambah/ubah/detail, dan ekspor CSV berizin.
@@ -134,7 +135,7 @@ Impor menambah pelanggan baru dengan status **Menunggu provisioning**, tanpa fak
 SQLite tetap default dan data demo tidak dipindahkan. Lab PostgreSQL Linux/Docker terpisah memakai role aplikasi non-superuser dan password acak privat:
 
 ```bash
-python -m pip install -r requirements-postgres.txt
+python -m pip install -r requirements-postgres.txt -r requirements-test.txt
 python scripts/postgres_lab.py start
 python scripts/postgres_lab.py run manage.py migrate --noinput
 python scripts/postgres_lab.py run manage.py test --verbosity 1 --noinput
@@ -186,9 +187,10 @@ Batas payload 1 GiB. Target SQLite harus belum ada beserta sidecarnya. PostgreSQ
 python manage.py check
 python manage.py makemigrations --check --dry-run
 python -m pip check
-python manage.py test --verbosity 2
 python -m pip install -r requirements-dev.txt
+python manage.py test --verbosity 2
 python scripts/verify_pdf.py
+python scripts/verify_receipt.py
 python scripts/verify_restore.py
 python scripts/verify_encrypted_backup.py
 python scripts/security_smoke.py

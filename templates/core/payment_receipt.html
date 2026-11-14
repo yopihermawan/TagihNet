@@ -1,0 +1,15 @@
+{% extends 'base.html' %}{% load tagihnet %}
+{% block title %}{{ receipt_number }} · TagihNet{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'invoice_detail' invoice.pk %}">← Kembali ke faktur</a>
+<div class="page-heading"><div><span class="eyebrow">KUITANSI PEMBAYARAN</span><h1>{{ receipt_number }}</h1><p class="muted">Satu transaksi · {{ invoice.number }}</p></div><a class="button primary" href="{% url 'payment_receipt_pdf' invoice.pk payment.pk %}" target="_blank" rel="noopener">Cetak / PDF A4</a></div>
+<article class="panel padded receipt-paper">
+  <div class="invoice-brand"><h2>Tagih<span class="teal-text">Net</span></h2><span class="pill neutral">{% if payment.reversal %}Direversal · simulasi{% else %}SIMULASI{% endif %}</span></div>
+  <p class="info-note">{{ simulation_notice }}</p>
+  <h2>{{ invoice.tenant.name }}</h2><p class="muted">{{ invoice.tenant.address|linebreaksbr }}</p>
+  <div class="invoice-parties"><div><span class="eyebrow">DITERIMA DARI</span><h3>{{ invoice.customer_name }}</h3><p>{{ invoice.customer_address|linebreaksbr }}</p></div><div><span class="eyebrow">NOMINAL TRANSAKSI</span><h2 class="amount">{{ payment.amount|idr }}</h2><p class="receipt-words">{{ amount_words|capfirst }}</p></div></div>
+  <dl class="definition-list"><dt>Faktur</dt><dd><a href="{% url 'invoice_detail' invoice.pk %}">{{ invoice.number }}</a></dd><dt>Periode layanan</dt><dd>{{ invoice.period|date:'F Y' }}</dd><dt>Waktu pembayaran</dt><dd>{{ payment.created_at|date:'d M Y H:i:s' }} WIB</dd><dt>Dicatat oleh</dt><dd>{{ payment.recorded_by.username }}</dd><dt>Catatan</dt><dd>{{ payment.note|default:'Tanpa catatan'|linebreaksbr }}</dd></dl>
+  {% if payment.reversal %}<section class="receipt-reversal" aria-label="Koreksi pembayaran"><h2>Direversal · transaksi tidak berlaku</h2><p>Nominal asli tetap tersimpan. Transaksi ini telah dikeluarkan dari pembayaran sah faktur.</p><dl class="definition-list"><dt>Waktu koreksi</dt><dd>{{ payment.reversal.created_at|date:'d M Y H:i:s' }} WIB</dd><dt>Pencatat koreksi</dt><dd>{{ payment.reversal.recorded_by.username }}</dd><dt>Alasan</dt><dd>{{ payment.reversal.reason|linebreaksbr }}</dd></dl></section>{% else %}<p><span class="pill teal">Tercatat · simulasi</span></p>{% endif %}
+  <p class="muted">Dicetak {{ printed_at|date:'d M Y H:i:s' }} WIB</p><p class="info-note">{{ source_notice }}</p>
+</article>
+{% endblock %}

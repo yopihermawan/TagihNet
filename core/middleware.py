@@ -1,6 +1,7 @@
 import time
 import uuid
 from django.contrib.auth import logout
+from django.utils.cache import patch_cache_control
 from .models import MFADevice, Membership
 
 class SessionPolicyMiddleware:
@@ -37,5 +38,5 @@ class SecurityHeadersMiddleware:
         response["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response["X-Correlation-ID"] = str(request.correlation_id)
         if request.user.is_authenticated or request.path.startswith(("/login", "/reset", "/mfa", "/account")):
-            response["Cache-Control"] = "no-store"
+            patch_cache_control(response, no_store=True)
         return response

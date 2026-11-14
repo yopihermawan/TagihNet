@@ -268,6 +268,35 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             portal = new_page(customer)
             login(portal, "pelanggan")
             portal.wait_for_url(base + "/portal/")
+            # One partial transaction, printable by its operator and owning portal account.
+            with sqlite3.connect(db_path) as db:
+                receipt_invoice = db.execute("SELECT i.id FROM core_invoice i JOIN core_membership m "
+                    "ON m.customer_id=i.customer_id JOIN auth_user u ON u.id=m.user_id "
+                    "WHERE u.username='pelanggan' AND NOT EXISTS (SELECT 1 FROM core_payment p WHERE p.invoice_id=i.id) "
+                    "ORDER BY i.id LIMIT 1").fetchone()[0]
+            page.goto(base+f"/invoices/{receipt_invoice}/")
+            page.get_by_label("Nominal pembayaran (rupiah)").fill("10000")
+            page.get_by_label("Catatan (opsional)").fill("Pembayaran sebagian untuk uji kuitansi.")
+            page.once("dialog", lambda dialog: dialog.accept())
+            page.get_by_role("button", name="Catat pembayaran simulasi", exact=True).click()
+            page.get_by_role("link", name="Lihat kuitansi", exact=True).click()
+            receipt_url = page.url
+            receipt_number = page.locator('.page-heading h1').inner_text()
+            expect(page.locator('.receipt-paper')).to_contain_text("Rp10.000")
+            expect(page.locator('.receipt-words')).to_have_text("Sepuluh ribu rupiah")
+            page.screenshot(path=str(evidence / "payment-receipt-desktop.png"), full_page=True)
+            receipt_pdf_url = page.get_by_role("link", name="Cetak / PDF A4", exact=True).get_attribute('href')
+            pdf_response = owner.request.get(base+receipt_pdf_url)
+            assert pdf_response.ok and pdf_response.headers['content-type']=='application/pdf'
+            assert 'private' in pdf_response.headers['cache-control'] and 'no-store' in pdf_response.headers['cache-control']
+            from pypdf import PdfReader
+            assert receipt_number in PdfReader(io.BytesIO(pdf_response.body())).pages[0].extract_text()
+            portal.goto(base+f"/invoices/{receipt_invoice}/")
+            portal.get_by_role("link", name="Lihat kuitansi", exact=True).click()
+            expect(portal.locator('.receipt-paper')).to_contain_text("Rp10.000")
+            assert customer.request.get(base+receipt_pdf_url).status == 200
+            assert technician.request.get(receipt_url).status == 403
+            portal.screenshot(path=str(evidence / "payment-receipt-portal-mobile.png"), full_page=True)
             portal.goto(ticket_photos)
             expect(portal.get_by_text("Foto publik jalur fiktif", exact=True)).to_be_visible()
             expect(portal.get_by_text("Foto internal jalur fiktif", exact=True)).to_have_count(0)
@@ -423,6 +452,13 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             page.get_by_label("Alasan koreksi").fill("Pembayaran uji filter perlu dikoreksi kembali.")
             page.once("dialog", lambda dialog: dialog.accept())
             page.get_by_role("button", name="Buat reversal", exact=True).click()
+            page.get_by_role("link", name="Lihat kuitansi", exact=True).click()
+            reversed_receipt_url = page.url
+            expect(page.locator('.receipt-reversal')).to_contain_text("Direversal · transaksi tidak berlaku")
+            assert customer.request.get(reversed_receipt_url).status == 404
+            reversed_pdf_url = base+page.get_by_role("link", name="Cetak / PDF A4").get_attribute('href')
+            assert customer.request.get(reversed_pdf_url).status == 404
+            assert noc_context.request.get(reversed_pdf_url).status == 403
             page.goto(base + filtered_customers)
             expect(page.locator('tbody')).to_contain_text(mapped_name)
             assert noc_context.request.get(base + filtered_customers).status == 403
@@ -550,7 +586,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
                     assert page.locator('.customer-tabs a').first.bounding_box()["height"] >= 44
                     if width == 360 and tab == "invoices":
                         page.screenshot(path=str(evidence / "customer-workspace-invoices-mobile.png"), full_page=True)
-                for url in [ticket_url, order_url, reminder_url, monitor_url, import_url]:
+                for url in [ticket_url, order_url, reminder_url, monitor_url, import_url, receipt_url, reversed_receipt_url]:
                     page.goto(url)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, url)
             page.set_viewport_size({"width": 360, "height": 1000})
@@ -571,7 +607,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             subprocess.run([sys.executable, "scripts/verify_restore.py"], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
             assert failures == [], failures
             browser.close()
-        print("PASS: private normalized photos/customer scope/assigned scope/PSB/download headers/restore; billing reports/roll-forward/source SQL/CSV/scope/4 viewports; 7 customer tabs/permissions/ledger/scoped tickets/native links/scroll restoration; NAS mapping/due filters/export/return URL/payment/reversal; package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
+        print("PASS: payment receipts/partial/words/PDF/private cache/portal owner scope/reversal/4 viewports; private normalized photos/customer scope/assigned scope/PSB/download headers/restore; billing reports/roll-forward/source SQL/CSV/scope/4 viewports; 7 customer tabs/permissions/ledger/scoped tickets/native links/scroll restoration; NAS mapping/due filters/export/return URL/payment/reversal; package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
     finally:
         server.terminate()
         try:

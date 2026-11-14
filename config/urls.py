@@ -4,6 +4,7 @@ from core import customer_import_views as customer_import
 from core import plan_views as plans
 from core import report_views as reports
 from core import photo_views as photos
+from core import receipt_views as receipts
 from core import views
 from core import security_views as security
 from core import bulk_views as bulk
@@ -63,6 +64,9 @@ urlpatterns = [
     path("invoices/batches/<uuid:pk>/cancel/", bulk.batch_cancel, name="billing_batch_cancel"),
     path("invoices/<int:pk>/", views.invoice_detail, name="invoice_detail"),
     path("invoices/<int:pk>/pdf/", views.invoice_pdf, name="invoice_pdf"),
+    path("invoices/<int:invoice_pk>/payments/<int:payment_pk>/receipt/", receipts.payment_receipt, name="payment_receipt"),
+    path("invoices/<int:invoice_pk>/payments/<int:payment_pk>/receipt.pdf", receipts.payment_receipt,
+         {"pdf": True}, name="payment_receipt_pdf"),
     path("invoices/<int:pk>/pay/", views.payment_create, name="payment_create"),
     path("payments/<int:pk>/reverse/", views.payment_reverse, name="payment_reverse"),
     path("network/", views.network, name="network"),

@@ -35,7 +35,8 @@ class InvoiceForm(forms.Form):
 class PaymentForm(forms.Form):
     amount = forms.IntegerField(label="Nominal pembayaran (rupiah)", min_value=1, max_value=200000000)
     event_key = forms.UUIDField(widget=forms.HiddenInput)
-    note = forms.CharField(label="Catatan (opsional)", max_length=250, required=False)
+    note = forms.CharField(label="Catatan (opsional)", max_length=250, required=False,
+                          help_text="Tampil pada kuitansi, termasuk di portal pelanggan.")
 
 class BillingSettingsForm(forms.ModelForm):
     class Meta:

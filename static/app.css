@@ -30,3 +30,5 @@ table{font-size:13px}th{font-size:11px}td strong{font-size:13px}td small{font-si
 .customer-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 24px;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}.customer-tabs a{display:flex;align-items:center;min-height:44px;padding:9px 14px;border-radius:7px;font-size:12px;font-weight:600}.customer-tabs a[aria-current="page"]{background:var(--teal-soft);color:var(--teal-ink)}.profile-section{margin-top:24px}
 
 .billing-report-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:1100px){.billing-report-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.receipt-paper{max-width:920px;overflow-wrap:anywhere}.receipt-paper .invoice-brand{gap:16px;flex-wrap:wrap}.receipt-paper .invoice-parties>div{min-width:0}.receipt-words{font-style:italic}.receipt-reversal{margin:24px 0;padding:16px;border:1px solid var(--line);border-left:4px solid #b45309;border-radius:12px}

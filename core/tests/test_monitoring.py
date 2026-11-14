@@ -10,6 +10,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import close_old_connections
 from django.test import Client, TestCase, TransactionTestCase, override_settings
+from django.utils.html import strip_tags
 from core.access import save_role
 from core.models import AuditEvent, Customer, Invoice, Membership, MonitoringDevice, MonitoringPoll, NetworkJob
 from core.monitoring import collect_poll, overview, save_device, snapshots
@@ -209,7 +210,8 @@ class MonitoringTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(MonitoringPoll.objects.get().status, "blocked")
         response = self.client.get(f"/network/monitoring/{device.pk}/")
-        self.assertNotContains(response, "Rp")
+        # Random masked CSRF attributes can contain "Rp"; inspect visible text.
+        self.assertNotIn("Rp", strip_tags(response.content.decode()))
         self.assertNotContains(response, self.customers[0].phone)
 
     def test_other_tenant_ids_and_unauthorized_roles_are_blocked(self):

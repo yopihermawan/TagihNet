@@ -17,7 +17,7 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 | Field dan assignment scope | applicable | pass subset | Allowlist ModelForm, server price; Teknisi scope penugasan tersedia; sales/wilayah geografis belum tersedia |
 | Privilege escalation / last owner | applicable | pass lokal | Owner-only editor, custom-cap allowlist/dependency, last-owner demotion/deactivation dan race, role changes revoke sessions |
 | Validation/SQL injection/output encoding | applicable | pass subset | ORM parameterized, form limit/allowlist, markup footer test; fuzzing lengkap belum |
-| PDF sandbox / resource fetch | applicable | pass desain + tes | ReportLab teks lokal; tidak ada file/URL fetch atau HTML browser |
+| PDF sandbox / resource fetch | applicable | pass desain + tes | Faktur/kuitansi ReportLab teks ter-escape, font lokal disematkan pada kuitansi, input tidak menjadi URL/file/markup; scope transaksi/tenant/portal dan cache privat diuji |
 | Upload/import validation | applicable | pass subset | CSV UTF-8 <=128 KiB/200 record, header/field/tenant/creator/review/MFA/atomic; raw CSV tidak diarsipkan; foto JPG/PNG kini decode/re-encode/metadata strip, private binary/tenant/assignment/CSRF, limit/kuota dan unduhan attachment sandbox |
 | CSV formula injection | applicable | pass | Prefix sel berisiko + tenant/permission export tests |
 | Payment webhook signature/freshness/order | not applicable | not applicable | Endpoint tidak tersedia, gateway belum diimplementasikan |
