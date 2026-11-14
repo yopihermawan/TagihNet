@@ -5,6 +5,7 @@ from core import plan_views as plans
 from core import report_views as reports
 from core import photo_views as photos
 from core import receipt_views as receipts
+from core import schedule_views as schedules
 from core import views
 from core import security_views as security
 from core import bulk_views as bulk
@@ -57,6 +58,8 @@ urlpatterns = [
     path("customers/<int:pk>/edit/", views.customer_form, name="customer_edit"),
     path("invoices/", views.invoices, name="invoices"),
     path("invoices/new/", views.invoice_create, name="invoice_create"),
+    path("invoices/schedule/", schedules.schedule_form, name="billing_schedule"),
+    path("invoices/schedule/confirm/", schedules.schedule_confirm, name="billing_schedule_confirm"),
     path("invoices/batches/", bulk.batch_list, name="billing_batches"),
     path("invoices/batches/new/", bulk.batch_create, name="billing_batch_create"),
     path("invoices/batches/<uuid:pk>/", bulk.batch_detail, name="billing_batch_detail"),

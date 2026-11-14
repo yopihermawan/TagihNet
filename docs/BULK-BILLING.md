@@ -60,3 +60,7 @@ Pembatalan menandai batch `cancelled` dan menghentikan sisa baris. Transaksi bar
 Backup/restore SQL pada database sementara yang sedang memiliki batch `processing` membandingkan jumlah batch, status, jumlah item per status, pelanggan, invoice, pembayaran dan piutang. Itu memverifikasi state persisten, bukan pemulihan authenticator tanpa kunci. Simpan kunci MFA terpisah sebagaimana [AUTHENTICATION](AUTHENTICATION.md).
 
 Bukti visual: [preview desktop](evidence/bulk-preview-desktop.png), [preview mobile](evidence/bulk-preview-mobile.png), [hasil selesai](evidence/bulk-completed-desktop.png). Semua memakai data fiktif. Runtime tetap SQLite/satu node pengembangan; lock/queue multi-process PostgreSQL, kapasitas produksi, scheduler otomatis dan integrasi nyata belum diverifikasi. Tidak ada klaim production-ready.
+
+## Batch dari jadwal bulanan
+
+Scheduler opt-in menggunakan batch/items yang sama. Persetujuan diberikan pada kebijakan jadwal (review/MFA), bukan konfirmasi tiap batch otomatis. Label sumber/versi jadwal tampil pada detail batch. Worker memeriksa revisi kebijakan/akses/MFA sebelum setiap baris; mengubah/nonaktifkan jadwal membatalkan sisa batch otomatis dan tidak menyentuh batch manual. Rincian batch tetap creator-private; riwayat jadwal tenant-scoped dapat dibaca pengelola jadwal berwenang. Lihat [BILLING-SCHEDULER](BILLING-SCHEDULER.md).

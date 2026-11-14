@@ -62,6 +62,13 @@ def child(data):
         if case == "activation":
             return activate_installation(actor, data["order"], date.fromisoformat(data["period"]),
                 data["fingerprint"], time.time(), 1).customer_id
+        if case == "schedule":
+            from core.billing_scheduler import run_schedule
+            from datetime import datetime
+            run = run_schedule(data["schedule"], datetime.fromisoformat(data["now"]))
+            return "queued" if run else "replayed"
+        if case == "schedule_batch":
+            return process_batch(data["batch"])
         if case == "photo":
             from core.work_photos import upload_photo
             from core.tests.photo_helpers import photo_upload
@@ -376,6 +383,22 @@ def verify():
         from core.security import encrypt_secret, decrypt_secret
         fixture_secret = pyotp.random_base32()
         MFADevice.objects.create(user=actor, encrypted_secret=encrypt_secret(fixture_secret))
+        from core.billing_scheduler import confirm_change as confirm_schedule, review_change as review_schedule
+        from core.models import BillingScheduleRun
+        schedule_period = date(2027, 1, 1)
+        token, _ = review_schedule(actor, {"enabled": True, "day": 1, "state": "active", "plan": None, "area": ""}, 0)
+        schedule = confirm_schedule(actor, token, time.time(), 1)
+        results = parallel("schedule", {**common, "schedule": schedule.pk, "now": "2027-01-15T10:00:00+07:00"})
+        assert sorted(result["ok"] for result in results) == ["queued", "replayed"]
+        run = BillingScheduleRun.objects.get(schedule=schedule, period=schedule_period)
+        assert BillingScheduleRun.objects.filter(schedule=schedule).count() == 1
+        print("PASS: 2 scheduler processes, same month -> 1 cycle/batch, 1 replay", flush=True)
+        results = parallel("schedule_batch", {**common, "batch": str(run.batch_id)})
+        run.batch.refresh_from_db()
+        assert run.batch.status == "completed"
+        assert Invoice.objects.filter(tenant=tenant, period=schedule_period).count() == run.selected
+        assert run.batch.items.filter(status="created").count() == run.selected
+        print("PASS: 2 billing processes, scheduled snapshot -> exactly one invoice per selected customer/month; progress retained", flush=True)
         before = database_fingerprint(connection)
         with tempfile.TemporaryDirectory(prefix="tagihnet-pg-restore-") as folder:
             archive = Path(folder)/"backup.dump"

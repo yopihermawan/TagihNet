@@ -90,3 +90,7 @@ Checkpoint enkripsi menambah encrypted pg_dump/restore dengan verifikasi endpoin
 ## Snapshot laporan — 14 November 2026 WIB
 
 Laporan menggunakan transaksi tersendiri REPEATABLE READ, READ ONLY sebelum query pertama. Hasil halaman/CSV dibaca konsisten; audit ekspor ditulis setelah transaksi selesai. Koneksi kembali ke mode semula. `ATOMIC_REQUESTS` tetap false. `verify_postgres.py` menambah skenario ke-13: dua proses pembayaran commit saat snapshot laporan dibaca; laporan lama tetap, pembacaan baru memuat pembayaran. Restore biasa/terenkripsi tetap membandingkan seluruh tabel. Lihat [BILLING-REPORTS](BILLING-REPORTS.md).
+
+## Scheduler bulanan — 14 November 2026 WIB
+
+Migrasi0011 menambah dua tabel tanpa perubahan ledger.444 tes per backend dan17 skenario proses lulus. Tenant NO KEY UPDATE lalu schedule FOR UPDATE menserialkan generasi siklus; unique(schedule,period) menjaga satu batch/bulan. Dua worker tetap menserialkan batch/customer dan melewati faktur yang ada. Sisa pekerjaan dibatalkan jika konfigurasi berubah; consent access/MFA diperiksa ulang. Dump/restore biasa dan terenkripsi membandingkan jadwal/siklus nonkosong beserta seluruh tabel. Data/kapasitas produksi dan scheduler di luar simulasi belum diverifikasi.

@@ -75,6 +75,36 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
 
             # Package review is effect-free; confirmation/replay uses the same owner MFA session.
             db_path = Path(directory) / "tagihnet.sqlite3"
+            subprocess.run([sys.executable,"manage.py","shell","-c",
+                "from core.models import Customer,Membership; m=Membership.objects.get(user__username='owner'); "
+                "Customer.objects.create(tenant=m.tenant,plan=m.tenant.plan_set.first(),code='SCHEDULE-UI',"
+                "name='Pelanggan Jadwal Fiktif',username='schedule-ui',phone='081299998888',address='Alamat fiktif',area='Jadwal browser')"],
+                cwd=root,env=env,check=True,stdout=subprocess.DEVNULL)
+            page.goto(base+"/invoices/schedule/")
+            expect(page.get_by_text("Nonaktif",exact=True)).to_be_visible()
+            page.get_by_label("Aktifkan penerbitan otomatis",exact=False).check()
+            page.get_by_label("Tanggal penerbitan bulanan",exact=False).fill("1")
+            page.get_by_label("Wilayah persis",exact=False).fill("Jadwal browser")
+            page.get_by_role("button",name="Tinjau jadwal",exact=True).click()
+            expect(page.get_by_role("heading",name="Tinjau jadwal bulanan",exact=True)).to_be_visible()
+            with sqlite3.connect(db_path) as db:
+                assert db.execute("SELECT COUNT(*) FROM core_billingschedule").fetchone()[0]==0
+            page.screenshot(path=str(evidence/"billing-schedule-review-desktop.png"),full_page=True)
+            page.get_by_label("Saya menyetujui jadwal otomatis",exact=False).check()
+            page.get_by_role("button",name="Konfirmasi jadwal",exact=True).click()
+            page.wait_for_url(base+"/invoices/schedule/")
+            for _ in range(2):
+                subprocess.run([sys.executable,"manage.py","run_billing_worker","--once"],cwd=root,env=env,check=True,stdout=subprocess.DEVNULL)
+            page.reload()
+            expect(page.get_by_role("cell",name="Selesai",exact=False)).to_be_visible()
+            with sqlite3.connect(db_path) as db:
+                assert db.execute("SELECT COUNT(*) FROM core_invoice i JOIN core_customer c ON c.id=i.customer_id WHERE c.code='SCHEDULE-UI'").fetchone()[0]==1
+                assert db.execute("SELECT COUNT(*) FROM core_billingschedulerun").fetchone()[0]==1
+            page.get_by_label("Aktifkan penerbitan otomatis",exact=False).uncheck()
+            page.get_by_role("button",name="Tinjau jadwal",exact=True).click()
+            page.get_by_label("Saya menyetujui jadwal otomatis",exact=False).check()
+            page.get_by_role("button",name="Konfirmasi jadwal",exact=True).click()
+            page.wait_for_url(base+"/invoices/schedule/")
             page.goto(base + "/plans/new/")
             page.get_by_label("Nama paket", exact=False).fill("Paket browser fiktif")
             page.get_by_label("Kecepatan (Mbps)").fill("75")
@@ -173,6 +203,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             assert technician.request.get(hidden_ticket).status == 404
             assert technician.request.get(base + "/customers/").status == 403
             assert technician.request.get(base + "/invoices/1/pdf/").status == 403
+            assert technician.request.get(base + "/invoices/schedule/").status == 403
             assert technician.request.get(base+private_photo_url).status == 200
             assert technician.request.get(hidden_ticket+"photos/").status == 404
 
@@ -268,6 +299,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             portal = new_page(customer)
             login(portal, "pelanggan")
             portal.wait_for_url(base + "/portal/")
+            assert customer.request.get(base + "/invoices/schedule/").status == 403
             # One partial transaction, printable by its operator and owning portal account.
             with sqlite3.connect(db_path) as db:
                 receipt_invoice = db.execute("SELECT i.id FROM core_invoice i JOIN core_membership m "
@@ -577,6 +609,10 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             page.screenshot(path=str(evidence / "customer-import-completed.png"), full_page=True)
             for width in [360, 768, 1366, 1920]:
                 page.set_viewport_size({"width": width, "height": 1000})
+                page.goto(base+"/invoices/schedule/")
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width,"billing schedule")
+                if width==360:
+                    page.screenshot(path=str(evidence/"billing-schedule-mobile.png"),full_page=True)
                 for route in [ticket_photos.removeprefix(base), psb_photos.removeprefix(base), "/reports/billing/", "/reports/billing/?mode=invoices", "/reports/billing/?mode=receivables", filtered_customers, f"/customers/{mapped_customer}/edit/", "/plans/", "/plans/new/", package_edit, "/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/", "/customers/imports/", "/customers/imports/new/"]:
                     page.goto(base + route)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, route)
@@ -607,7 +643,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             subprocess.run([sys.executable, "scripts/verify_restore.py"], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
             assert failures == [], failures
             browser.close()
-        print("PASS: payment receipts/partial/words/PDF/private cache/portal owner scope/reversal/4 viewports; private normalized photos/customer scope/assigned scope/PSB/download headers/restore; billing reports/roll-forward/source SQL/CSV/scope/4 viewports; 7 customer tabs/permissions/ledger/scoped tickets/native links/scroll restoration; NAS mapping/due filters/export/return URL/payment/reversal; package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
+        print("PASS: monthly schedule/review/MFA/worker/restart/dedupe/disable/4 viewports/restore; payment receipts/partial/words/PDF/private cache/portal owner scope/reversal/4 viewports; private normalized photos/customer scope/assigned scope/PSB/download headers/restore; billing reports/roll-forward/source SQL/CSV/scope/4 viewports; 7 customer tabs/permissions/ledger/scoped tickets/native links/scroll restoration; NAS mapping/due filters/export/return URL/payment/reversal; package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
     finally:
         server.terminate()
         try:

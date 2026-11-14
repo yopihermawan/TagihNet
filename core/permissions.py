@@ -4,7 +4,7 @@ from django.core.exceptions import PermissionDenied
 from .models import Membership
 
 CAPABILITIES = {
-    "owner": {"billing_reports", "export_billing_reports", "manage_plans", "dashboard", "customers", "edit_customers", "import_customers", "invoices", "issue", "bulk_issue", "pay", "reverse", "network", "manage_monitoring", "settings", "audit", "export", "manage_access", "tickets", "installations", "activate_installations", "reminders"},
+    "owner": {"manage_billing_schedule", "billing_reports", "export_billing_reports", "manage_plans", "dashboard", "customers", "edit_customers", "import_customers", "invoices", "issue", "bulk_issue", "pay", "reverse", "network", "manage_monitoring", "settings", "audit", "export", "manage_access", "tickets", "installations", "activate_installations", "reminders"},
     "ops": {"dashboard", "customers", "edit_customers", "invoices", "issue", "export", "tickets", "installations"},
     "finance": {"billing_reports", "export_billing_reports", "dashboard", "customers", "invoices", "pay", "reverse", "export"},
     "cashier": {"dashboard", "invoices", "pay"},
@@ -14,6 +14,7 @@ CAPABILITIES = {
 }
 
 CAPABILITY_LABELS = {
+    "manage_billing_schedule": "Atur penerbitan faktur terjadwal",
     "billing_reports": "Lihat laporan penagihan", "export_billing_reports": "Ekspor laporan penagihan",
     "manage_plans": "Buat/ubah paket dan harga bulanan",
     "dashboard": "Lihat dashboard billing", "customers": "Lihat pelanggan",

@@ -234,6 +234,40 @@ class BillingBatch(models.Model):
         indexes = [models.Index(fields=["status", "created_at"], name="billing_batch_queue")]
 
 
+class BillingSchedule(models.Model):
+    tenant = models.OneToOneField(Tenant, on_delete=models.PROTECT)
+    enabled = models.BooleanField(default=False)
+    day = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(31)])
+    state = models.CharField(max_length=8, default="active", choices=[("active", "Aktif"), ("isolated", "Diisolir"), ("all", "Semua layanan")])
+    plan = models.ForeignKey(Plan, null=True, blank=True, on_delete=models.PROTECT)
+    area = models.CharField(max_length=80, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    authorized_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)
+    authorization_version = models.PositiveIntegerField(default=0)
+    mfa_revision = models.UUIDField(null=True, blank=True)
+    confirmation_key = models.UUIDField(null=True, blank=True, editable=False)
+    updated_at = models.DateTimeField(default=timezone.now)
+    checked_at = models.DateTimeField(null=True, blank=True)
+    reason = models.CharField(max_length=250, blank=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=Q(day__gte=1, day__lte=31), name="billing_schedule_day_range")]
+
+
+class BillingScheduleRun(models.Model):
+    schedule = models.ForeignKey(BillingSchedule, related_name="runs", on_delete=models.PROTECT)
+    period = models.DateField()
+    schedule_version = models.PositiveIntegerField()
+    batch = models.OneToOneField(BillingBatch, null=True, blank=True, on_delete=models.PROTECT, related_name="schedule_run")
+    created_at = models.DateTimeField(default=timezone.now)
+    selected = models.PositiveIntegerField(default=0)
+    total = models.PositiveBigIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-period", "-pk"]
+        constraints = [models.UniqueConstraint(fields=["schedule", "period"], name="one_scheduled_run_per_month")]
+
+
 class BillingBatchItem(models.Model):
     batch = models.ForeignKey(BillingBatch, related_name="items", on_delete=models.PROTECT)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT)

@@ -21,7 +21,7 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 | Upload/import validation | applicable | pass subset | CSV UTF-8 <=128 KiB/200 record, header/field/tenant/creator/review/MFA/atomic; raw CSV tidak diarsipkan; foto JPG/PNG kini decode/re-encode/metadata strip, private binary/tenant/assignment/CSRF, limit/kuota dan unduhan attachment sandbox |
 | CSV formula injection | applicable | pass | Prefix sel berisiko + tenant/permission export tests |
 | Payment webhook signature/freshness/order | not applicable | not applicable | Endpoint tidak tersedia, gateway belum diimplementasikan |
-| Ledger constraints/idempotency/reversal | applicable | pass lokal | Unique period/event, integer rupiah, partial/reject overpay; single/bulk race, approved snapshots, stale/expiry, queue/resume/cancel dan concurrency tests |
+| Ledger constraints/idempotency/reversal | applicable | pass lokal | Unique period/event, integer rupiah, partial/reject overpay; single/bulk/scheduler race, approved snapshots, policy consent/MFA revocation, stale/expiry, queue/resume/cancel dan concurrency tests |
 | Job race / consistency | applicable | simulated | Recheck debt, retry/backoff, failure preserves payment; lab nyata belum |
 | SSRF / router allowlist / network secrets | not applicable | not applicable | Tidak ada adapter network I/O atau URL-fetch publik |
 | Production secret storage/rotation | applicable | not tested | Secret env + key lokal 0600; MFA key terpisah, Fernet encrypted TOTP; vault/rotation belum |

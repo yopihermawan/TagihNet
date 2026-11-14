@@ -4,6 +4,7 @@ Sumber enforcement: `core/permissions.py`, `core/views.py:allowed_invoice`, dan 
 
 | Aksi | Owner | Operasional | Keuangan | Kasir | NOC | Pelanggan |
 | --- | --- | --- | --- | --- | --- | --- |
+| Atur/lihat jadwal otomatis ISP | Ya | Peran kustom diperlukan | Peran kustom diperlukan | Peran kustom diperlukan | Peran kustom diperlukan | Tidak |
 | Laporan penagihan / CSV laporan | Ya | Tidak | Ya | Tidak | Tidak | Tidak |
 | Dashboard billing | Ya | Ya | Ya | Ya | Tidak | Tidak |
 | Daftar/detail pelanggan | Ya | Ya | Ya | Tidak | Tidak | Milik sendiri lewat portal |
@@ -87,3 +88,7 @@ Workspace membutuhkan `customers`. Ringkasan, layanan/koneksi dan lokasi mengiku
 ## Foto pekerjaan — 14 November 2026 WIB
 
 Foto mengikuti akses tiket/PSB yang ada, termasuk assignment teknisi. Portal hanya foto publik tiket sendiri; internal tersembunyi dan unduh ditolak. Foto PSB selalu internal. Tidak ada izin baru untuk kasir/keuangan/NOC tanpa akses pekerjaan. Domain memeriksa ulang scope/versi akses pada penyimpanan dan endpoint memeriksa scope terkini pada unduhan. Lihat [WORK-PHOTOS](WORK-PHOTOS.md).
+
+## Jadwal bulanan
+
+Capability manage_billing_schedule tersedia default hanya untuk owner; role kustom juga membutuhkan bulk_issue, issue, invoices dan customers. Jadwal/riwayat dibatasi tenant membership; rincian batch tetap privat bagi pembuat. Review bertanda tangan + MFA <=5 menit, versi konfigurasi/sesi dan replay diperiksa. Worker memeriksa user aktif/izin/tenant/session_version/revisi MFA setiap siklus/baris; pencabutan menahan sisa pekerjaan. Mengubah/menonaktifkan jadwal membatalkan sisa batch jadwal, bukan faktur lama atau batch manual. Lihat [BILLING-SCHEDULER](BILLING-SCHEDULER.md).

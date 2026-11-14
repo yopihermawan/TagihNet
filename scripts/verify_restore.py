@@ -36,13 +36,17 @@ def reconcile(path):
         photos = db.execute("SELECT * FROM core_workphoto ORDER BY id").fetchall()
         photo_digest = hashlib.sha256(json.dumps(photos, default=lambda value: {"binary_hex": value.hex()} if isinstance(value, bytes) else str(value)).encode()).hexdigest()
         plans = db.execute("SELECT id,tenant_id,name,speed_mbps,price,version,creation_key FROM core_plan ORDER BY id").fetchall()
+        schedules = db.execute("SELECT * FROM core_billingschedule ORDER BY id").fetchall()
+        schedule_runs = db.execute("SELECT * FROM core_billingschedulerun ORDER BY id").fetchall()
         return {"customers": customers, "invoices": invoices, "invoiced_rupiah": total, "paid_rupiah": paid,
                 "receivable_rupiah": total-paid, "billing_batches": batches, "batch_states": batch_states, "batch_items": batch_items,
                 "ticket_states": ticket_states, "installation_states": installation_states, "work_events": work_events,
                 "reminder_states": reminder_states, "reminder_policies": reminder_policies,
                 "sla_cycles": sla_cycles, "installation_versions": installation_versions,
                 "monitor_devices": monitor_devices, "monitor_polls": monitor_polls,
-                "import_batches": import_batches, "import_rows": import_rows, "plans": plans, "customer_nas": customer_nas, "work_photo_count": len(photos), "work_photo_digest": photo_digest}
+                "import_batches": import_batches, "import_rows": import_rows, "plans": plans, "customer_nas": customer_nas,
+                "billing_schedules": schedules, "billing_schedule_runs": schedule_runs,
+                "work_photo_count": len(photos), "work_photo_digest": photo_digest}
 before = reconcile(data / "tagihnet.sqlite3")
 with tempfile.TemporaryDirectory(prefix="tagihnet-restore-") as directory:
     archive = Path(directory) / "backup.sqlite3"

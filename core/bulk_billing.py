@@ -129,6 +129,12 @@ def process_next(batch_id):
     batch = BillingBatch.objects.select_for_update(of=("self",)).select_related("created_by", "tenant").get(pk=batch_id)
     if batch.status not in {"queued", "processing"}:
         return False
+    from .billing_scheduler import batch_allowed
+    if not batch_allowed(batch):
+        batch.status, batch.reason = "blocked", "Jadwal atau persetujuan akses/MFA berubah. Tinjau sisa pekerjaan."
+        batch.save(update_fields=["status", "reason"])
+        audit(batch.tenant, None, "billing.blocked", batch.pk, batch.reason, batch.correlation_id)
+        return False
     try:
         authorized(batch.created_by, batch.tenant_id, batch.authorization_version)
     except (PermissionDenied, Membership.DoesNotExist):

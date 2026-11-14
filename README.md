@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-payment-receipts` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-billing-scheduler` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Yang bisa digunakan
 
@@ -12,6 +12,7 @@ TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terki
 - Dua ISP fiktif dengan pembatasan tenant dari akun yang terautentikasi; preset owner, operasional, keuangan, kasir, NOC, dan pelanggan.
 - MFA wajib untuk operator: QR TOTP lokal, secret terenkripsi, kode pemulihan sekali pakai, pencegahan replay, dan verifikasi ulang aksi sensitif.
 - Editor akun/peran kustom untuk owner, perlindungan pemilik terakhir, pembatasan tenant, dan pencabutan sesi saat akses berubah.
+- [Jadwal penagihan bulanan](docs/BILLING-SCHEDULER.md): opt-in/review/MFA, kalender WIB/akhir bulan, snapshot otomatis, worker yang dapat dilanjutkan, deduplikasi dan pencabutan persetujuan; hanya simulasi.
 - [Kuitansi pembayaran](docs/PAYMENT-RECEIPTS.md): HTML/PDF A4 per transaksi, terbilang, pembayaran sebagian, status reversal dan akses portal sendiri; seluruhnya simulasi.
 - [Laporan penagihan](docs/BILLING-REPORTS.md): rentang WIB, tanggal pembayaran/reversal terpisah, saldo historis, rekonsiliasi, snapshot baca konsisten dan CSV.
 - Dashboard yang menghitung data dari ledger, disertai definisi metrik, periode, cakupan, serta waktu pembaruan WIB.

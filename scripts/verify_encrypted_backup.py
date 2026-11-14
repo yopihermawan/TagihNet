@@ -60,6 +60,11 @@ from core.work_photos import upload_photo
 from core.tests.photo_helpers import photo_upload
 ticket = create_ticket(owners[0], customers[0].pk, "Restore photo fixture", "Private restore evidence", "connection")
 upload_photo(owners[0], ticket.pk, photo_upload(), "Encrypted photo fixture", True, ticket.version, uuid.uuid4(), 1)
+import time
+from core.billing_scheduler import review_change, confirm_change, run_schedule
+token, _ = review_change(owners[0], {"enabled":True,"day":1,"state":"active","plan":None,"area":""}, 0)
+schedule = confirm_change(owners[0], token, time.time(), 1)
+assert run_schedule(schedule.pk) is not None
 
 '''
     run("manage.py", "shell", "-c", fixture, env=env)
@@ -124,6 +129,10 @@ photo = WorkPhoto.objects.get()
 response = client.get(f"/operations/photos/{photo.pk}/download/")
 assert response.status_code == 200 and hashlib.sha256(response.content).hexdigest() == photo.checksum
 assert "sandbox" in response["Content-Security-Policy"]
+from core.models import BillingSchedule, BillingScheduleRun
+assert BillingSchedule.objects.get().enabled
+assert BillingScheduleRun.objects.get().batch.status == "queued"
+assert client.get("/invoices/schedule/").status_code == 200
 
 '''
     run("manage.py", "shell", "-c", authenticate, env=restored_env)
