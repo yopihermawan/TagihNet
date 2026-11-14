@@ -99,3 +99,7 @@ EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = os.getenv("TAGIHNET_FROM_EMAIL", "TagihNet <noreply@example.invalid>")
 DATA_UPLOAD_MAX_MEMORY_SIZE = 262144
 FILE_UPLOAD_MAX_MEMORY_SIZE = 262144
+
+# Keep all upload bodies bounded in memory; private work photos never use MEDIA/static paths.
+FILE_UPLOAD_HANDLERS = ["core.uploads.BoundedMemoryUploadHandler"]
+DATA_UPLOAD_MAX_NUMBER_FILES = 1

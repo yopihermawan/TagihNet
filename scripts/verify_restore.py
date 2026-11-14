@@ -1,4 +1,5 @@
 """Restore drill in an empty temporary directory; never overwrites live data."""
+import hashlib
 import json
 import os
 import sqlite3
@@ -32,6 +33,8 @@ def reconcile(path):
         import_batches = db.execute("SELECT id,tenant_id,created_by_id,status,fingerprint,authorization_version FROM core_customerimportbatch ORDER BY id").fetchall()
         import_rows = db.execute("SELECT id,batch_id,row_number,status,data,plan_snapshot,error,customer_id FROM core_customerimportrow ORDER BY id").fetchall()
         customer_nas = db.execute("SELECT id,tenant_id,nas_id FROM core_customer ORDER BY id").fetchall()
+        photos = db.execute("SELECT * FROM core_workphoto ORDER BY id").fetchall()
+        photo_digest = hashlib.sha256(json.dumps(photos, default=lambda value: {"binary_hex": value.hex()} if isinstance(value, bytes) else str(value)).encode()).hexdigest()
         plans = db.execute("SELECT id,tenant_id,name,speed_mbps,price,version,creation_key FROM core_plan ORDER BY id").fetchall()
         return {"customers": customers, "invoices": invoices, "invoiced_rupiah": total, "paid_rupiah": paid,
                 "receivable_rupiah": total-paid, "billing_batches": batches, "batch_states": batch_states, "batch_items": batch_items,
@@ -39,7 +42,7 @@ def reconcile(path):
                 "reminder_states": reminder_states, "reminder_policies": reminder_policies,
                 "sla_cycles": sla_cycles, "installation_versions": installation_versions,
                 "monitor_devices": monitor_devices, "monitor_polls": monitor_polls,
-                "import_batches": import_batches, "import_rows": import_rows, "plans": plans, "customer_nas": customer_nas}
+                "import_batches": import_batches, "import_rows": import_rows, "plans": plans, "customer_nas": customer_nas, "work_photo_count": len(photos), "work_photo_digest": photo_digest}
 before = reconcile(data / "tagihnet.sqlite3")
 with tempfile.TemporaryDirectory(prefix="tagihnet-restore-") as directory:
     archive = Path(directory) / "backup.sqlite3"

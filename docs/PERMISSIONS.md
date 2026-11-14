@@ -81,3 +81,8 @@ Workspace membutuhkan `customers`. Ringkasan, layanan/koneksi dan lokasi mengiku
 ## Laporan penagihan — 14 November 2026 WIB
 
 `billing_reports` memerlukan `invoices`; `export_billing_reports` memerlukan keduanya. Owner dan Keuangan preset memperoleh baca/ekspor. Role kustom tidak otomatis mengikuti tambahan preset. Domain memeriksa ulang aktor aktif dan izin, data dibatasi tenant membership, input tenant di URL tidak mengubah scope. Endpoint baca/ekspor hanya GET; ekspor berhasil menambah audit dan tidak memerlukan izin ekspor pelanggan. Lihat [BILLING-REPORTS](BILLING-REPORTS.md).
+
+
+## Foto pekerjaan — 14 November 2026 WIB
+
+Foto mengikuti akses tiket/PSB yang ada, termasuk assignment teknisi. Portal hanya foto publik tiket sendiri; internal tersembunyi dan unduh ditolak. Foto PSB selalu internal. Tidak ada izin baru untuk kasir/keuangan/NOC tanpa akses pekerjaan. Domain memeriksa ulang scope/versi akses pada penyimpanan dan endpoint memeriksa scope terkini pada unduhan. Lihat [WORK-PHOTOS](WORK-PHOTOS.md).

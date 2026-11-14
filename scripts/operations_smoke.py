@@ -1,6 +1,8 @@
 """Owner -> technician -> portal workflow on a temporary database/server only."""
 import csv
 import io
+import uuid
+from PIL import Image
 import os
 import socket
 import sqlite3
@@ -139,6 +141,28 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             page.get_by_label("Catatan internal").check()
             page.get_by_role("button", name="Kirim komentar", exact=True).click()
             expect(page.get_by_text("Catatan internal demo: rencana pemeriksaan jalur.", exact=True)).to_be_visible()
+            # Verified photos stay private in the temporary database and follow work visibility.
+            photo_buffer = io.BytesIO(); Image.new("RGB", (24, 18), "#13796b").save(photo_buffer, format="PNG")
+            photo_source = photo_buffer.getvalue()
+            ticket_photos = ticket_url+"photos/"
+            def attach_photo(current, caption, internal=None):
+                current.get_by_label("Keterangan foto", exact=False).fill(caption)
+                current.get_by_label("Foto JPG/PNG", exact=False).set_input_files({"name": "bukti.png", "mimeType": "image/png", "buffer": photo_source})
+                if internal is not None:
+                    current.get_by_label("Internal ·", exact=False).set_checked(internal)
+                current.get_by_role("button", name="Simpan foto", exact=True).click()
+                expect(current.get_by_text(caption, exact=True)).to_be_visible()
+            page.goto(ticket_photos)
+            attach_photo(page, "Foto internal jalur fiktif", True)
+            private_photo_url = page.get_by_role("link", name="Unduh foto Foto internal jalur fiktif", exact=True).get_attribute('href')
+            attach_photo(page, "Foto publik jalur fiktif", False)
+            public_photo_url = page.get_by_role("link", name="Unduh foto Foto publik jalur fiktif", exact=True).get_attribute('href')
+            photo_response = owner.request.get(base+public_photo_url)
+            assert photo_response.ok and photo_response.headers['content-type']=='image/png'
+            assert 'attachment;' in photo_response.headers['content-disposition'] and 'sandbox' in photo_response.headers['content-security-policy']
+            assert photo_response.body().startswith(b'\x89PNG')
+            page.screenshot(path=str(evidence / "work-photos-owner-desktop.png"), full_page=True)
+            page.goto(ticket_url)
             hidden_ticket = create_ticket("Tiket tanpa penugasan teknisi", False)
             technician = browser.new_context(viewport={"width": 1366, "height": 1000})
             field = new_page(technician)
@@ -149,6 +173,9 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             assert technician.request.get(hidden_ticket).status == 404
             assert technician.request.get(base + "/customers/").status == 403
             assert technician.request.get(base + "/invoices/1/pdf/").status == 403
+            assert technician.request.get(base+private_photo_url).status == 200
+            assert technician.request.get(hidden_ticket+"photos/").status == 404
+
             field.goto(ticket_url)
             field.get_by_label("Status berikutnya").select_option("in_progress")
             field.get_by_label("Catatan penanganan").fill("Teknisi mulai memeriksa jalur pelanggan.")
@@ -230,11 +257,25 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             page.reload()
             expect(page.get_by_text("Status layanan: Aktif (simulasi).", exact=False)).to_be_visible()
             page.screenshot(path=str(evidence / "psb-activated-desktop.png"), full_page=True)
+            psb_photos = order_url+"photos/"
+            page.goto(psb_photos)
+            attach_photo(page, "Foto pemasangan internal fiktif")
+            psb_photo_url = page.get_by_role("link", name="Unduh foto Foto pemasangan internal fiktif", exact=True).get_attribute('href')
+            page.goto(order_url)
+
 
             customer = browser.new_context(viewport={"width": 360, "height": 900})
             portal = new_page(customer)
             login(portal, "pelanggan")
             portal.wait_for_url(base + "/portal/")
+            portal.goto(ticket_photos)
+            expect(portal.get_by_text("Foto publik jalur fiktif", exact=True)).to_be_visible()
+            expect(portal.get_by_text("Foto internal jalur fiktif", exact=True)).to_have_count(0)
+            assert customer.request.get(base+private_photo_url).status == 404
+            assert customer.request.get(base+psb_photo_url).status == 404
+            assert customer.request.get(base+public_photo_url).status == 200
+            attach_photo(portal, "Foto pelanggan fiktif")
+            portal.screenshot(path=str(evidence / "work-photos-customer-mobile.png"), full_page=True)
             portal.goto(ticket_url)
             expect(portal.get_by_text("Catatan internal demo: rencana pemeriksaan jalur.", exact=True)).to_have_count(0)
             expect(portal.get_by_label("Catatan internal")).to_have_count(0)
@@ -500,7 +541,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             page.screenshot(path=str(evidence / "customer-import-completed.png"), full_page=True)
             for width in [360, 768, 1366, 1920]:
                 page.set_viewport_size({"width": width, "height": 1000})
-                for route in ["/reports/billing/", "/reports/billing/?mode=invoices", "/reports/billing/?mode=receivables", filtered_customers, f"/customers/{mapped_customer}/edit/", "/plans/", "/plans/new/", package_edit, "/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/", "/customers/imports/", "/customers/imports/new/"]:
+                for route in [ticket_photos.removeprefix(base), psb_photos.removeprefix(base), "/reports/billing/", "/reports/billing/?mode=invoices", "/reports/billing/?mode=receivables", filtered_customers, f"/customers/{mapped_customer}/edit/", "/plans/", "/plans/new/", package_edit, "/operations/tickets/", "/operations/installations/", "/operations/tickets/new/", "/operations/installations/new/", "/operations/sla/", "/operations/reminders/", "/operations/reminders/settings/", "/network/monitoring/", "/network/monitoring/new/", monitor_url.removeprefix(base)+"edit/", "/customers/imports/", "/customers/imports/new/"]:
                     page.goto(base + route)
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, route)
                 for tab in profile_tabs.values():
@@ -530,7 +571,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             subprocess.run([sys.executable, "scripts/verify_restore.py"], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
             assert failures == [], failures
             browser.close()
-        print("PASS: billing reports/roll-forward/source SQL/CSV/scope/4 viewports; 7 customer tabs/permissions/ledger/scoped tickets/native links/scroll restoration; NAS mapping/due filters/export/return URL/payment/reversal; package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
+        print("PASS: private normalized photos/customer scope/assigned scope/PSB/download headers/restore; billing reports/roll-forward/source SQL/CSV/scope/4 viewports; 7 customer tabs/permissions/ledger/scoped tickets/native links/scroll restoration; NAS mapping/due filters/export/return URL/payment/reversal; package create/review/confirm/replay/pricing/unchanged ledger/scope; owner/technician/customer ticket lifecycle, private-note isolation, assigned scope, PSB progression, signed activation/replay, single customer/invoice/job, simulated provisioning, PSB edit/reschedule/reset, opt-in reminders, dedupe, payment recheck, private SLA receipt, NAS opt-in/collection/dedupe/failure/stale/true-zero, NOC scope, CSV invalid/preview/atomic-confirm/replay/pending/permission, 4 viewports, restore state; no MFA factors in evidence.")
     finally:
         server.terminate()
         try:

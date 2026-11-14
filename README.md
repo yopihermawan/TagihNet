@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositori awal tidak memiliki commit atau branch `main`. Fondasi berada di `feature/tagihnet-foundation`; checkpoint `feature/tagihnet-access-security` menambahkan MFA/editor akses; `feature/tagihnet-bulk-billing` menambahkan penerbitan massal, dan `feature/tagihnet-operations` menambahkan tiket/PSB dengan scope teknisi. Checkpoint `feature/tagihnet-reminders-rescheduling` menambah edit/jadwal ulang PSB dan pengingat simulasi opt-in. Checkpoint `feature/tagihnet-network-monitoring` menambah monitoring NAS dan snapshot sesi contoh. Checkpoint `feature/tagihnet-postgresql-hardening` menambah backend PostgreSQL opsional dan pengujian transaksi lintas proses. Checkpoint `feature/tagihnet-customer-import` menambah impor CSV pelanggan dengan pratinjau dan konfirmasi atomik. Checkpoint `feature/tagihnet-encrypted-backups` menambah backup AES-256-GCM dan restore terverifikasi untuk SQLite/PostgreSQL. Checkpoint `feature/tagihnet-plan-management` menambah pengelolaan paket/harga dengan tinjauan dan konfirmasi MFA. Checkpoint `feature/tagihnet-customer-filters` menambah pemetaan NAS administratif dan filter jatuh tempo berbasis ledger. Checkpoint `feature/tagihnet-customer-workspace` menambah detail pelanggan bertab dengan pembatasan izin, histori pembayaran dan posisi kembali daftar. Checkpoint `feature/tagihnet-billing-reports` menambah laporan penerimaan/koreksi dan piutang historis dengan rekonsiliasi serta CSV berizin. Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-private-work-photos` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Yang bisa digunakan
 
@@ -24,6 +24,7 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.
 - Antrean rekonsiliasi jaringan **simulasi** dengan pengecekan ulang tunggakan, backoff, dan maksimal tiga percobaan. Pembayaran tetap tercatat bila adapter gagal.
 - Monitoring NAS simulasi: snapshot sesi PPPoE contoh, waktu sumber, status segar/kedaluwarsa/gagal, ringkasan dengan cakupan, dan histori tanpa angka nol palsu.
+- [Foto privat pekerjaan](docs/WORK-PHOTOS.md): JPG/PNG terverifikasi, metadata dihapus, scope penugasan/portal/internal, unduhan berizin dan backup database mencakup binary.
 - Tiket gangguan/portal, prioritas/kategori/SLA snapshot, komentar publik/internal, penugasan dan timeline.
 - PSB prospek → terpasang → aktivasi berizin/MFA, satu pelanggan/faktur awal/provisioning job, dengan status jaringan terpisah.
 - Edit identitas/paket PSB sebelum Pengerjaan serta jadwal ulang beralasan, dengan versi dan riwayat sebelum/sesudah.
@@ -32,7 +33,7 @@ Proyek baru ini dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Repositor
 - Backup CLI terenkripsi dengan kunci terpisah, autentikasi arsip, penolakan target berisi data, serta restore drill ledger dan MFA.
 - Mode terang/gelap, navigasi mobile, fallback peta eksternal, dan jejak audit.
 
-[FEATURE-MATRIX](docs/FEATURE-MATRIX.md) merinci fungsi yang selesai, terbatas, dan belum dibuat. Gateway pembayaran, MikroTik/RADIUS nyata, scope wilayah geografis, lampiran/kanal notifikasi nyata, hotspot, payroll, dan migrasi produksi belum tersedia. Tidak ada menu palsu untuk modul tersebut.
+[FEATURE-MATRIX](docs/FEATURE-MATRIX.md) merinci fungsi yang selesai, terbatas, dan belum dibuat. Gateway pembayaran, MikroTik/RADIUS nyata, scope wilayah geografis, lampiran selain foto/kanal notifikasi nyata, hotspot, payroll, dan migrasi produksi belum tersedia. Tidak ada menu palsu untuk modul tersebut.
 
 ## Stack dan struktur
 

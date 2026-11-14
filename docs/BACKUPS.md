@@ -94,3 +94,8 @@ Tanpa --key-file, ini **SQLite tanpa enkripsi** dan output menyatakannya. Mode t
 20 tes baru (245 pada tiap backend) mencakup key/format/tamper/limit/stream/atomic publication/target rejection. Drill SQLite memeriksa semua tabel, restore MFA dan replay. Verifier PG mempertahankan 10 race proses, menambah encrypted restore dengan rekonsiliasi semua tabel/MFA payload, wrong-key/source/occupied target rejection serta authenticated envelope berisi dump invalid yang tidak meninggalkan objek publik. Semua fixture/database/key temporary dibersihkan; akun demo pengguna tidak diubah.
 
 CLI dan hard-link publication diuji pada Linux/POSIX; Windows/full application Docker runtime belum diverifikasi. Tidak ada scheduler/offsite upload, vault/rotasi otomatis, retensi, PITR/failover, RPO/RTO produksi atau klaim production-ready. Snapshot cloud tidak menjamin volume Docker atau pemisahan key/archive. Hasil lokal dan CI yang baru didaftarkan dijelaskan di [TEST-REPORT](TEST-REPORT.md).
+
+
+## Binary foto pekerjaan — 14 November 2026 WIB
+
+Schema0010 menyimpan foto yang dinormalisasi di WorkPhoto.content (SQLite BLOB/PostgreSQL bytea), bukan folder media. Backup database mencakup metadata dan binary tanpa jalur file eksternal. Verifier SQLite menghitung digest payload binary tanpa mencetak byte; encrypted SQLite/MFA drill memulihkan foto dan mengunduhnya setelah autentikasi. PG verifier mencakup20 foto hasil race/kuota sebelum dump/restore biasa/terenkripsi. Arsip development schema0010 baru `data/backups/encrypted/TagihNet-20261114-work-photos.tnbk` diverifikasi dan dipulihkan sementara; default demo tidak berisi foto. Batas arsip1 GiB tetap berlaku dan kapasitas/offsite/retensi produksi belum diuji. Lihat [WORK-PHOTOS](WORK-PHOTOS.md).

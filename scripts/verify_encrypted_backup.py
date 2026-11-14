@@ -20,7 +20,7 @@ def fingerprint(path):
         for table in tables:
             quoted = '"'+table.replace('"', '""')+'"'
             rows = connection.execute(f"SELECT * FROM {quoted} ORDER BY rowid").fetchall()
-            result[table] = (len(rows), hashlib.sha256(json.dumps(rows).encode()).hexdigest())
+            result[table] = (len(rows), hashlib.sha256(json.dumps(rows, default=lambda value: {"binary_hex": value.hex()} if isinstance(value, bytes) else str(value)).encode()).hexdigest())
         return result
 
 
@@ -55,6 +55,12 @@ invoice, _ = issue_invoice(tenants[0], customers[0].pk, date(2026, 10, 1), owner
 record_payment(tenants[0], invoice.pk, 100000, uuid.uuid4(), owners[0])
 recovery = hashlib.sha256(b"tagihnet-isolated-drill-only").hexdigest()[:32]
 MFADevice.objects.create(user=owners[0], encrypted_secret=encrypt_secret(TEST_TOTP_SECRET), recovery_hashes=[recovery_digest(recovery)])
+from core.operations import create_ticket
+from core.work_photos import upload_photo
+from core.tests.photo_helpers import photo_upload
+ticket = create_ticket(owners[0], customers[0].pk, "Restore photo fixture", "Private restore evidence", "connection")
+upload_photo(owners[0], ticket.pk, photo_upload(), "Encrypted photo fixture", True, ticket.version, uuid.uuid4(), 1)
+
 '''
     run("manage.py", "shell", "-c", fixture, env=env)
     before = fingerprint(source/"tagihnet.sqlite3")
@@ -113,8 +119,14 @@ assert not verify_factor(user, code)
 recovery = hashlib.sha256(b"tagihnet-isolated-drill-only").hexdigest()[:32]
 assert verify_factor(user, recovery) and not verify_factor(user, recovery)
 assert Invoice.objects.get().balance == 149750
+from core.models import WorkPhoto
+photo = WorkPhoto.objects.get()
+response = client.get(f"/operations/photos/{photo.pk}/download/")
+assert response.status_code == 200 and hashlib.sha256(response.content).hexdigest() == photo.checksum
+assert "sandbox" in response["Content-Security-Policy"]
+
 '''
     run("manage.py", "shell", "-c", authenticate, env=restored_env)
     assert fingerprint(source/"tagihnet.sqlite3") == before
-    print("PASS: restored password + TOTP login with CSRF, OTP/recovery replay rejected, balance reconciles; wrong MFA key fails independently.", flush=True)
+    print("PASS: restored password + TOTP login with CSRF, OTP/recovery replay rejected, balance and authorized photo download reconcile; wrong MFA key fails independently.", flush=True)
 print("PASS: temporary source/restored databases, plaintext staging, keys and archive cleaned; user demo untouched.")

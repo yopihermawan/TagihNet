@@ -62,6 +62,11 @@ def child(data):
         if case == "activation":
             return activate_installation(actor, data["order"], date.fromisoformat(data["period"]),
                 data["fingerprint"], time.time(), 1).customer_id
+        if case == "photo":
+            from core.work_photos import upload_photo
+            from core.tests.photo_helpers import photo_upload
+            return str(upload_photo(actor, data["ticket"], photo_upload(), "Foto proses paralel", True,
+                1, uuid.UUID(data["key"]), 1).pk)
         if case == "plan_change":
             from core.plans import confirm_change
             return confirm_change(actor, data["token"], time.time(), 1).pk
@@ -344,6 +349,20 @@ def verify():
         refreshed = BillingReport(actor, report_day.replace(day=1), report_day).summary()
         assert refreshed["received"] == initial["received"]+1234 and refreshed["reconciles"]
         print("PASS: repeatable read-only report snapshot across 2 committing payment processes; next read includes payment", flush=True)
+        from core.models import WorkPhoto
+        from core.operations import create_ticket
+        from core.work_photos import upload_photo
+        from core.tests.photo_helpers import photo_upload
+        photo_ticket = create_ticket(actor, customer.pk, "Photo process fixture", "Private work evidence", "connection")
+        results = parallel("photo", {**common, "ticket": photo_ticket.pk, "key": str(uuid.uuid4())})
+        assert results[0]["ok"] == results[1]["ok"] and WorkPhoto.objects.filter(ticket=photo_ticket).count() == 1
+        print("PASS: 2 processes, same photo request -> 1 binary/photo/timeline", flush=True)
+        for index in range(18):
+            upload_photo(actor, photo_ticket.pk, photo_upload(), f"Existing slot {index}", True, 1, uuid.uuid4(), 1)
+        results = parallel("photo", {**common, "ticket": photo_ticket.pk}, [{"key": str(uuid.uuid4())} for _ in range(2)])
+        assert sum("ok" in result for result in results) == 1 and sum("rejected" in result for result in results) == 1
+        assert WorkPhoto.objects.filter(ticket=photo_ticket).count() == 20
+        print("PASS: 2 processes, final photo slot -> 1 accepted, 1 quota rejection; no overflow", flush=True)
         # Include a non-null mapping in the whole-database restore fingerprint.
         from core.forms import CustomerForm
         from core.models import MonitoringDevice

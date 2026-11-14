@@ -374,6 +374,41 @@ class WorkEvent(models.Model):
         ]
 
 
+class WorkPhoto(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
+    ticket = models.ForeignKey(Ticket, null=True, blank=True, on_delete=models.PROTECT, related_name="photos")
+    installation = models.ForeignKey(Installation, null=True, blank=True, on_delete=models.PROTECT, related_name="photos")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    request_key = models.UUIDField()
+    caption = models.CharField(max_length=200)
+    internal = models.BooleanField(default=True)
+    media_type = models.CharField(max_length=16, choices=[("image/jpeg", "JPEG"), ("image/png", "PNG")])
+    content = models.BinaryField(max_length=2097152)
+    byte_size = models.PositiveIntegerField(validators=[MinValueValidator(1), MaxValueValidator(2097152)])
+    width = models.PositiveIntegerField(validators=[MinValueValidator(1), MaxValueValidator(4096)])
+    height = models.PositiveIntegerField(validators=[MinValueValidator(1), MaxValueValidator(4096)])
+    source_sha256 = models.CharField(max_length=64)
+    checksum = models.CharField(max_length=64)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "created_by", "request_key"], name="photo_request_per_creator"),
+            models.CheckConstraint(condition=(Q(ticket__isnull=False, installation__isnull=True)
+                | Q(ticket__isnull=True, installation__isnull=False, internal=True)), name="one_private_photo_target"),
+            models.CheckConstraint(condition=Q(byte_size__gte=1, byte_size__lte=2097152), name="photo_size_bounded"),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.ticket_id and not Ticket.objects.filter(pk=self.ticket_id, tenant_id=self.tenant_id).exists():
+            raise ValidationError("Tiket foto harus berada pada ISP yang sama.")
+        if self.installation_id and not Installation.objects.filter(pk=self.installation_id, tenant_id=self.tenant_id).exists():
+            raise ValidationError("PSB foto harus berada pada ISP yang sama.")
+
+
 class ReminderPolicy(models.Model):
     tenant = models.OneToOneField(Tenant, on_delete=models.PROTECT)
     billing_enabled = models.BooleanField(default=False)

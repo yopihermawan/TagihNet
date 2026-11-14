@@ -3,6 +3,7 @@ from django.urls import path
 from core import customer_import_views as customer_import
 from core import plan_views as plans
 from core import report_views as reports
+from core import photo_views as photos
 from core import views
 from core import security_views as security
 from core import bulk_views as bulk
@@ -11,6 +12,9 @@ from core import reminder_views as reminders
 from core import monitoring_views as monitoring
 
 urlpatterns = [
+    path("operations/tickets/<int:pk>/photos/", photos.photo_list, name="ticket_photos"),
+    path("operations/installations/<int:pk>/photos/", photos.photo_list, {"installation": True}, name="installation_photos"),
+    path("operations/photos/<uuid:photo_id>/download/", photos.photo_download, name="work_photo_download"),
     path("reports/billing/", reports.billing_report, name="billing_report"),
     path("reports/billing/export.csv", reports.billing_report_export, name="billing_report_export"),
     path("plans/", plans.plan_list, name="plan_list"),

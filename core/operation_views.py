@@ -84,7 +84,7 @@ def ticket_create(request):
             messages.success(request, "Tiket tersimpan. Target SLA menggunakan kebijakan saat tiket dibuat.")
             return redirect("ticket_detail", pk=ticket.pk)
     return render(request, "core/form.html", {"form": form, "title": "Buat tiket gangguan", "submit_label": "Buat tiket",
-        "back": "/operations/tickets/", "description": "Jelaskan kendala dan layanan yang terdampak. Lampiran belum tersedia pada tahap ini."})
+        "back": "/operations/tickets/", "description": "Jelaskan kendala dan layanan yang terdampak. Foto dapat ditambahkan setelah tiket tersimpan."})
 
 
 def ticket_response(request, ticket, comment_form=None, status_form=None, status=200):

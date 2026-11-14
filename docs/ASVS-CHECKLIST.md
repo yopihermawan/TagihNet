@@ -18,7 +18,7 @@ Rujukan rilis: [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.
 | Privilege escalation / last owner | applicable | pass lokal | Owner-only editor, custom-cap allowlist/dependency, last-owner demotion/deactivation dan race, role changes revoke sessions |
 | Validation/SQL injection/output encoding | applicable | pass subset | ORM parameterized, form limit/allowlist, markup footer test; fuzzing lengkap belum |
 | PDF sandbox / resource fetch | applicable | pass desain + tes | ReportLab teks lokal; tidak ada file/URL fetch atau HTML browser |
-| Upload/import validation | applicable | pass subset | CSV UTF-8 <=128 KiB/200 record, header/field/tenant/creator/review/MFA/atomic; raw file tidak diarsipkan; lampiran biner belum tersedia |
+| Upload/import validation | applicable | pass subset | CSV UTF-8 <=128 KiB/200 record, header/field/tenant/creator/review/MFA/atomic; raw CSV tidak diarsipkan; foto JPG/PNG kini decode/re-encode/metadata strip, private binary/tenant/assignment/CSRF, limit/kuota dan unduhan attachment sandbox |
 | CSV formula injection | applicable | pass | Prefix sel berisiko + tenant/permission export tests |
 | Payment webhook signature/freshness/order | not applicable | not applicable | Endpoint tidak tersedia, gateway belum diimplementasikan |
 | Ledger constraints/idempotency/reversal | applicable | pass lokal | Unique period/event, integer rupiah, partial/reject overpay; single/bulk race, approved snapshots, stale/expiry, queue/resume/cancel dan concurrency tests |
@@ -49,3 +49,6 @@ Checkpoint PostgreSQL: 195 tes pada tiap backend, delapan race dua proses dan pg
 Checkpoint impor menambah 30 tes (225 pada tiap backend) dan dua race proses PG (10 total). Upload CSV kini applicable dengan parser/limit/input allowlist dan private preview/report, revalidasi/MFA/CSRF serta rollback atomic; formula-safe CSV dan plaintext diuji. Constraint case-insensitive plus preflight migrasi diuji tanpa normalisasi destruktif data lama. Retensi/enkripsi PII dan kontrol file biner tidak dinyatakan selesai.
 
 Checkpoint backup menambah20 tes (245 tiap backend), encrypted SQLite/PG restore dan MFA login/replay drill. AEAD/nonce/AAD, format/limit, wrong key/tamper, no-clobber, private staging dan PG empty-target/single-transaction diuji lokal. Kunci terpisah dipulihkan manual pada fixture. Belum membuktikan pengelolaan vault/rotasi produksi, secure erase/crash cleanup, offsite/PITR/RPO/RTO atau kepatuhan ASVS L2 penuh.
+
+
+Checkpoint foto14 November menambah30 tes (382 per backend),15 skenario proses PG dan restore binary. Unggahan raster kini applicable: satu file2MiB/12MP, metadata dibatasi/dihapus, akses internal/portal/teknisi, byte guard tanpa spool disk, kuota serial, replay dan unduhan privat/integritas. PyPI version metadata14 runtime/PG dicek tanpa advisory aktif tercantum. Format umum/malware/retensi/kapasitas produksi belum selesai; bukan sertifikasi ASVS.

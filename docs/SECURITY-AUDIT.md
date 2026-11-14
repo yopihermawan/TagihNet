@@ -1,10 +1,10 @@
-# Audit keamanan TagihNet — 1 November 2026
+# Audit keamanan TagihNet — 14 November 2026
 
 Lingkungan: lokal Linux, Python 3.12.14, Django 5.2.18, SQLite, Chromium; semua data fiktif. Audit hanya pada kode TagihNet yang ditulis untuk checkpoint ini. Observasi KelolaNet dalam brief adalah referensi UI, bukan temuan teknis terkonfirmasi. Checkpoint kini mencakup MFA/editor akses dan penerbitan massal dengan persetujuan snapshot. Tidak ada sertifikasi ASVS atau klaim production-ready.
 
 ## Model ancaman dan batas kepercayaan
 
-Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengaturan billing, serta antrean perubahan layanan. Ancaman prioritas: pembacaan lintas ISP/IDOR, kasir menaikkan privilege, manipulasi nominal browser, payment replay, XSS footer, CSV formula injection, serta indikator router palsu. Internet, input browser, dan ID pada URL tidak dipercaya. Administrator database/host masih berada dalam batas kepercayaan. Unggahan hanya CSV pelanggan terbatasi. Tidak ada koneksi router/gateway, upload lampiran biner, atau URL-fetch API pada implementasi ini.
+Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengaturan billing, serta antrean perubahan layanan. Ancaman prioritas: pembacaan lintas ISP/IDOR, kasir menaikkan privilege, manipulasi nominal browser, payment replay, XSS footer, CSV formula injection, serta indikator router palsu. Internet, input browser, dan ID pada URL tidak dipercaya. Administrator database/host masih berada dalam batas kepercayaan. Unggahan mencakup CSV pelanggan terbatasi dan foto JPG/PNG pekerjaan yang diverifikasi/dinormalisasi serta disimpan sebagai binary privat. Tidak ada koneksi router/gateway atau URL-fetch API. Lampiran umum selain foto belum diterima.
 
 ## Kontrol yang diverifikasi
 
@@ -41,7 +41,7 @@ Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengatur
 | TGN-P05 | Sedang | Akun demo lokal tersedia dengan password yang didokumentasikan; seed dibatasi development. Dilarang mempublikasikan database seed sebagai layanan produksi |
 | TGN-P06 | Belum dinilai | TLS end-to-end, SMTP produksi, provisioning/rotation secret, Docker runtime, penetrasi aplikasi, dan beban belum diuji. Tidak ada klaim lulus untuk kontrol tersebut |
 
-Gateway/webhook signature, SSRF pada router, kredensial RADIUS, upload lampiran biner/malware, dan autentikasi realtime: **belum applicable pada kode aktif**, karena endpoint/adapternya tidak tersedia. Kontrol tersebut wajib dievaluasi ketika modul ditambahkan; jangan mengartikan ketiadaan implementasi sebagai lulus integrasi.
+Gateway/webhook signature, SSRF pada router, kredensial RADIUS, lampiran umum selain raster/malware scanner, dan autentikasi realtime: **belum applicable pada kode aktif**, karena endpoint/adapternya tidak tersedia. Kontrol tersebut wajib dievaluasi ketika modul ditambahkan; jangan mengartikan ketiadaan implementasi sebagai lulus integrasi.
 
 Audit ini tidak memperbaiki seluruh target ASVS L2. [ASVS-CHECKLIST](ASVS-CHECKLIST.md) adalah daftar subset kontrol yang relevan dan status bukti, bukan checklist lengkap standar.
 
@@ -61,7 +61,7 @@ Snapshot yang telah disetujui tetap berlaku bila setelan berubah sesudah konfirm
 
 129 tes total dan browser terisolasi memverifikasi scope tenant/customer/assigned-technician, filtrasi komentar internal sebelum pagination, plaintext encoding, state machine+optimistic version+request UUID, serta fail-closed 404 bila assignment berubah selama request. Preset teknisi tidak dapat menerima custom role global. Pembuatan tiket customer mengambil customer dari membership, memaksakan prioritas normal, dan mengabaikan assignee/priority/customer palsu. Flag internal eksplisit ditolak untuk pelanggan.
 
-Aktivasi memerlukan activate_installations, MFA terbaru, signed quote terikat actor/tenant/PSB/periode/identitas/harga/setelan/versi dan expiry. Transaksi membuat customer/invoice/job bersama; replay dan race menghasilkan satu set, kegagalan invoice rollback customer. Provisioning pending terpisah dan kegagalan router tidak dipalsukan aktif. Endpoint lampiran dan produksi tidak ditambahkan. Batas terbuka tetap database/admin trust, SQLite thread-only, belum ada deployment/performance/pen-test/ASVS lengkap.
+Aktivasi memerlukan activate_installations, MFA terbaru, signed quote terikat actor/tenant/PSB/periode/identitas/harga/setelan/versi dan expiry. Transaksi membuat customer/invoice/job bersama; replay dan race menghasilkan satu set, kegagalan invoice rollback customer. Provisioning pending terpisah dan kegagalan router tidak dipalsukan aktif. Pada checkpoint tiket/PSB awal, endpoint lampiran belum ditambahkan; foto privat tersedia sejak checkpoint14 November. Adapter produksi tetap belum tersedia. Batas terbuka tetap database/admin trust, SQLite thread-only, belum ada deployment/performance/pen-test/ASVS lengkap.
 
 ## Pengingat opt-in dan perubahan PSB
 
@@ -91,7 +91,7 @@ Konfigurasi PG eksplisit, tidak fallback diam-diam ke SQLite; password variable/
 
 Semua baris harus valid, konflik saat penyimpanan rollback seluruh impor. Constraint username LOWER per tenant mencegah benturan case di seluruh jalur penambahan; preflight migrasi berhenti jika legacy collision ditemukan tanpa koreksi otomatis. GET tidak membuat customer; replay tidak menggandakan. Hasil pending tidak memalsukan router aktif dan tidak menambah invoice, akun portal atau job. Laporan CSV meng-escape spreadsheet formula; web memakai autoescape. Audit hanya jumlah/status/alasan, tidak mencatat isi CSV/telepon/nama baris.
 
-Retensi batch/PII dan enkripsi database/backup belum otomatis. Tidak ada dukungan Excel/XLSX, lampiran biner, merge/update pelanggan atau importer nominal ledger. Source CSV tetap input tidak dipercaya dan data admin database masih batas kepercayaan. Tidak ada perluasan klaim menjadi seluruh ASVS L2 atau kesiapan produksi.
+Retensi batch/PII dan enkripsi database/backup belum otomatis. Tidak ada dukungan Excel/XLSX, lampiran selain JPG/PNG, merge/update pelanggan atau importer nominal ledger. Source CSV tetap input tidak dipercaya dan data admin database masih batas kepercayaan. Tidak ada perluasan klaim menjadi seluruh ASVS L2 atau kesiapan produksi.
 
 ## Backup AES-256-GCM dan restore
 
@@ -100,3 +100,10 @@ Retensi batch/PII dan enkripsi database/backup belum otomatis. Tidak ada dukunga
 Snapshot/payload plaintext hanya staging privat0600/0700 dan normal cleanup diuji; crash artifacts/secure erase tidak dijamin. Host admin adalah batas kepercayaan; dump dari pemegang kunci dipercaya dan bukan sandbox SQL. Kunci arsip terpisah dari Fernet MFA dan sesi, tidak disertakan dalam archive. Drill menguji MFA setelah restore dengan keys terpisah, password/TOTP/CSRF serta penolakan replay. Tidak ada key/factor/user content di stdout/argv; untuk local PG password berada pada child environment, bukan argv. Kunci development serta archive pada workspace bukan vault/offsite. Legacy plaintext dipertahankan untuk kompatibilitas; retensi, produksi TLS, backup offsite/PITR dan audit anti-tamper tetap terbuka.
 
 Replay drill membuktikan penolakan di database hasil restore. Snapshot lama dapat memulihkan state akses/counter/recovery sebelum perubahan pascabackup; rekonsiliasi transaksi, pencabutan sesi dan tinjauan akses/recovery tetap diperlukan sebelum cutover. Tidak ada klaim replay protection lintas rollback snapshot.
+
+
+## Foto pekerjaan — 14 November 2026 WIB
+
+Kontrol binary foto kini applicable dan diuji: PNG/JPEG decode penuh, ekstensi/format/frame/piksel/metadata limit, re-encode tanpa EXIF dan nama asli, transport single-file2MiB di memori, cleanup abort, kuota/replay serial, pemisahan internal/portal/assignment dan unduhan auth+checksum+attachment+sandbox+nosniff+no-store. Content disimpan dalam database dan dipulihkan melalui backup terenkripsi dengan pembandingan binary; tidak ada folder eksekusi/media publik. CSP middleware mempertahankan kebijakan respons unduhan yang lebih ketat.30 tes baru/382 total per backend dan15 skenario PG lulus. Data demo tidak diisi fixture.
+
+Audit PyPI version JSON14 paket runtime/PG pada14 November mencantumkan0 advisory aktif; bukan audit OS/native/dev atau bukti bebas malware. Original gambar tidak diarsipkan (hanya hasil normalisasi dan digest sumber), tidak ada penghapusan/retensi/vault otomatis, storage eksternal atau klaim kapasitas produksi. Catatan endpoint lampiran yang belum tersedia pada checkpoint bertanggal sebelumnya bersifat historis. Lihat [WORK-PHOTOS](WORK-PHOTOS.md).
