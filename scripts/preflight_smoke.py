@@ -57,6 +57,7 @@ def recovery(directory,package,keys,fingerprint,shell):
         pending_before=fingerprint(directory)
         result=check(directory,expected,package,keys,mode='recovery')
         assert result['status']=='failed' and any(i['code']=='migrations_pending' for i in result['issues'])
+        shell(directory,"from django.db.migrations.recorder import MigrationRecorder; assert not MigrationRecorder.Migration.objects.filter(app='core',name='0011_billing_schedule').exists()")
         assert fingerprint(directory)==pending_before  # The gate must not repair/run migrations.
     finally:
         # Restore only the exact fixture record removed above, preserving its ID/time/sequence.
@@ -68,6 +69,7 @@ def recovery(directory,package,keys,fingerprint,shell):
         unknown_before=fingerprint(directory)
         result=check(directory,expected,package,keys,mode='recovery')
         assert result['status']=='failed' and any(i['code']=='migrations_unrecognized' for i in result['issues'])
+        shell(directory,"from django.db.migrations.recorder import MigrationRecorder; assert MigrationRecorder.Migration.objects.filter(pk="+str(future_id)+",app='core',name='9999_future').exists()")
         assert fingerprint(directory)==unknown_before
     finally:shell(directory,"from django.db.migrations.recorder import MigrationRecorder; MigrationRecorder.Migration.objects.get(pk="+str(future_id)+",app='core',name='9999_future').delete()")
     assert fingerprint(directory)==before
