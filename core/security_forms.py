@@ -23,6 +23,29 @@ class PasswordProofForm(forms.Form):
     password = forms.CharField(label="Kata sandi saat ini", widget=forms.PasswordInput, max_length=256)
 
 
+class OwnPasswordForm(forms.Form):
+    old_password = forms.CharField(label="Kata sandi saat ini", strip=False, max_length=256,
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}))
+    new_password1 = forms.CharField(label="Kata sandi baru", strip=False, max_length=256,
+        help_text="Minimal 12 karakter. Gunakan sandi unik yang berbeda dari sandi saat ini.",
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
+    new_password2 = forms.CharField(label="Ulangi kata sandi baru", strip=False, max_length=256,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
+    code = forms.CharField(label="Kode authenticator atau kode pemulihan", max_length=40,
+        help_text="Gunakan kode yang belum dipakai. Kode pemulihan berlaku sekali.",
+        widget=forms.PasswordInput(attrs={"autocomplete": "one-time-code"}))
+
+    def __init__(self, *args, has_device, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not has_device:del self.fields["code"]
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("new_password1") != cleaned.get("new_password2"):
+            self.add_error("new_password2", "Kedua kata sandi baru harus sama.")
+        return cleaned
+
+
 class RoleForm(forms.Form):
     name = forms.CharField(label="Nama peran", max_length=80)
     capabilities = forms.MultipleChoiceField(label="Izin", choices=list(CAPABILITY_LABELS.items()),

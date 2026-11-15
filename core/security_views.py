@@ -1,6 +1,7 @@
 import time
 import pyotp
 from django.contrib import messages
+from django.contrib.auth import HASH_SESSION_KEY, logout
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
@@ -12,10 +13,10 @@ from .access import create_member, save_member, save_role
 from .billing import audit
 from .models import AccessRole, MFADevice, Membership
 from .permissions import membership, require
-from .security import (complete_login, confirm_enrollment, decrypt_secret, encrypt_secret,
+from .security import (change_own_password, complete_login, confirm_enrollment, decrypt_secret, encrypt_secret,
     pending_user, provisioning, regenerate_codes, remember_password, throttle, verify_factor)
 from .security_forms import (EnrollmentForm, FactorForm, MemberForm, NewMemberForm, PasswordProofForm,
-    ReauthenticationForm, RoleForm)
+    OwnPasswordForm, ReauthenticationForm, RoleForm)
 from .views import landing
 
 
@@ -129,6 +130,31 @@ def recent_factor(request, return_to=None):
         messages.info(request, "Verifikasi ulang diperlukan sebelum mengubah akses. Formulir belum disimpan.")
         return False
     return True
+
+
+@login_required
+@sensitive_variables()
+@sensitive_post_parameters("old_password", "new_password1", "new_password2", "code")
+@require_http_methods(["GET", "POST"])
+def account_password(request):
+    device = MFADevice.objects.filter(user=request.user).first()
+    form = OwnPasswordForm(request.POST if request.method == "POST" else None, has_device=bool(device))
+    if request.method == "POST":
+        if throttle(request, "password_change", request.user.pk):
+            return limited(request, form, "security/password.html")
+        if form.is_valid():
+            try:
+                change_own_password(request.user, form.cleaned_data["old_password"], form.cleaned_data["new_password1"],
+                    form.cleaned_data.get("code", ""), access_version=request.session.get("access_version"),
+                    mfa_revision=request.session.get("mfa_revision"), auth_hash=request.session.get(HASH_SESSION_KEY),
+                    correlation_id=request.correlation_id)
+            except ValidationError as error:
+                form.add_error(None, error)
+            else:
+                logout(request)
+                messages.success(request, "Kata sandi berhasil diubah. Semua sesi telah diakhiri. Masuk kembali dengan sandi baru.")
+                return redirect("login")
+    return render(request, "security/password.html", {"form": form})
 
 
 @require("manage_access")

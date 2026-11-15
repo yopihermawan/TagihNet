@@ -40,6 +40,7 @@ urlpatterns = [
     path("mfa/verify/", security.challenge, name="mfa_challenge"),
     path("mfa/setup/", security.setup, name="mfa_setup"),
     path("account/security/", security.account_security, name="account_security"),
+    path("account/password/", security.account_password, name="account_password"),
     path("settings/access/", security.access_index, name="access_index"),
     path("settings/access/roles/new/", security.role_form, name="role_create"),
     path("settings/access/roles/<int:pk>/", security.role_form, name="role_edit"),

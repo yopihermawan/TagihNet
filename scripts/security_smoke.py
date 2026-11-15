@@ -17,7 +17,9 @@ from bulk_browser import verify_bulk_billing
 
 root = Path(__file__).resolve().parent.parent
 password = "Isolated-browser-password-2026!"
-evidence = root / "docs/evidence"
+evidence = Path(os.environ.get("TAGIHNET_EVIDENCE_DIR", str(root / "docs/evidence")))
+evidence.mkdir(parents=True, exist_ok=True)
+phase = "startup"
 with tempfile.TemporaryDirectory(prefix="tagihnet-security-") as temporary:
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
@@ -58,7 +60,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-security-") as temporary:
                 expect(target.get_by_role("heading", name="Aktifkan authenticator")).to_be_visible()
                 assert target.context.request.get(base + "/customers/", max_redirects=0).status == 302
                 secret = target.locator('.provisioning-secret').text_content().strip()
-                target.get_by_label("Kode authenticator (6 digit)").fill(pyotp.TOTP(secret).at(time.time() - 30))
+                target.get_by_label("Kode authenticator (6 digit)").fill(pyotp.TOTP(secret).now())
                 target.get_by_role("button", name="Aktifkan MFA", exact=True).click()
                 expect(target.get_by_role("heading", name="Simpan kode pemulihan")).to_be_visible()
                 codes = target.locator('.recovery-codes code').all_text_contents()
@@ -66,6 +68,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-security-") as temporary:
                 target.get_by_role("link", name="Saya sudah menyimpan kode").click()
                 return secret, codes
 
+            phase = "owner_enrollment"
             owner_secret, owner_codes = enroll(page, "owner", password)
             verify_bulk_billing(page, base, env, root, sys.executable, evidence)
             page.goto(base + "/settings/access/roles/new/")
@@ -84,7 +87,8 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-security-") as temporary:
             page.screenshot(path=str(evidence / "access-desktop.png"), full_page=True)
             staff = browser.new_context()
             staff_page = staff.new_page()
-            staff_secret, _ = enroll(staff_page, "operator-uji", password)
+            phase = "staff_enrollment"
+            staff_secret, staff_codes = enroll(staff_page, "operator-uji", password)
             staff_page.wait_for_url(base + "/customers/")
             for route in ["/invoices/", "/invoices/1/pdf/", "/settings/access/"]:
                 assert staff.request.get(base + route).status == 403
@@ -95,10 +99,11 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-security-") as temporary:
             page.wait_for_url(base + "/settings/access/")
             assert staff.request.get(base + "/customers/", max_redirects=0).status == 302
             password_step(staff_page, "operator-uji", password)
-            staff_page.get_by_label("Kode authenticator atau kode pemulihan").fill(pyotp.TOTP(staff_secret).now())
+            staff_page.get_by_label("Kode authenticator atau kode pemulihan").fill(staff_codes[2])
             staff_page.get_by_role("button", name="Verifikasi dan masuk").click()
             staff_page.wait_for_url(base + "/invoices/")
             assert staff.request.get(base + "/customers/").status == 403
+            phase = "owner_recovery_regeneration"
             old_owner = browser.new_context(storage_state=owner.storage_state())
             page.goto(base + "/account/security/")
             page.screenshot(path=str(evidence / "account-security.png"), full_page=True)
@@ -129,15 +134,17 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-security-") as temporary:
             page.get_by_label("Kode authenticator atau kode pemulihan").fill(new_codes[0])
             page.get_by_role("button", name="Verifikasi ulang", exact=True).click()
             page.wait_for_url(base + "/settings/access/")
-            page.get_by_role("button", name="Keluar dari akun").click()
-            password_step(page, "owner", password)
-            page.screenshot(path=str(evidence / "mfa-challenge.png"), full_page=True)
             assert failures == [], failures
             browser.close()
         # A fresh browser must perform the real password + MFA flow for the existing billing smoke.
+        phase = "billing_browser"
         os.environ.update(TAGIHNET_TEST_URL=base, TAGIHNET_DEMO_PASSWORD=password, TAGIHNET_MFA_CODE=new_codes[1])
         runpy.run_path(str(root / "scripts/browser_smoke.py"), run_name="__main__")
-        print("PASS: isolated MFA enrollment/login, custom-role creation/assignment, session revocation, recovery regeneration/rejection, 4 responsive viewports; no factors saved to evidence.")
+        phase = "password_browser"
+        subprocess.run([sys.executable, str(root / "scripts/password_smoke.py")], cwd=root, check=True)
+        print("PASS: isolated MFA/access/billing, own password change with current proof and recovery replay rejection, other-session revocation, dark mode and4 responsive viewports; no factors saved to evidence.")
+    except Exception as error:
+        raise SystemExit("Browser security verification failed at " + phase + ": " + type(error).__name__ + "; no diagnostic/factors printed.") from None
     finally:
         server.terminate()
         try:

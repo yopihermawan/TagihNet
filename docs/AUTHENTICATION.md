@@ -23,6 +23,16 @@ Owner dapat membuat akun, memilih preset, membuat/mengubah peran kustom, menghub
 
 Perubahan role, custom permissions, aktivasi akun, MFA enrollment/reset, atau pembuatan ulang kode meningkatkan versi akses/revisi MFA. Sesi lama dicabut pada request berikutnya. Owner aktif terakhir tidak boleh diturunkan/dinonaktifkan; transaksi menserialisasi pemeriksaan melalui tenant, dan kasus dua owner bersamaan diuji di SQLite lokal. Semua kontrol diberlakukan di endpoint/backend, termasuk PDF dan form yang mengirim ID dari tenant lain.
 
+## Ubah sandi sendiri
+
+Mulai dari **Keamanan akun → Ubah kata sandi**. Masukkan sandi saat ini, sandi baru dan konfirmasinya. Akun dengan MFA juga harus memasukkan kode authenticator atau satu kode pemulihan yang belum dipakai pada formulir ini; verifikasi sesi lima menit sebelumnya tidak menggantikan faktor tersebut. Pelanggan portal yang belum memilih MFA cukup membuktikan sandi saat ini. Operator tetap wajib MFA.
+
+Sandi baru minimal12 karakter, maksimal256, harus lolos validator Django dan berbeda dari sandi saat ini. Spasi serta Unicode dipertahankan. Field sandi/kode tidak diisi ulang pada respons gagal. POST memerlukan CSRF, dibatasi lima percobaan per identitas login dan IP dalam15 menit, termasuk percobaan dengan form tidak valid; ID/username dari form tidak memilih target atau mengganti identitas limiter.
+
+Sukses mengakhiri sesi saat ini dan mencabut sesi lain pada request berikutnya. Masuk kembali dengan sandi baru dan MFA yang sama. Pending login dan token reset lama menjadi tidak berlaku; secret MFA serta kode pemulihan lain tetap. Jika satu kode pemulihan dipakai sebagai bukti, hanya kode itu yang dikonsumsi. Pekerjaan billing yang memakai versi persetujuan lama ditahan; tinjau dan buat persetujuan baru, jangan memaksa queue lama berjalan. Faktur/pembayaran yang sudah tercatat tidak diubah.
+
+Service hanya menerima akun aktor, tanpa target akun dari request. Ia mengunci membership, user dan perangkat, lalu memeriksa ulang versi akses, revisi MFA, hash autentikasi sesi, status aktif, sandi lama dan faktor. Password hash, kenaikan versi akses, konsumsi faktor dan audit berada dalam satu transaksi. Gagal audit membatalkan seluruh perubahan. Urutan lock pembuatan ulang kode pemulihan juga dimulai dari membership. Tidak ada edit username/email/role, reset akun lain, riwayat sandi, penghapusan MFA atau pengiriman pesan pada alur ini.
+
 ## Pemulihan
 
 Lupa password: gunakan alur reset yang sama. Reset password mencabut sesi tetapi **tidak menghapus MFA**. Kehilangan perangkat: gunakan satu kode pemulihan di tantangan login. Setelah masuk, **Keamanan akun → Buat ulang kode pemulihan** memerlukan password dan faktor kedua, membatalkan semua kode lama serta sesi lain. MFA tidak dapat dimatikan via web.

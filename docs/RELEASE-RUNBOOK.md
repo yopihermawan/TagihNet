@@ -1,6 +1,6 @@
 # Runbook kandidat rilis dan pemeriksaan staging
 
-Checkpoint 15 November 2026 WIB. Alat ini menyiapkan bukti untuk **staging lokal simulasi**. `passed` berarti pemeriksaan teknis yang disebutkan lulus pada saat itu. Field `production_ready` selalu false; tidak ada mode untuk mengubahnya melalui persetujuan manual. Tidak ada deployment publik, cutover, migrasi, pembayaran/router nyata atau resume worker dari preflight.
+Checkpoint 16 November 2026 WIB. Alat ini menyiapkan bukti untuk **staging lokal simulasi**. `passed` berarti pemeriksaan teknis yang disebutkan lulus pada saat itu. Field `production_ready` selalu false; tidak ada mode untuk mengubahnya melalui persetujuan manual. Tidak ada deployment publik, cutover, migrasi, pembayaran/router nyata atau resume worker dari preflight.
 
 Panduan terkait: [STAGING](STAGING.md), [STAGING-RECOVERY](STAGING-RECOVERY.md), [RECOVERY-HANDOFF](RECOVERY-HANDOFF.md), [STAGING-LOAD](STAGING-LOAD.md), [FEATURE-MATRIX](FEATURE-MATRIX.md).
 
@@ -14,10 +14,10 @@ git status --short
 .venv/bin/python -c "from scripts.staging_lab import docker; print(docker('image','inspect','tagihnet-staging:local','--format','{{.Id}}',capture=True).stdout.strip())"
 ```
 
-Cloud dengan proxy CA dapat memakai opsi build `--proxy-ca-file /etc/ssl/certs/ca-certificates.crt`. Gunakan image ID `sha256:`64hex hasil build, bukan tag yang dapat berubah. Pada instance checkpoint ini ID yang sudah diuji adalah `sha256:f1944baa50ecff03caf5bd2b3a728b1abca977c9ad2d7aa3da7f9314c1bb7858`.
+Cloud dengan proxy CA dapat memakai opsi build `--proxy-ca-file /etc/ssl/certs/ca-certificates.crt`. Gunakan image ID `sha256:`64hex hasil build, bukan tag yang dapat berubah. Pada instance checkpoint ini ID yang sudah diuji adalah `sha256:a2bf84edb6512a712f0f7a477edbf1dac5c5bf0d5ca66cd4735c3ad4e7e804d4`.
 
 ```bash
-.venv/bin/python scripts/staging_lab.py pin-image --directory data/staging --image-id sha256:f1944baa50ecff03caf5bd2b3a728b1abca977c9ad2d7aa3da7f9314c1bb7858
+.venv/bin/python scripts/staging_lab.py pin-image --directory data/staging --image-id sha256:a2bf84edb6512a712f0f7a477edbf1dac5c5bf0d5ca66cd4735c3ad4e7e804d4
 ```
 
 Pin hanya menyimpan `image_id` pada manifest di bawah operation lock, setelah membuktikan image tersedia lokal. Tidak ada restart/migrate/service start atau perubahan recovery_pending. Seluruh panggilan Compose melalui helper memilih image itu untuk web/migrate/worker dan mengabaikan selector image dari environment luar. Perintah yang dapat menyalakan container menolak image pin yang hilang sebelum Compose dapat melakukan fallback/pull. Stop/down/status tetap dapat dipakai saat image hilang. Direktori lama tanpa pin memakai tag lokal untuk kompatibilitas, tetapi preflight rilis menolaknya.
@@ -30,17 +30,17 @@ Staging aktif harus mempunyai backup berkala yang enabled, percobaan terakhir ti
 
 Pada instance ini paket baru yang cocok dengan backup terpantau berada di:
 
-- `data/recovery-handoff/archives/release-20261115`
-- `data/recovery-handoff/keys/release-20261115`
+- `data/recovery-handoff/archives/self-password-20261116`
+- `data/recovery-handoff/keys/self-password-20261116`
 
-Paket `staging-20261115` sebelumnya tetap valid dan dipertahankan; arsipnya berbeda sehingga tidak memenuhi gate aktif terhadap backup terpantau saat ini. Untuk backup berikutnya, export dari `last_archive`/key konfigurasi operasi ke **dua nama tujuan baru**, mengikuti RECOVERY-HANDOFF. Jangan mengubah metadata backup untuk membuat paket lama terlihat cocok. Folder/key tetap privat dan terpisah; ini masih satu workspace, bukan offsite.
+Paket `staging-20261115` dan `release-20261115` sebelumnya tetap valid dan dipertahankan; arsipnya berbeda sehingga tidak memenuhi gate aktif terhadap backup terpantau saat ini. Untuk backup berikutnya, export dari `last_archive`/key konfigurasi operasi ke **dua nama tujuan baru**, mengikuti RECOVERY-HANDOFF. Jangan mengubah metadata backup untuk membuat paket lama terlihat cocok. Folder/key tetap privat dan terpisah; ini masih satu workspace, bukan offsite.
 
 ## Jalankan gate aktif
 
 Pastikan pekerjaan jatuh tempo sudah selesai dan tidak ada proses rilis/migrasi lain. Jalankan pemeriksaan setelah kandidat berjalan di lingkungan uji:
 
 ```bash
-.venv/bin/python scripts/staging_preflight.py --directory data/staging --image-id sha256:f1944baa50ecff03caf5bd2b3a728b1abca977c9ad2d7aa3da7f9314c1bb7858 --package-dir data/recovery-handoff/archives/release-20261115 --keys-dir data/recovery-handoff/keys/release-20261115 --output data/evidence/preflight-active-baru.json
+.venv/bin/python scripts/staging_preflight.py --directory data/staging --image-id sha256:a2bf84edb6512a712f0f7a477edbf1dac5c5bf0d5ca66cd4735c3ad4e7e804d4 --package-dir data/recovery-handoff/archives/self-password-20261116 --keys-dir data/recovery-handoff/keys/self-password-20261116 --output data/evidence/preflight-active-baru.json
 ```
 
 Output baru wajib; file/symlink yang sudah ada ditolak. JSON file0600 diterbitkan atomic/no-clobber. Exit0 hanya passed, exit1 untuk kegagalan/ketidaktersediaan. Tidak ada exception body, environment dump, key, OTP, password, pelanggan atau nominal pada laporan. Git HEAD/dirty hanya provenance checkout; gunakan commit bersih yang dapat direproduksi untuk kandidat rilis. Gate membandingkan byte aplikasi aktual, tidak menganggap label Git sebagai bukti image.
@@ -63,7 +63,7 @@ Digest membandingkan source terpilih, bukan tanda tangan supply chain, seluruh f
 Clone yang worker-nya ditahan harus memakai mode eksplisit recovery. Mode aktif menolaknya. Contoh memakai snapshot clone yang sudah ada:
 
 ```bash
-.venv/bin/python scripts/staging_preflight.py --directory data/staging-recovery-20261115 --mode recovery --image-id sha256:f1944baa50ecff03caf5bd2b3a728b1abca977c9ad2d7aa3da7f9314c1bb7858 --package-dir data/recovery-handoff/archives/staging-20261115 --keys-dir data/recovery-handoff/keys/staging-20261115 --output data/evidence/preflight-recovery-baru.json
+.venv/bin/python scripts/staging_preflight.py --directory data/staging-recovery-20261115 --mode recovery --image-id sha256:a2bf84edb6512a712f0f7a477edbf1dac5c5bf0d5ca66cd4735c3ad4e7e804d4 --package-dir data/recovery-handoff/archives/staging-20261115 --keys-dir data/recovery-handoff/keys/staging-20261115 --output data/evidence/preflight-recovery-baru.json
 ```
 
 Recovery tidak mensyaratkan backup otomatis clone atau antrean snapshot kosong. Web/database dan paket diverifikasi; worker yang ternyata berjalan menyebabkan gagal. Passed tidak mengizinkan resume/cutover otomatis. Operator tetap merekonsiliasi transaksi, akses/MFA/consent dan antrian pascasnapshot sebelum tindakan eksplisit berikutnya.

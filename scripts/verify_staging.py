@@ -1,7 +1,9 @@
 """Real containers, TLS and login on an isolated disposable PostgreSQL staging stack."""
+import copy
 import http.cookiejar
 import json
 import re
+import secrets
 import socket
 import ssl
 import tempfile
@@ -80,6 +82,8 @@ def verify(directory):
     secret=re.search(rb'class="provisioning-secret">([^<]+)',body).group(1).decode().strip()
     status,_,body,_=request('/mfa/setup/',{'code':pyotp.TOTP(secret).at(time.time()-30),'csrfmiddlewaretoken':csrf()})
     assert status==200 and b'Simpan kode pemulihan' in body
+    recovery_codes=[value.decode() for value in re.findall(rb'<code>([A-F0-9-]{35})</code>',body)]
+    assert len(recovery_codes)==10
     assert request('/settings/access/')[0]==200
     assert request('/logout/',{})[0]==403
     session=next(cookie for cookie in jar if cookie.name=='sessionid')
@@ -158,10 +162,27 @@ print('PASS: runtime SQL permissions and TLS verification, no migration/CA priva
     report=compose(directory,'run','--rm','--no-deps','migrate','python','manage.py','check','--deploy',capture=True)
     assert 'security.W005' in report.stderr and 'security.W021' in report.stderr
     assert set(re.findall(r'security\.W\d+',report.stderr))=={'security.W005','security.W021'}
+    old_cookies=http.cookiejar.CookieJar()
+    for cookie in jar:old_cookies.set_cookie(copy.copy(cookie))
+    old_client=build_opener(HTTPSHandler(context=context),HTTPCookieProcessor(old_cookies))
+    assert request('/account/password/')[0]==200
+    changed_password=secrets.token_urlsafe(48)
+    fields={'old_password':password,'new_password1':changed_password,'new_password2':changed_password,'code':pyotp.TOTP(secret).now()}
+    assert request('/account/password/',fields)[0]==403  # No CSRF, no factor consumption.
+    status,_,_,url=request('/account/password/',{**fields,'csrfmiddlewaretoken':csrf()})
+    assert status==200 and url==base+'/login/'
+    with old_client.open(base+'/settings/access/',timeout=10) as response:assert response.url.startswith(base+'/login/')
+    assert request('/login/',{'username':'staging-owner','password':password,'csrfmiddlewaretoken':csrf()})[3]==base+'/login/'
+    password=changed_password
+    assert request('/login/',{'username':'staging-owner','password':password,'csrfmiddlewaretoken':csrf()})[3]==base+'/mfa/verify/'
+    assert request('/mfa/verify/',{'code':recovery_codes[0],'csrfmiddlewaretoken':csrf()})[3]==base+'/'
+    assert request('/settings/access/')[0]==200
+    print('PASS: own password change over verified HTTPS requires current password/MFA/CSRF, revokes old session, rejects old password and still requires MFA after login.',flush=True)
     logs=compose(directory,'logs','--no-color',capture=True).stdout
     for name in ('session-key','mfa-key','runtime-password','migration-password','bootstrap-password'):
         assert (directory/'secrets'/name).read_text() not in logs
     assert secret not in logs and password not in logs
+    assert all(value not in logs for value in recovery_codes)
     print('PASS: killed worker restarts; HTTPS/session/MFA keys survive web restart; deploy checks have only two documented HSTS-scope warnings; no factors in logs.',flush=True)
     return TestIdentity(password,secret,jar)
 

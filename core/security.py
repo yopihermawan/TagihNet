@@ -12,7 +12,7 @@ import pyotp
 import qrcode
 from cryptography.fernet import Fernet
 from django.conf import settings
-from django.contrib.auth import get_user_model, login
+from django.contrib.auth import get_user_model, login, password_validation
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import OperationalError, transaction
 from django.db.models import F
@@ -165,6 +165,7 @@ def confirm_enrollment(user, encrypted, code, correlation_id=None):
 @transaction.atomic
 @sensitive_variables()
 def regenerate_codes(user, correlation_id=None):
+    Membership.objects.select_for_update().get(user=user)
     device = MFADevice.objects.select_for_update().get(user=user)
     codes, hashes = new_recovery_codes()
     device.recovery_hashes = hashes
@@ -173,6 +174,42 @@ def regenerate_codes(user, correlation_id=None):
     Membership.objects.filter(user=user).update(session_version=F("session_version") + 1)
     audit(user.membership.tenant, user, "auth.recovery_regenerated", user.pk, correlation_id=correlation_id)
     return codes
+
+
+@retry_locked
+@transaction.atomic
+@sensitive_variables()
+def change_own_password(actor, old_password, new_password, code, *, access_version, mfa_revision,
+                        auth_hash, correlation_id=None):
+    """Recheck current session, password and factor under locks; never accepts a target account."""
+    try:
+        member = Membership.objects.select_for_update().get(user_id=actor.pk)
+        user = get_user_model().objects.select_for_update().get(pk=actor.pk, is_active=True)
+    except (Membership.DoesNotExist, get_user_model().DoesNotExist):
+        raise PermissionDenied("Akses akun berubah. Masuk kembali.") from None
+    device = MFADevice.objects.select_for_update().filter(user=user).first()
+    revision = str(device.revision) if device else "none"
+    if (type(access_version) is not int or member.session_version != access_version
+            or revision != mfa_revision or not isinstance(auth_hash, str)
+            or not hmac.compare_digest(user.get_session_auth_hash(), auth_hash)
+            or (not device and member.role != "customer")):
+        raise PermissionDenied("Akses akun berubah. Masuk kembali.")
+    if (not isinstance(old_password, str) or not 1 <= len(old_password) <= 256
+            or not isinstance(new_password, str) or not 1 <= len(new_password) <= 256
+            or not isinstance(code, str) or len(code) > 40):
+        raise ValidationError("Periksa isian perubahan kata sandi.")
+    if not user.check_password(old_password):
+        raise ValidationError("Verifikasi tidak berhasil. Periksa kata sandi dan kode.")
+    password_validation.validate_password(new_password, user)
+    if user.check_password(new_password):
+        raise ValidationError("Kata sandi baru harus berbeda dari sandi saat ini.")
+    # Invalid new passwords do not consume a factor; all writes roll back if audit fails.
+    if device and not verify_factor(user, code):
+        raise ValidationError("Verifikasi tidak berhasil. Periksa kata sandi dan kode.")
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+    Membership.objects.filter(pk=member.pk).update(session_version=F("session_version") + 1)
+    audit(member.tenant, user, "auth.password_changed", user.pk, "Semua sesi dicabut.", correlation_id)
 
 
 @sensitive_variables()

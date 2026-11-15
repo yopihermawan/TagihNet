@@ -12,8 +12,8 @@ base = os.getenv("TAGIHNET_TEST_URL", "http://127.0.0.1:8000")
 if urlsplit(base).hostname not in {"localhost", "127.0.0.1"}:
     raise SystemExit("Smoke test hanya boleh dijalankan pada localhost.")
 password = os.environ["TAGIHNET_DEMO_PASSWORD"]
-evidence = Path(__file__).resolve().parent.parent / "docs" / "evidence"
-evidence.mkdir(exist_ok=True)
+evidence = Path(os.environ.get("TAGIHNET_EVIDENCE_DIR", str(Path(__file__).resolve().parent.parent / "docs" / "evidence")))
+evidence.mkdir(parents=True, exist_ok=True)
 with sync_playwright() as driver:
     browser = driver.chromium.launch(executable_path=os.getenv("CHROMIUM_PATH") or
         ("/usr/bin/chromium" if Path("/usr/bin/chromium").exists() else None), headless=True)

@@ -38,9 +38,10 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Audit | Pelaku/tenant/target/aksi/detail/correlation ID; read-only via aplikasi | 2 · implemented; WORM/retensi pending |
 | Auth | CSRF, hashing PBKDF2 Django, rate limit DB, reset sekali pakai, idle/absolute expiry | 2 · implemented |
 | MFA dan editor role | TOTP wajib operator, QR lokal, secret Fernet, recovery sekali pakai, step-up, editor akun/peran owner | 2 · implemented lokal |
-| Profil mandiri, scope wilayah geografis | Penugasan teknisi tersedia; profil mandiri dan batas wilayah geografis belum tersedia | 4 · pending |
+| Keamanan akun mandiri | Ubah sandi dengan sandi lama/MFA/CSRF/rate limit, pemeriksaan sesi dalam transaksi, pencabutan sesi dan audit | 4 · implemented lokal; edit identitas mandiri pending |
+| Profil mandiri, scope wilayah geografis | Penugasan teknisi tersedia; edit identitas akun dan batas wilayah geografis belum tersedia | 4 · pending |
 | Backup/restore | AES-256-GCM streaming SQLite/PG, kunci terpisah, verify, target kosong/no-clobber, restore ledger+MFA | 5 · implemented lokal; offsite/retensi/PITR pending |
-| Backend PostgreSQL | Opsional, role non-superuser lab, 588 tes pada dua backend, 17 skenario lintas proses + pg_dump/pg_restore pada checkpoint sebelumnya | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
+| Backend PostgreSQL | Opsional, role non-superuser lab, 609 tes pada dua backend, 17 skenario lintas proses + pg_dump/pg_restore pada checkpoint sebelumnya | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
 | Staging lokal | Gunicorn HTTPS/WhiteNoise, PG verify-full, migrator/runtime terpisah, secret file, non-root/read-only, restart worker, bootstrap/MFA dan guard volume | 5 · implemented lokal; simulasi; VPS/domain/kapasitas/offsite pending |
 | Recovery staging | Backup streaming AES-GCM, fresh-project SQL restore, identitas/empty/key/lock guards, sesi baru, MFA tetap, worker hold/review dan rekonsiliasi tabel/sequence | 5 · implemented lokal; offsite/PITR/RPO/RTO pending |
 | Operasi staging | HTTPS/SQL/sertifikat/loop heartbeat/antrean, log transisi privat, watcher lokal dan backup periodik opt-in terautentikasi | 5 · implemented lokal; alert eksternal/systemd/offsite/retensi pending |
