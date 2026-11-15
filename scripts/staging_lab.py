@@ -170,12 +170,13 @@ def wait_ready(directory,timeout=120):
     raise RuntimeError("HTTPS/database health belum siap; periksa compose logs tanpa mencetak secret.")
 
 
-def up(directory,capture=False):
+def up(directory,capture=False,timeout=120):
+    if type(timeout) is not int or not 1<=timeout<=120:raise ValueError('Timeout HTTPS harus1–120detik.')
     with operation_lock(directory):
-        return _up(directory,capture)
+        return _up(directory,capture,timeout)
 
 
-def _up(directory,capture=False):
+def _up(directory,capture=False,timeout=120):
     data=manifest(directory)
     if data.get("restore_state") in {"preparing","failed"}:
         raise RuntimeError("Restore target belum berhasil; jangan menjalankan aplikasi/worker pada target ini.")
@@ -188,7 +189,7 @@ def _up(directory,capture=False):
             raise RuntimeError("Identitas volume tidak sesuai staging ini.")
     services=["web"] if data.get("recovery_pending") else []
     compose(directory,"up","--detach","--no-build",*services,capture=capture)
-    wait_ready(directory)
+    wait_ready(directory,timeout=timeout)
     data["initialized"]=True
     write_manifest(directory,data)
 
@@ -213,6 +214,7 @@ def main():
     parser.add_argument("--port",type=int,default=18443)
     parser.add_argument("--proxy-ca-file",type=Path)
     parser.add_argument('--image-id')
+    parser.add_argument('--timeout',type=int,default=120,help='Batas polling HTTPS setelah up,1–120detik.')
     args=parser.parse_args()
     if args.action=="prepare": prepare(args.directory,args.port)
     elif args.action=="build": build(args.proxy_ca_file)
@@ -220,7 +222,7 @@ def main():
         pin_image(args.directory,args.image_id)
         print('Image ID disimpan untuk proyek ini; tidak ada layanan/migrasi/worker yang dijalankan.')
     elif args.action=="up":
-        up(args.directory)
+        up(args.directory,timeout=args.timeout)
         print("PASS: isolated HTTPS staging is ready; database verified over TLS.")
         if manifest(args.directory).get('recovery_pending'):
             print('Mode pemulihan: hanya web berjalan; worker tetap ditahan sampai rekonsiliasi.')

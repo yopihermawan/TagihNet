@@ -51,3 +51,5 @@ Tidak ada alert email/Slack/webhook, autoheal, offsite, PITR atau SLA/RPO/RTO pr
 ## Validasi
 
 Tes unit mencakup heartbeat optional/private/atomic/I/O, format/usia/masa depan, konfigurasi terikat proyek, data tak tersedia, HTTPS/sertifikat, backup jadwal/interval/retry/missing/hold, log transisi/rotasi, laporan lama, lock dan PID reuse. `scripts/verify_staging_backup.py` menjalankan fault injection hanya pada stack sementara: SIGSTOP loop billing sementara container tetap Running, SIGCONT/pemulihan, Docker pause/resume, backup terautentikasi/tanpa duplikat, missing archive, log tanpa secret, lifecycle watcher dan recovery worker hold. Staging pengguna tidak dipakai untuk fault injection.
+
+Latihan web image gagal lalu kembali ke image sebelumnya tersedia terpisah dalam [STAGING-ROLLOUT](STAGING-ROLLOUT.md). Monitor tetap melaporkan kegagalan; tidak ada autoheal atau resume worker. Latihan hanya menggunakan proyek/volume sementara dengan schema tetap.

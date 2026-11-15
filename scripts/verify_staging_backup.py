@@ -21,7 +21,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from core.backup_archive import ArchiveError, encrypt_stream, generate_key, read_key, verify_archive
 from staging_lab import compose, manifest, prepare, up
 from scripts.staging_backup import EMPTY_SQL, backup, restore, query, database_container
-from verify_staging import verify
+from verify_staging import TestIdentity,verify
 from scripts.ops_smoke import verify_source, verify_recovery
 from scripts.recovery_package import export_package,verify_package,restore_package
 from scripts.preflight_smoke import active as preflight_active,recovery as preflight_recovery
@@ -131,6 +131,7 @@ def verify_restored_access(target,identity):
     # This code was accepted in this target after recovery; immediate replay remains refused there.
     replay=shell(target,"from core.security import verify_factor,decrypt_secret; import pyotp; from core.models import MFADevice; d=MFADevice.objects.get(); assert not verify_factor(d.user,pyotp.TOTP(decrypt_secret(d.encrypted_secret)).at(d.last_step*30)); print('PASS: target OTP replay refused')")
     assert 'PASS:' in replay
+    return TestIdentity(identity.password,identity.totp_secret,jar)
 
 
 def drill(root):

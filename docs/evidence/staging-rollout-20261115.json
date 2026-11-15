@@ -1,0 +1,65 @@
+{
+  "base_image": "sha256:f1944baa50ecff03caf5bd2b3a728b1abca977c9ad2d7aa3da7f9314c1bb7858",
+  "candidate_passed": true,
+  "cleanup": "passed",
+  "failed_candidate_detected": true,
+  "failures": [],
+  "integrity": {
+    "balance": 149750,
+    "invoices": 1,
+    "payments": 2,
+    "photos": 1,
+    "reversals": 1,
+    "tenants": 2
+  },
+  "persistent_checks": {
+    "application_unchanged": true,
+    "development": {
+      "app_auth_rows_unchanged": true,
+      "health": "ok",
+      "login": 200
+    },
+    "staging": {
+      "health": "ok",
+      "services": [
+        "billing-worker",
+        "db",
+        "network-worker",
+        "reminder-worker",
+        "web"
+      ],
+      "tables_and_sequences_unchanged": true,
+      "workers_held": false
+    },
+    "staging-recovery-20261115": {
+      "health": "ok",
+      "services": [
+        "db",
+        "web"
+      ],
+      "tables_and_sequences_unchanged": true,
+      "workers_held": true
+    }
+  },
+  "production_ready": false,
+  "raw_report_sha256": "cc6aa220cc97dd37e37ede4d70b4c772f4993123742519e29f700f3c21adecd0",
+  "rollback_passed": true,
+  "scope": "disposable_same_schema_rollout",
+  "secrets_unchanged": true,
+  "source_unchanged": true,
+  "stages": [
+    {
+      "image_id": "sha256:7d66ef3a9cf6888e73f9772f9094fbf025379691e9829f1576d76b47a3873d21",
+      "role": "candidate"
+    },
+    {
+      "image_id": "sha256:a861fea299a7190a0bbf338f8b5da90a6ea696f0b2b8005226bd6e32f098de10",
+      "role": "failed"
+    }
+  ],
+  "started_at": "2026-11-15T17:17:07.974794+00:00",
+  "status": "passed",
+  "verifier_sha256": "6fda2c8c78b19955653403afe1bfdb3604b8b619a03084329a4116b56773a2a2",
+  "version": 1,
+  "workers_held": true
+}

@@ -74,6 +74,8 @@ Untuk rilis berikutnya, simpan kode/image lama beserta backup/custody yang sudah
 
 Rollback image hanya dapat dipakai bila schema/data masih kompatibel. Applied migration asing menyebabkan gagal; tidak ada auto-reverse migrate. Jika perubahan data/schema tidak kompatibel, gunakan target recovery baru dari snapshot yang tepat, dengan sesi baru/worker hold dan rekonsiliasi kejadian pascasnapshot. Pertahankan target gagal untuk diagnosis; jangan reset database aktif untuk mengulang. Tidak ada jaminan rollback tanpa kehilangan perubahan setelah snapshot.
 
+[STAGING-ROLLOUT](STAGING-ROLLOUT.md) menyediakan latihan terpisah dengan image normal dan image yang sengaja gagal, keduanya memakai kode/schema identik. Verifier memeriksa ID aktual, HTTPS/preflight, tabel/sequence/recorder, sesi target dan hold worker sebelum/sesudah rollback. Ia hanya menerima output baru, membuat target sementara sendiri dan tidak menjalankan pergantian image pada staging pengguna. Latihan ini bukan controller deployment atau bukti kompatibilitas migrasi antarversi.
+
 Produksi masih memerlukan infrastruktur/domain/TLS publik, gateway/router/notifikasi/SMTP nyata yang diuji, custody/offsite/retensi, pengawasan dari host lain, profil beban/soak/failover pada server tujuan dan penilaian keamanan independen. Fitur brief yang masih pending tetap tercatat di matriks.
 
 ## Bukti pengujian
