@@ -7,7 +7,7 @@ from django.contrib.auth.views import PasswordResetView
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, OperationalError, transaction
-from django.db.models import Q
+from django.db.models import Count,Q,Sum
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -18,6 +18,7 @@ from .billing import audit, issue_invoice, record_payment, reverse_payment
 from .forms import BillingSettingsForm, CustomerForm, InvoiceForm, PaymentForm
 from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, with_financial_summary
 from .customer_profile import invoice_rows, profile_context
+from .invoice_queries import with_balances
 from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment
 from .pdf import render_invoice
 from .permissions import require, membership, capabilities
@@ -75,19 +76,18 @@ def dashboard(request):
         first = timezone.datetime.strptime(period, "%Y-%m").date().replace(day=1)
     except ValueError:
         first = today.replace(day=1)
-    invoices = list(Invoice.objects.filter(tenant=request.member.tenant).select_related("customer"))
-    month_invoices = [item for item in invoices if item.period == first]
+    invoices = with_balances(Invoice.objects.all(),request.member.tenant)
+    amounts=invoices.aggregate(receivable=Sum('remaining'),overdue=Sum('remaining',filter=Q(due_date__lt=today)),
+        issued=Sum('total',filter=Q(period=first)),issued_count=Count('pk',filter=Q(period=first)))
     payments = Payment.objects.filter(tenant=request.member.tenant, reversal__isnull=True,
         created_at__date__year=first.year, created_at__date__month=first.month)
+    payments=payments.aggregate(received=Sum('amount'),payment_count=Count('pk'))
+    customers=Customer.objects.filter(tenant=request.member.tenant).aggregate(customer_count=Count('pk'),
+        active_customers=Count('pk',filter=Q(service_state='active')))
     context = {"period": first.strftime("%Y-%m"), "today": today, "updated_at": timezone.now(),
-        "received": sum(payments.values_list("amount", flat=True)), "payment_count": payments.count(),
-        "issued": sum(item.total for item in month_invoices), "issued_count": len(month_invoices),
-        "receivable": sum(item.balance for item in invoices),
-        "overdue": sum(item.balance for item in invoices if item.due_date < today),
-        "overdue_invoices": [item for item in invoices if item.status == "overdue"][:5],
-        "recent_payments": Payment.objects.filter(tenant=request.member.tenant).select_related("invoice", "invoice__customer")[:5],
-        "active_customers": Customer.objects.filter(tenant=request.member.tenant, service_state="active").count(),
-        "customer_count": Customer.objects.filter(tenant=request.member.tenant).count(),
+        **{key:value or 0 for key,value in amounts.items()},**{key:value or 0 for key,value in payments.items()},**customers,
+        "overdue_invoices": invoices.exclude(remaining=0).filter(due_date__lt=today).select_related('customer')[:5],
+        "recent_payments": Payment.objects.filter(tenant=request.member.tenant).select_related("invoice", "invoice__customer", "reversal")[:5],
         "open_jobs": NetworkJob.objects.filter(tenant=request.member.tenant).exclude(status="confirmed").count(),
         "events": AuditEvent.objects.filter(tenant=request.member.tenant)[:4]}
     return render(request, "core/dashboard.html", context)
@@ -190,15 +190,22 @@ def customer_export(request):
 
 @require("invoices")
 def invoices(request):
-    result = Invoice.objects.filter(tenant=request.member.tenant).select_related("customer")
+    result = with_balances(Invoice.objects.select_related('customer'),request.member.tenant)
     query = request.GET.get("q", "").strip()[:100]
     if query:
         result = result.filter(Q(customer__name__icontains=query) | Q(customer__code__icontains=query))
     state = request.GET.get("state", "")
+    today=timezone.localdate()
     # Derived state is never accepted as a writable invoice field.
-    if state in {"paid", "overdue", "issued", "partial"}:
-        result = [item for item in result if item.status == state]
-    return render(request, "core/invoices.html", {"page": paginate(request, result)})
+    if state=='paid':result=result.filter(remaining=0)
+    elif state in {'overdue','issued','partial'}:
+        result=result.exclude(remaining=0)
+        if state=='overdue':result=result.filter(due_date__lt=today)
+        else:
+            result=result.filter(due_date__gte=today)
+            result=result.filter(ledger_paid=0) if state=='issued' else result.exclude(ledger_paid=0)
+    page=paginate(request,result)
+    return render(request, "core/invoices.html", {"page":page,'invoice_rows':invoice_rows(page.object_list,today)})
 
 
 @require("issue")

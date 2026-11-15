@@ -1,9 +1,10 @@
 """Customer filters share one SQL ledger calculation across list and export."""
 from datetime import timedelta
-from django.db.models import BigIntegerField, Exists, F, OuterRef, Subquery, Sum, Value
+from django.db.models import BigIntegerField, Exists, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-from .models import Invoice, Payment
+from .models import Invoice
+from .invoice_queries import with_balances
 
 DUE_CHOICES = (
     ("overdue", "Menunggak"), ("today", "Jatuh tempo hari ini"),
@@ -19,11 +20,7 @@ def positive_id(value):
 
 
 def receivables(tenant):
-    payments = Payment.objects.filter(tenant=tenant, invoice_id=OuterRef("pk"), reversal__isnull=True).order_by()
-    paid = payments.values("invoice_id").annotate(amount=Sum("amount")).values("amount")
-    return Invoice.objects.filter(tenant=tenant).annotate(
-        remaining=F("total")-Coalesce(Subquery(paid, output_field=BigIntegerField()), Value(0),
-                                    output_field=BigIntegerField())).filter(remaining__gt=0)
+    return with_balances(Invoice.objects.all(),tenant).filter(remaining__gt=0)
 
 
 def with_financial_summary(customers, tenant):

@@ -138,3 +138,7 @@ Gunakan staging_backup.py, fresh prepare directory/port dan MFA key asli; jangan
 ## Pemantauan dan backup berkala staging
 
 `staging_ops.py once/status/start/stop/configure` memeriksa TLS, SQL, sertifikat, kemajuan worker dan antrean. Worker hidup tanpa kemajuan terdeteksi dari heartbeat privat, bukan PID saja. Backup opt-in membuat pg_dump terenkripsi baru dan memverifikasi autentikasi; error/backoff/missing/overdue terlihat di status dan log transisi lokal. Recovery_pending tetap menahan worker/backup. Daemon lokal belum memakai systemd/cron, tidak mengirim pesan atau melakukan autoheal; setelah host restart perlu diperiksa/dijalankan kembali. Retensi arsip/offsite tetap tanggung jawab terpisah. Panduan lengkap: [STAGING-OPERATIONS](STAGING-OPERATIONS.md).
+
+## Uji beban terisolasi
+
+`staging_load.py` selalu membuat stack/volume/CA baru dan hanya membersihkan stack tersebut. Tidak menerima URL atau direktori target pengguna. Hasil per endpoint, resource, health dan integritas batch ditulis privat/no-clobber; gate gagal memberi exit1. Jangan mengubah ambang untuk menyembunyikan kegagalan. Baca [STAGING-LOAD](STAGING-LOAD.md); beban produksi memerlukan profil/hardware/traffic target sendiri.

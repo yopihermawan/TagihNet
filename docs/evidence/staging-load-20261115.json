@@ -1,0 +1,365 @@
+{
+  "batch_seconds_to_observation": 36.58,
+  "cleanup": "passed",
+  "failures": [],
+  "fixture": {
+    "customers": 500,
+    "initial_invoices": 1000,
+    "other_tenants": 1,
+    "payments": 250,
+    "reversals": 25
+  },
+  "image_id": "sha256:f1944baa50ecff03caf5bd2b3a728b1abca977c9ad2d7aa3da7f9314c1bb7858",
+  "integrity": {
+    "batch_replay_created": 0,
+    "created_by_worker": 500,
+    "customers": 500,
+    "invoices": 1500,
+    "payments": 250,
+    "receivable": 315000000,
+    "reversals": 25
+  },
+  "levels": [
+    1,
+    4,
+    8
+  ],
+  "monitoring": {
+    "all_healthy": true,
+    "container_changes": {
+      "billing-worker": {
+        "oom_killed": false,
+        "restart_delta": 0,
+        "same_id": true
+      },
+      "db": {
+        "oom_killed": false,
+        "restart_delta": 0,
+        "same_id": true
+      },
+      "network-worker": {
+        "oom_killed": false,
+        "restart_delta": 0,
+        "same_id": true
+      },
+      "reminder-worker": {
+        "oom_killed": false,
+        "restart_delta": 0,
+        "same_id": true
+      },
+      "web": {
+        "oom_killed": false,
+        "restart_delta": 0,
+        "same_id": true
+      }
+    },
+    "limits": {
+      "billing-worker": {
+        "cpu_count": 1.0,
+        "memory_bytes": 536870912
+      },
+      "db": {
+        "cpu_count": 1.0,
+        "memory_bytes": 536870912
+      },
+      "network-worker": {
+        "cpu_count": 1.0,
+        "memory_bytes": 536870912
+      },
+      "reminder-worker": {
+        "cpu_count": 1.0,
+        "memory_bytes": 536870912
+      },
+      "web": {
+        "cpu_count": 1.0,
+        "memory_bytes": 536870912
+      }
+    },
+    "resources": {
+      "billing-worker": {
+        "cpu_peak_percent": 31.45,
+        "memory_peak_bytes": 54767124
+      },
+      "db": {
+        "cpu_peak_percent": 100.74,
+        "memory_peak_bytes": 52669972
+      },
+      "network-worker": {
+        "cpu_peak_percent": 11.53,
+        "memory_peak_bytes": 55102669
+      },
+      "reminder-worker": {
+        "cpu_peak_percent": 0.31,
+        "memory_peak_bytes": 55081697
+      },
+      "web": {
+        "cpu_peak_percent": 80.94,
+        "memory_peak_bytes": 144808346
+      }
+    },
+    "sample_count": 10
+  },
+  "p95_limit_ms": 2000,
+  "profile": "local-https-closed-loop",
+  "raw_report_sha256": "21eae765fa445b461ce6716ec020d2cc2af74d6daf232a6c886178cfaf1ddb9f",
+  "seconds_per_stage": 20,
+  "stages": [
+    {
+      "concurrency": 1,
+      "duration_seconds": 20.017,
+      "endpoints": {
+        "customers": {
+          "attempts": 48,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 164.85,
+          "p50_ms": 89.63,
+          "p95_ms": 151.56,
+          "p99_ms": 164.85,
+          "requests_per_second": 2.4
+        },
+        "dashboard": {
+          "attempts": 48,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 266.53,
+          "p50_ms": 89.44,
+          "p95_ms": 150.11,
+          "p99_ms": 266.53,
+          "requests_per_second": 2.4
+        },
+        "invoices": {
+          "attempts": 48,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 114.33,
+          "p50_ms": 74.53,
+          "p95_ms": 95.94,
+          "p99_ms": 114.33,
+          "requests_per_second": 2.4
+        },
+        "pdf": {
+          "attempts": 48,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 50.56,
+          "p50_ms": 33.89,
+          "p95_ms": 46.21,
+          "p99_ms": 50.56,
+          "requests_per_second": 2.4
+        },
+        "profile": {
+          "attempts": 48,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 254.84,
+          "p50_ms": 36.53,
+          "p95_ms": 65.15,
+          "p99_ms": 254.84,
+          "requests_per_second": 2.4
+        },
+        "report": {
+          "attempts": 48,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 107.62,
+          "p50_ms": 61.42,
+          "p95_ms": 84.41,
+          "p99_ms": 107.62,
+          "requests_per_second": 2.4
+        }
+      },
+      "overall": {
+        "attempts": 288,
+        "errors": {},
+        "failures": 0,
+        "max_ms": 266.53,
+        "p50_ms": 69.74,
+        "p95_ms": 112.2,
+        "p99_ms": 164.85,
+        "requests_per_second": 14.39
+      }
+    },
+    {
+      "concurrency": 4,
+      "duration_seconds": 20.116,
+      "endpoints": {
+        "customers": {
+          "attempts": 73,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 402.47,
+          "p50_ms": 208.83,
+          "p95_ms": 352.45,
+          "p99_ms": 402.47,
+          "requests_per_second": 3.63
+        },
+        "dashboard": {
+          "attempts": 72,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 369.27,
+          "p50_ms": 213.47,
+          "p95_ms": 311.14,
+          "p99_ms": 369.27,
+          "requests_per_second": 3.58
+        },
+        "invoices": {
+          "attempts": 74,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 395.86,
+          "p50_ms": 191.37,
+          "p95_ms": 308.29,
+          "p99_ms": 395.86,
+          "requests_per_second": 3.68
+        },
+        "pdf": {
+          "attempts": 71,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 301.84,
+          "p50_ms": 129.67,
+          "p95_ms": 212.61,
+          "p99_ms": 301.84,
+          "requests_per_second": 3.53
+        },
+        "profile": {
+          "attempts": 74,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 335.71,
+          "p50_ms": 135.83,
+          "p95_ms": 243.81,
+          "p99_ms": 335.71,
+          "requests_per_second": 3.68
+        },
+        "report": {
+          "attempts": 72,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 345.26,
+          "p50_ms": 180.83,
+          "p95_ms": 296.73,
+          "p99_ms": 345.26,
+          "requests_per_second": 3.58
+        }
+      },
+      "overall": {
+        "attempts": 436,
+        "errors": {},
+        "failures": 0,
+        "max_ms": 402.47,
+        "p50_ms": 176.94,
+        "p95_ms": 298.09,
+        "p99_ms": 377.1,
+        "requests_per_second": 21.67
+      }
+    },
+    {
+      "concurrency": 8,
+      "duration_seconds": 20.254,
+      "endpoints": {
+        "customers": {
+          "attempts": 76,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 589.68,
+          "p50_ms": 371.49,
+          "p95_ms": 558.04,
+          "p99_ms": 589.68,
+          "requests_per_second": 3.75
+        },
+        "dashboard": {
+          "attempts": 75,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 594.3,
+          "p50_ms": 380.83,
+          "p95_ms": 557.63,
+          "p99_ms": 594.3,
+          "requests_per_second": 3.7
+        },
+        "invoices": {
+          "attempts": 74,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 606.78,
+          "p50_ms": 359.66,
+          "p95_ms": 545.05,
+          "p99_ms": 606.78,
+          "requests_per_second": 3.65
+        },
+        "pdf": {
+          "attempts": 74,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 553.77,
+          "p50_ms": 302.71,
+          "p95_ms": 472.07,
+          "p99_ms": 553.77,
+          "requests_per_second": 3.65
+        },
+        "profile": {
+          "attempts": 74,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 580.25,
+          "p50_ms": 324.69,
+          "p95_ms": 514.95,
+          "p99_ms": 580.25,
+          "requests_per_second": 3.65
+        },
+        "report": {
+          "attempts": 74,
+          "errors": {},
+          "failures": 0,
+          "max_ms": 606.24,
+          "p50_ms": 343.99,
+          "p95_ms": 542.51,
+          "p99_ms": 606.24,
+          "requests_per_second": 3.65
+        }
+      },
+      "overall": {
+        "attempts": 447,
+        "errors": {},
+        "failures": 0,
+        "max_ms": 606.78,
+        "p50_ms": 350.22,
+        "p95_ms": 533.4,
+        "p99_ms": 594.3,
+        "requests_per_second": 22.07
+      }
+    }
+  ],
+  "started_at": "2026-11-15T11:38:12.088259+00:00",
+  "status": "passed",
+  "version": 1,
+  "warmup": {
+    "customers": {
+      "error": null,
+      "ms": 92.12480600399431
+    },
+    "dashboard": {
+      "error": null,
+      "ms": 97.61086000071373
+    },
+    "invoices": {
+      "error": null,
+      "ms": 75.26883399987128
+    },
+    "pdf": {
+      "error": null,
+      "ms": 41.572369998903014
+    },
+    "profile": {
+      "error": null,
+      "ms": 37.49517200049013
+    },
+    "report": {
+      "error": null,
+      "ms": 79.74879200628493
+    }
+  }
+}

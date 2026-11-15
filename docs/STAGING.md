@@ -72,10 +72,12 @@ Snapshot cloud filesystem tidak menjamin container/image/volume Docker dipulihka
 
 ## Hasil dan batas
 
-498 tes lulus pada masing-masing SQLite dan PostgreSQL pada checkpoint operasi; checkpoint staging awal menambah11 tes memeriksa profil fail-closed, file secret dan bootstrap/rollback/replay. Stack Docker sebenarnya lulus verified HTTPS, untrusted CA/Host ditolak, static ber-hash/private isolation, login/MFA/CSRF/cookie Secure, runtime DDL ditolak dengan SQLSTATE42501, plaintext/wrong CA/wrong hostname PG ditolak, guard volume hilang, worker restart serta sesi setelah restart web. Hasil CI remote belum dikonfirmasi; job staging menjalankan verifier gabungan dengan recovery.
+520 tes lulus pada masing-masing SQLite dan PostgreSQL pada checkpoint beban; checkpoint staging awal menambah11 tes memeriksa profil fail-closed, file secret dan bootstrap/rollback/replay. Stack Docker sebenarnya lulus verified HTTPS, untrusted CA/Host ditolak, static ber-hash/private isolation, login/MFA/CSRF/cookie Secure, runtime DDL ditolak dengan SQLSTATE42501, plaintext/wrong CA/wrong hostname PG ditolak, guard volume hilang, worker restart serta sesi setelah restart web. Hasil CI remote belum dikonfirmasi; job staging menjalankan verifier gabungan dengan recovery.
 
 `check --deploy` hanya menghasilkan dua warning yang tidak disembunyikan: W005 (HSTS tidak mencakup subdomain) dan W021 (tanpa preload). Staging memakai HSTS satu jam untuk host uji, bukan kebijakan domain publik. Kedua paket baru diperiksa pada metadata PyPI dan tidak mencantumkan advisory aktif; ini tidak mencakup audit OS/image/native atau bukti bebas kerentanan.
 
 Build/start awal menemukan CA proxy belum dipercaya dan izin file host terlalu ketat untuk PG/non-root app. Perbaikan: CA build secret sementara, ownership/mode melalui initializer, dan kode image dibuat terbaca. Cluster staging baru sempat terinisialisasi sebelum inisialisasi role/database selesai; pemeriksaan membuktikan keduanya belum ada sebelum langkah awal itu dilengkapi, tanpa menghapus data. Uji crash awal menggunakan Docker API kill yang dianggap administrative stop; verifier kini membunuh proses worker di dalam container agar menguji restart akibat crash sebenarnya. Seluruh uji final lulus.
 
 Staging lokal ini belum membuktikan deployment VPS/domain publik, integrasi nyata, SMTP, uji beban/HA/failover, alarm eksternal, offsite DR atau audit keamanan independen. Scope produksi dan integrasi berikutnya tetap mengikuti FEATURE-MATRIX.md.
+
+Pengukuran GET bersamaan dan batch worker pada500 pelanggan fiktif, profil/budget/batas serta hasilnya tersedia di [STAGING-LOAD](STAGING-LOAD.md). Ini belum menentukan kapasitas produksi.
