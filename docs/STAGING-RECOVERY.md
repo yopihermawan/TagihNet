@@ -62,3 +62,5 @@ Pada instance ini arsip awal `data/staging/TagihNet-staging-20261115.tnbk` yang 
 CI staging kini menjalankan verifier gabungan; hasil remote belum dikonfirmasi. Ini bukan offsite/PITR/HA, uji kapasitas atau RPO/RTO produksi. Container/volume tidak dijamin ikut snapshot cloud; pertahankan archive, key, MFA key dan metadata di media yang dapat dipulihkan, dengan custody terpisah. Panduan runtime: [STAGING](STAGING.md).
 
 Checkpoint operasi berikutnya menyediakan watcher lokal dan backup berkala opt-in; panduan [STAGING-OPERATIONS](STAGING-OPERATIONS.md). Ini tidak mengubah batas restore/recovery hold atau menambahkan offsite/systemd/retensi.
+
+Checkpoint paket pemulihan menambah export/verify offline/restore dari salinan paket dan custody key terpisah. Verifier kini memulihkan ulang setelah sumber fiktif/volume/arsip/key asal dihapus, dengan full table/sequence/auth/photo checks dan worker hold. Source pengguna dipertahankan. Lihat [RECOVERY-HANDOFF](RECOVERY-HANDOFF.md); ini belum offsite/host terpisah.

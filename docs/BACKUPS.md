@@ -111,3 +111,7 @@ Staging Docker memakai volume PostgreSQL sendiri serta data/staging/secrets untu
 ## Recovery staging teruji — 15 November 2026 WIB
 
 CLI staging_backup.py kini membuat backup streaming dengan format AES-GCM yang sama dan pg_dump status gate. Restore mengharuskan proyek/volume baru, GCM penuh sebelum akses Docker, role owner/catalog kosong, transaksi tunggal, MFA key asli dan session key target baru. Up hasil recovery hanya menyalakan web; resume-workers merupakan tindakan operator sesudah rekonsiliasi. SQL restore staging archive lama kini sudah dibandingkan dengan sumber. Verifier gabungan membandingkan semua model/framework table dan sequence, termasuk ledger/reversal/binary/MFA/scheduler/outbox. Source/arsip/key lama tetap, offsite/retensi/RPO/RTO belum. Panduan: [STAGING-RECOVERY](STAGING-RECOVERY.md). Catatan “SQL restore staging belum diuji” pada checkpoint sebelumnya bersifat historis.
+
+## Salinan pemulihan portabel — 15 November 2026 WIB
+
+Paket arsip/manifest terautentikasi dan custody backup/MFA key terpisah tersedia melalui recovery_package.py. Format TNBK lama tidak berubah. Verifier gabungan staging telah memulihkan data nonkosong setelah sumber fiktif/volume/arsip/key asal tidak tersedia, mencocokkan semua tabel/sequence dan menguji autentikasi/foto/worker hold. Pemisahan direktori di mesin sama belum offsite atau custody independen. Langkah/operator dan format metadata: [RECOVERY-HANDOFF](RECOVERY-HANDOFF.md).

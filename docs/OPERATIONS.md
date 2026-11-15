@@ -142,3 +142,7 @@ Gunakan staging_backup.py, fresh prepare directory/port dan MFA key asli; jangan
 ## Uji beban terisolasi
 
 `staging_load.py` selalu membuat stack/volume/CA baru dan hanya membersihkan stack tersebut. Tidak menerima URL atau direktori target pengguna. Hasil per endpoint, resource, health dan integritas batch ditulis privat/no-clobber; gate gagal memberi exit1. Jangan mengubah ambang untuk menyembunyikan kegagalan. Baca [STAGING-LOAD](STAGING-LOAD.md); beban produksi memerlukan profil/hardware/traffic target sendiri.
+
+## Paket untuk pemulihan tanpa direktori sumber
+
+Gunakan recovery_package.py export/verify untuk arsip selesai dan file key backup/MFA asli. Tujuan baru tidak boleh bersarang/ditimpa; key disalin ke folder lain. Restore memakai fresh prepared target dan tetap menahan worker. Alat ini tidak upload, bootstrap atau resume. Panduan [RECOVERY-HANDOFF](RECOVERY-HANDOFF.md) menjelaskan custody, partial export dan latihan hanya pada sumber sementara.

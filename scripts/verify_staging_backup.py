@@ -2,7 +2,9 @@
 import copy
 import http.cookiejar
 import io
+import hashlib
 import json
+import shutil
 import socket
 import ssl
 import subprocess
@@ -21,6 +23,7 @@ from staging_lab import compose, manifest, prepare, up
 from scripts.staging_backup import EMPTY_SQL, backup, restore, query, database_container
 from verify_staging import verify
 from scripts.ops_smoke import verify_source, verify_recovery
+from scripts.recovery_package import export_package,verify_package,restore_package
 
 
 def port():
@@ -99,6 +102,36 @@ assert invoice.balance==149750
 '''
 
 
+def verify_restored_access(target,identity):
+    base=f"https://localhost:{manifest(target)['port']}"
+    context=ssl.create_default_context(cafile=str(target/'secrets/ca.crt'))
+    jar=http.cookiejar.CookieJar()
+    for cookie in identity.cookies:jar.set_cookie(copy.copy(cookie))
+    client=build_opener(HTTPSHandler(context=context),HTTPCookieProcessor(jar))
+    def request(path,form=None):
+        req=Request(base+path,data=urlencode(form).encode() if form is not None else None,headers={'Origin':base,'Referer':base+'/'})
+        try:
+            with client.open(req,timeout=10) as response:return response.status,response.read(),response.url
+        except HTTPError as response:return response.code,response.read(),response.url
+    assert request('/settings/access/')[2].startswith(base+'/login/')
+    request('/login/')
+    def csrf():return next(cookie.value for cookie in jar if cookie.name=='csrftoken')
+    assert request('/login/',{'username':'staging-owner','password':identity.password,'csrfmiddlewaretoken':csrf()})[2].endswith('/mfa/verify/')
+    code=pyotp.TOTP(identity.totp_secret).now()
+    status,_,url=request('/mfa/verify/',{'code':code,'csrfmiddlewaretoken':csrf()})
+    assert status==200 and url==base+'/'
+    assert request('/settings/access/')[0]==200
+    values=shell(target,"from core.models import Invoice,Payment,WorkPhoto; import hashlib; print('RESTORED:',Invoice.objects.get().balance,Payment.objects.count(),WorkPhoto.objects.get().pk,WorkPhoto.objects.get().checksum)")
+    result=next(line for line in values.splitlines() if line.startswith('RESTORED:')).split()
+    assert result[1:3]==['149750','2']
+    status,content,_=request(f'/operations/photos/{result[3]}/download/')
+    import hashlib
+    assert status==200 and hashlib.sha256(content).hexdigest()==result[4]
+    # This code was accepted in this target after recovery; immediate replay remains refused there.
+    replay=shell(target,"from core.security import verify_factor,decrypt_secret; import pyotp; from core.models import MFADevice; d=MFADevice.objects.get(); assert not verify_factor(d.user,pyotp.TOTP(decrypt_secret(d.encrypted_secret)).at(d.last_step*30)); print('PASS: target OTP replay refused')")
+    assert 'PASS:' in replay
+
+
 def drill(root):
     stacks=[]
     def fresh(name):
@@ -172,35 +205,40 @@ def drill(root):
         print('PASS: all application/auth tables, sequences, binary photos and ledger match after SQL restore; web-only startup holds every worker.',flush=True)
         verify_recovery(target)
 
-        base=f"https://localhost:{manifest(target)['port']}"
-        context=ssl.create_default_context(cafile=str(target/'secrets/ca.crt'))
-        jar=http.cookiejar.CookieJar()
-        for cookie in identity.cookies:jar.set_cookie(copy.copy(cookie))
-        client=build_opener(HTTPSHandler(context=context),HTTPCookieProcessor(jar))
-        def request(path,form=None):
-            req=Request(base+path,data=urlencode(form).encode() if form is not None else None,headers={'Origin':base,'Referer':base+'/'})
-            try:
-                with client.open(req,timeout=10) as response:return response.status,response.read(),response.url
-            except HTTPError as response:return response.code,response.read(),response.url
-        assert request('/settings/access/')[2].startswith(base+'/login/')
-        request('/login/')
-        def csrf():return next(cookie.value for cookie in jar if cookie.name=='csrftoken')
-        assert request('/login/',{'username':'staging-owner','password':identity.password,'csrfmiddlewaretoken':csrf()})[2].endswith('/mfa/verify/')
-        code=pyotp.TOTP(identity.totp_secret).now()
-        status,_,url=request('/mfa/verify/',{'code':code,'csrfmiddlewaretoken':csrf()})
-        assert status==200 and url==base+'/'
-        assert request('/settings/access/')[0]==200
-        values=shell(target,"from core.models import Invoice,Payment,WorkPhoto; import hashlib; print('RESTORED:',Invoice.objects.get().balance,Payment.objects.count(),WorkPhoto.objects.get().pk,WorkPhoto.objects.get().checksum)")
-        result=next(line for line in values.splitlines() if line.startswith('RESTORED:')).split()
-        assert result[1:3]==['149750','2']
-        status,content,_=request(f'/operations/photos/{result[3]}/download/')
-        import hashlib
-        assert status==200 and hashlib.sha256(content).hexdigest()==result[4]
-        # This code was accepted in this target after recovery; immediate replay remains refused there.
-        replay=shell(target,"from core.security import verify_factor,decrypt_secret; import pyotp; from core.models import MFADevice; d=MFADevice.objects.get(); assert not verify_factor(d.user,pyotp.TOTP(decrypt_secret(d.encrypted_secret)).at(d.last_step*30)); print('PASS: target OTP replay refused')")
-        assert 'PASS:' in replay
+        verify_restored_access(target,identity)
         assert fingerprint(source)==before
         print('PASS: old sessions invalidated, restored password/TOTP/CSRF/authorized photo download work; target OTP replay refused; source unchanged.',flush=True)
+
+        package=root/'exported-package';custody=root/'exported-keys'
+        metadata=export_package(archive,keyfile,source/'secrets/mfa-key',package,custody)
+        assert str(source) not in json.dumps(metadata) and identity.totp_secret not in json.dumps(metadata)
+        received=root/'received-copy';received_keys=root/'received-key-custody'
+        shutil.copytree(package,received);shutil.copytree(custody,received_keys)
+        portable=fresh('portable-restored')
+        # Mismatched original MFA custody is refused before the fresh target changes.
+        mfa_copy=(received_keys/'mfa.key').read_bytes()
+        (received_keys/'mfa.key').write_bytes(Fernet.generate_key())
+        try:restore_package(received,received_keys,portable)
+        except ArchiveError:pass
+        else:raise AssertionError('Mismatched package MFA custody accepted')
+        assert not manifest(portable)['initialized']
+        (received_keys/'mfa.key').write_bytes(mfa_copy)
+        original_session=hashlib.sha256((source/'secrets/session-key').read_bytes()).hexdigest()
+        # Only the source created by fresh() in THIS temporary drill is destroyed.
+        assert source in stacks and source.resolve().parent==root.resolve()
+        compose(source,'down','--volumes','--remove-orphans',capture=True)
+        stacks.remove(source);shutil.rmtree(source)
+        archive.unlink();keyfile.unlink();shutil.rmtree(package);shutil.rmtree(custody)
+        del key,first,mfa_copy
+        assert not source.exists() and not archive.exists() and not keyfile.exists()
+        assert verify_package(received,received_keys)==metadata
+        restore_package(received,received_keys,portable)
+        assert fingerprint(portable)==before
+        assert hashlib.sha256((portable/'secrets/session-key').read_bytes()).hexdigest()!=original_session
+        assert manifest(portable)['recovery_pending']
+        up(portable,capture=True);verify_recovery(portable)
+        verify_restored_access(portable,identity)
+        print('PASS: transported package and separate keys restore all tables/sequences/ledger/MFA/photo after original source directory/DB volume/archive/keys are gone; HTTPS auth works and workers remain held.',flush=True)
     finally:
         for directory in reversed(stacks):compose(directory,'down','--volumes','--remove-orphans',capture=True)
 

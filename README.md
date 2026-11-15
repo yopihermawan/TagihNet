@@ -4,11 +4,11 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-staging-load` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-recovery-handoff` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Staging lokal
 
-Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah, akun awal/MFA, static assets dan worker yang diawasi kini tersedia. Profil tetap simulasi dengan DEBUG=0. Panduan build/start/akun/CA/status: [STAGING](docs/STAGING.md). Backup terenkripsi dan SQL restore ke proyek baru, sesi baru serta hold worker kini tersedia: [STAGING-RECOVERY](docs/STAGING-RECOVERY.md). Pemantauan kesehatan/heartbeat/antrean dan backup berkala opt-in: [STAGING-OPERATIONS](docs/STAGING-OPERATIONS.md). Pengukuran beban pada stack fiktif terpisah serta perbaikan query dashboard/faktur: [STAGING-LOAD](docs/STAGING-LOAD.md).
+Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah, akun awal/MFA, static assets dan worker yang diawasi kini tersedia. Profil tetap simulasi dengan DEBUG=0. Panduan build/start/akun/CA/status: [STAGING](docs/STAGING.md). Backup terenkripsi dan SQL restore ke proyek baru, sesi baru serta hold worker kini tersedia: [STAGING-RECOVERY](docs/STAGING-RECOVERY.md). Pemantauan kesehatan/heartbeat/antrean dan backup berkala opt-in: [STAGING-OPERATIONS](docs/STAGING-OPERATIONS.md). Pengukuran beban pada stack fiktif terpisah serta perbaikan query dashboard/faktur: [STAGING-LOAD](docs/STAGING-LOAD.md). Paket arsip dengan custody kunci terpisah dan latihan restore tanpa direktori sumber: [RECOVERY-HANDOFF](docs/RECOVERY-HANDOFF.md).
 
 ## Yang bisa digunakan
 
