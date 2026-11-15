@@ -72,7 +72,7 @@ Snapshot cloud filesystem tidak menjamin container/image/volume Docker dipulihka
 
 ## Hasil dan batas
 
-542 tes lulus pada masing-masing SQLite dan PostgreSQL pada checkpoint paket pemulihan; checkpoint staging awal menambah11 tes memeriksa profil fail-closed, file secret dan bootstrap/rollback/replay. Stack Docker sebenarnya lulus verified HTTPS, untrusted CA/Host ditolak, static ber-hash/private isolation, login/MFA/CSRF/cookie Secure, runtime DDL ditolak dengan SQLSTATE42501, plaintext/wrong CA/wrong hostname PG ditolak, guard volume hilang, worker restart serta sesi setelah restart web. Hasil CI remote belum dikonfirmasi; job staging menjalankan verifier gabungan dengan recovery.
+573 tes lulus pada masing-masing SQLite dan PostgreSQL pada checkpoint preflight; checkpoint staging awal menambah11 tes memeriksa profil fail-closed, file secret dan bootstrap/rollback/replay. Stack Docker sebenarnya lulus verified HTTPS, untrusted CA/Host ditolak, static ber-hash/private isolation, login/MFA/CSRF/cookie Secure, runtime DDL ditolak dengan SQLSTATE42501, plaintext/wrong CA/wrong hostname PG ditolak, guard volume hilang, worker restart serta sesi setelah restart web. Hasil CI remote belum dikonfirmasi; job staging menjalankan verifier gabungan dengan recovery.
 
 `check --deploy` hanya menghasilkan dua warning yang tidak disembunyikan: W005 (HSTS tidak mencakup subdomain) dan W021 (tanpa preload). Staging memakai HSTS satu jam untuk host uji, bukan kebijakan domain publik. Kedua paket baru diperiksa pada metadata PyPI dan tidak mencantumkan advisory aktif; ini tidak mencakup audit OS/image/native atau bukti bebas kerentanan.
 
@@ -83,3 +83,5 @@ Staging lokal ini belum membuktikan deployment VPS/domain publik, integrasi nyat
 Pengukuran GET bersamaan dan batch worker pada500 pelanggan fiktif, profil/budget/batas serta hasilnya tersedia di [STAGING-LOAD](STAGING-LOAD.md). Ini belum menentukan kapasitas produksi.
 
 Paket arsip/manifest dan salinan kunci pada direktori terpisah kini diuji untuk pemulihan tanpa direktori sumber: [RECOVERY-HANDOFF](RECOVERY-HANDOFF.md). Pemulihan tersebut tetap pada Docker host yang sama.
+
+Pemilihan image immutable per proyek dan gate read-only untuk kandidat staging kini tersedia; lihat [RELEASE-RUNBOOK](RELEASE-RUNBOOK.md). Pin tidak menyalakan layanan atau menghapus worker hold. Proyek legacy tanpa pin tetap bisa dioperasikan, tetapi tidak lulus gate rilis.

@@ -19,9 +19,10 @@ ROOT = Path(__file__).resolve().parent.parent
 PG_IMAGE = "postgres:16-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938"
 
 
-def docker(*arguments, capture=False, check=True, timeout=None):
+def docker(*arguments, capture=False, check=True, timeout=None, stage_image=None):
     env = {key:value for key,value in os.environ.items() if key not in {
         "DOCKER_HOST","DOCKER_CONTEXT","DOCKER_TLS","DOCKER_TLS_VERIFY","DOCKER_CERT_PATH"}}
+    if stage_image is not None:env['TAGIHNET_STAGING_IMAGE']=stage_image
     return subprocess.run(["docker","--host=unix:///var/run/docker.sock",*map(str,arguments)],env=env,
         check=check,text=True,stdout=subprocess.PIPE if capture else None,stderr=subprocess.PIPE if capture else None,timeout=timeout)
 
@@ -32,6 +33,8 @@ def manifest(directory):
         raise ValueError("Identitas proyek staging tidak valid.")
     if Path(data["directory"])!=Path(directory).resolve():
         raise ValueError("Lokasi staging tidak sesuai manifest.")
+    if 'image_id' in data and (not isinstance(data['image_id'],str) or not re.fullmatch('sha256:[a-f0-9]{64}',data['image_id'])):
+        raise ValueError('Manifest memerlukan image ID immutable yang valid.')
     return data
 
 
@@ -62,8 +65,27 @@ def operation_lock(directory):
 
 def compose(directory,*arguments,**kwargs):
     data=manifest(directory)
+    if data.get('image_id') and arguments and arguments[0] in {'up','run','create','start','restart'}:
+        require_image(data['image_id'])
     return docker("compose","--project-name",data["project"],"--env-file",Path(directory)/"compose.env",
-        "--file",ROOT/"compose.staging.yaml",*arguments,**kwargs)
+        "--file",ROOT/"compose.staging.yaml",*arguments,stage_image=data.get('image_id','tagihnet-staging:local'),**kwargs)
+
+
+def require_image(image_id):
+    found=docker('image','inspect',image_id,'--format','{{.Id}}',capture=True,timeout=15).stdout.strip()
+    if found!=image_id:raise RuntimeError('Image pilihan tidak tersedia lokal; tidak ada fallback/pull ke tag lain.')
+
+
+def pin_image(directory,image_id):
+    if not isinstance(image_id,str) or not re.fullmatch('sha256:[a-f0-9]{64}',image_id):
+        raise ValueError('Gunakan image ID sha256 lengkap, bukan tag.')
+    with operation_lock(directory):
+        state=manifest(directory)
+        if state.get('restore_state') in {'preparing','failed'}:raise RuntimeError('Restore target masih diblokir.')
+        require_image(image_id)
+        state['image_id']=image_id
+        write_manifest(directory,state)
+    return image_id
 
 
 def prepare(directory,port=18443):
@@ -186,13 +208,17 @@ def resume_workers(directory,capture=False):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action",choices=["prepare","build","up","bootstrap","status","stop","resume-workers"])
+    parser.add_argument("action",choices=["prepare","build","up","bootstrap","status","stop","resume-workers","pin-image"])
     parser.add_argument("--directory",type=Path,default=ROOT/"data/staging")
     parser.add_argument("--port",type=int,default=18443)
     parser.add_argument("--proxy-ca-file",type=Path)
+    parser.add_argument('--image-id')
     args=parser.parse_args()
     if args.action=="prepare": prepare(args.directory,args.port)
     elif args.action=="build": build(args.proxy_ca_file)
+    elif args.action=='pin-image':
+        pin_image(args.directory,args.image_id)
+        print('Image ID disimpan untuk proyek ini; tidak ada layanan/migrasi/worker yang dijalankan.')
     elif args.action=="up":
         up(args.directory)
         print("PASS: isolated HTTPS staging is ready; database verified over TLS.")

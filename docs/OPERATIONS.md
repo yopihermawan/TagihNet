@@ -146,3 +146,7 @@ Gunakan staging_backup.py, fresh prepare directory/port dan MFA key asli; jangan
 ## Paket untuk pemulihan tanpa direktori sumber
 
 Gunakan recovery_package.py export/verify untuk arsip selesai dan file key backup/MFA asli. Tujuan baru tidak boleh bersarang/ditimpa; key disalin ke folder lain. Restore memakai fresh prepared target dan tetap menahan worker. Alat ini tidak upload, bootstrap atau resume. Panduan [RECOVERY-HANDOFF](RECOVERY-HANDOFF.md) menjelaskan custody, partial export dan latihan hanya pada sumber sementara.
+
+## Kandidat rilis staging
+
+Gunakan pin-image untuk menyimpan ID image lokal pada manifest proyek tanpa restart/migrate. Helper Compose memakai pin itu dan menolak startup bila image hilang. Preflight memeriksa image/source/dependency/schema/privilege/health/drained queue dan backup/custody yang sama, tanpa perbaikan atau pemutakhiran database. Mode recovery mempertahankan hold dan harus dipilih eksplisit. [RELEASE-RUNBOOK](RELEASE-RUNBOOK.md) memuat perintah, bukti serta batas rollback/produksi.

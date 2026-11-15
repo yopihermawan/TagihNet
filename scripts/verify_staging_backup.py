@@ -24,6 +24,7 @@ from scripts.staging_backup import EMPTY_SQL, backup, restore, query, database_c
 from verify_staging import verify
 from scripts.ops_smoke import verify_source, verify_recovery
 from scripts.recovery_package import export_package,verify_package,restore_package
+from scripts.preflight_smoke import active as preflight_active,recovery as preflight_recovery
 
 
 def port():
@@ -143,6 +144,7 @@ def drill(root):
         source=fresh('source')
         identity=verify(source)
         verify_source(source)
+        preflight_active(source,fingerprint)
         compose(source,'stop','web','network-worker','billing-worker','reminder-worker',capture=True)
         shell(source,FIXTURE)
         before=fingerprint(source)
@@ -238,6 +240,7 @@ def drill(root):
         assert manifest(portable)['recovery_pending']
         up(portable,capture=True);verify_recovery(portable)
         verify_restored_access(portable,identity)
+        preflight_recovery(portable,received,received_keys,fingerprint,shell)
         print('PASS: transported package and separate keys restore all tables/sequences/ledger/MFA/photo after original source directory/DB volume/archive/keys are gone; HTTPS auth works and workers remain held.',flush=True)
     finally:
         for directory in reversed(stacks):compose(directory,'down','--volumes','--remove-orphans',capture=True)

@@ -3,7 +3,7 @@ x-logging: &logging
   options: {max-size: "10m", max-file: "3"}
 
 x-app: &app
-  image: tagihnet-staging:local
+  image: "${TAGIHNET_STAGING_IMAGE:-tagihnet-staging:local}"
   build:
     context: .
     dockerfile: Dockerfile.staging
