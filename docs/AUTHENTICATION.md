@@ -25,6 +25,8 @@ Perubahan role, custom permissions, aktivasi akun, MFA enrollment/reset, atau pe
 
 ## Ubah sandi sendiri
 
+Untuk mengubah nama tampilan, gunakan **Profil saya**. Nama depan/belakang dapat diperbarui tanpa mengganti sandi, MFA atau versi akses. Form mendeteksi profil yang berubah sejak dibuka dan hanya dapat dipakai pada sesi pembuatnya. Panduan serta batas field: [ACCOUNT-PROFILE](ACCOUNT-PROFILE.md).
+
 Mulai dari **Keamanan akun → Ubah kata sandi**. Masukkan sandi saat ini, sandi baru dan konfirmasinya. Akun dengan MFA juga harus memasukkan kode authenticator atau satu kode pemulihan yang belum dipakai pada formulir ini; verifikasi sesi lima menit sebelumnya tidak menggantikan faktor tersebut. Pelanggan portal yang belum memilih MFA cukup membuktikan sandi saat ini. Operator tetap wajib MFA.
 
 Sandi baru minimal12 karakter, maksimal256, harus lolos validator Django dan berbeda dari sandi saat ini. Spasi serta Unicode dipertahankan. Field sandi/kode tidak diisi ulang pada respons gagal. POST memerlukan CSRF, dibatasi lima percobaan per identitas login dan IP dalam15 menit, termasuk percobaan dengan form tidak valid; ID/username dari form tidak memilih target atau mengganti identitas limiter.

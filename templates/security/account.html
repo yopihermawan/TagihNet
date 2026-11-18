@@ -2,7 +2,7 @@
 {% block content %}
 <section class="panel padded form-panel">
   <span class="eyebrow">AKUN SAYA</span><h1>Keamanan akun</h1>
-  <p><a class="button" href="{% url 'account_password' %}">Ubah kata sandi</a></p>
+  <p><a class="button" href="{% url 'account_profile' %}">Profil saya</a> <a class="button" href="{% url 'account_password' %}">Ubah kata sandi</a></p>
   {% if device %}
   <p><span class="pill teal">MFA aktif</span> {{ remaining }} kode pemulihan tersisa.</p>
   <p class="muted">Verifikasi ulang kata sandi dan faktor kedua untuk melanjutkan aksi sensitif. Verifikasi berlaku selama 5 menit.</p>

@@ -53,6 +53,31 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-password-browser-") as tempora
             codes = page.locator('.recovery-codes code').all_text_contents(); assert len(codes)==10
             page.get_by_role("link",name="Saya sudah menyimpan kode").click()
             old_context = browser.new_context(storage_state=context.storage_state())
+            phase = "profile_form"
+            page.locator('.sidebar').get_by_role("link",name="Profil saya",exact=True).click()
+            expect(page.locator('.sidebar .nav-link.selected')).to_have_text("Profil saya")
+            assert page.locator('input[name="email"]').count()==0
+            profile_token=page.locator('input[name="token"]').input_value()
+            csrf=page.locator('input[name="csrfmiddlewaretoken"]').first.input_value()
+            for width in (360,768,1366,1920):
+                page.set_viewport_size({"width":width,"height":1000})
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                if width in (360,1366):
+                    page.screenshot(path=str(evidence / ("account-profile-mobile.png" if width==360 else "account-profile-desktop.png")),full_page=True)
+            page.get_by_role("button",name="Ganti mode terang atau gelap").click()
+            expect(page.locator('html')).to_have_attribute('data-theme','dark')
+            page.get_by_role("button",name="Ganti mode terang atau gelap").click()
+            page.get_by_label("Nama depan atau panggilan:",exact=True).fill("Ayu Profil Fiktif")
+            page.get_by_label("Nama belakang:",exact=True).fill("Utami")
+            page.get_by_role("button",name="Simpan nama tampilan",exact=True).click()
+            expect(page.get_by_text("Nama tampilan disimpan.",exact=True)).to_be_visible()
+            expect(page.locator('.sidebar .account strong')).to_have_text("Ayu Profil Fiktif")
+            page.reload()
+            expect(page.get_by_label("Nama depan atau panggilan:",exact=True)).to_have_value("Ayu Profil Fiktif")
+            stale=context.request.post(base+'/account/profile/',form={'token':profile_token,'first_name':'Older form',
+                'last_name':'','csrfmiddlewaretoken':csrf},headers={'Origin':base,'Referer':base+'/account/profile/'})
+            assert stale.status==409
+            assert old_context.request.get(base+'/account/profile/',max_redirects=0).status==200
             phase = "password_form"
             page.goto(base + "/account/security/")
             page.get_by_role("link",name="Ubah kata sandi",exact=True).click()
@@ -88,7 +113,7 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-password-browser-") as tempora
             page.wait_for_url(base + "/")
             assert failures==[]
             browser.close()
-        print("PASS: isolated browser own password/current proof/recovery replay/other-session revocation, dark mode and4 viewports; no factors saved.",flush=True)
+        print("PASS: isolated browser profile allowlist/session retention/stale-form rejection and own password/current proof/recovery replay/revocation, dark mode and4 viewports; no factors saved.",flush=True)
     except Exception as error:
         raise SystemExit("Password browser failed at " + phase + ": " + type(error).__name__ + "; no diagnostic/factors printed.") from None
     finally:

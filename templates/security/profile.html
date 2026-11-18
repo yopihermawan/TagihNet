@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Profil saya · TagihNet{% endblock %}
+{% block content %}
+<section class="panel padded form-panel">
+  <span class="eyebrow">AKUN SAYA</span><h1>Profil saya</h1>
+  <p class="muted">Nama ini tampil pada akun workspace Anda. Kosongkan nama untuk memakai username sebagai nama tampilan.</p>
+  <dl class="definition-list">
+    <dt>Username</dt><dd class="work-text">{{ user.username }}</dd>
+    <dt>Email pemulihan</dt><dd class="work-text">{{ user.email|default:'Belum diisi' }}</dd>
+    <dt>ISP</dt><dd class="work-text">{{ profile_member.tenant.name }}</dd>
+    <dt>Peran</dt><dd class="work-text">{{ profile_member.access_label }}</dd>
+  </dl>
+  <form method="post" class="stack-form">
+    {% csrf_token %}{{ form.as_p }}
+    <button class="button primary" type="submit">Simpan nama tampilan</button>
+    <a class="button" href="{% url 'account_profile' %}">Muat ulang profil</a>
+  </form>
+  <p><a href="{% url 'account_security' %}">Keamanan akun</a> · <a href="{% url 'account_password' %}">Ubah kata sandi</a></p>
+</section>
+{% endblock %}

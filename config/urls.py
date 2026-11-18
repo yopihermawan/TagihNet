@@ -8,6 +8,7 @@ from core import receipt_views as receipts
 from core import schedule_views as schedules
 from core import views
 from core import security_views as security
+from core import profile_views as profile
 from core import bulk_views as bulk
 from core import operation_views as operations
 from core import reminder_views as reminders
@@ -40,6 +41,7 @@ urlpatterns = [
     path("mfa/verify/", security.challenge, name="mfa_challenge"),
     path("mfa/setup/", security.setup, name="mfa_setup"),
     path("account/security/", security.account_security, name="account_security"),
+    path("account/profile/", profile.account_profile, name="account_profile"),
     path("account/password/", security.account_password, name="account_password"),
     path("settings/access/", security.access_index, name="access_index"),
     path("settings/access/roles/new/", security.role_form, name="role_create"),

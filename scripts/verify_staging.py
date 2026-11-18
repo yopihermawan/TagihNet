@@ -80,7 +80,7 @@ def verify(directory):
     status,_,body,url=request('/login/',{'username':'staging-owner','password':password,'csrfmiddlewaretoken':csrf()})
     assert status==200 and url.endswith('/mfa/setup/')
     secret=re.search(rb'class="provisioning-secret">([^<]+)',body).group(1).decode().strip()
-    status,_,body,_=request('/mfa/setup/',{'code':pyotp.TOTP(secret).at(time.time()-30),'csrfmiddlewaretoken':csrf()})
+    status,_,body,_=request('/mfa/setup/',{'code':pyotp.TOTP(secret).now(),'csrfmiddlewaretoken':csrf()})
     assert status==200 and b'Simpan kode pemulihan' in body
     recovery_codes=[value.decode() for value in re.findall(rb'<code>([A-F0-9-]{35})</code>',body)]
     assert len(recovery_codes)==10
@@ -162,12 +162,22 @@ print('PASS: runtime SQL permissions and TLS verification, no migration/CA priva
     report=compose(directory,'run','--rm','--no-deps','migrate','python','manage.py','check','--deploy',capture=True)
     assert 'security.W005' in report.stderr and 'security.W021' in report.stderr
     assert set(re.findall(r'security\.W\d+',report.stderr))=={'security.W005','security.W021'}
+    status,_,body,url=request('/account/profile/')
+    assert status==200 and url==base+'/account/profile/'
+    profile_token=re.search(rb'name="token" value="([^"]+)"',body).group(1).decode()
+    profile_fields={'token':profile_token,'first_name':'Nama Staging Fiktif','last_name':'Profil'}
+    assert request('/account/profile/',profile_fields)[0]==403
+    status,_,body,url=request('/account/profile/',{**profile_fields,'csrfmiddlewaretoken':csrf()})
+    assert status==200 and url==base+'/account/profile/' and b'value="Nama Staging Fiktif"' in body
+    assert request('/account/profile/',{**profile_fields,'csrfmiddlewaretoken':csrf()})[0]==409
+    assert request('/settings/access/')[0]==200
+    print('PASS: own profile over verified HTTPS requires CSRF, preserves login/access, persists display name and rejects stale form replay.',flush=True)
     old_cookies=http.cookiejar.CookieJar()
     for cookie in jar:old_cookies.set_cookie(copy.copy(cookie))
     old_client=build_opener(HTTPSHandler(context=context),HTTPCookieProcessor(old_cookies))
     assert request('/account/password/')[0]==200
     changed_password=secrets.token_urlsafe(48)
-    fields={'old_password':password,'new_password1':changed_password,'new_password2':changed_password,'code':pyotp.TOTP(secret).now()}
+    fields={'old_password':password,'new_password1':changed_password,'new_password2':changed_password,'code':recovery_codes[1]}
     assert request('/account/password/',fields)[0]==403  # No CSRF, no factor consumption.
     status,_,_,url=request('/account/password/',{**fields,'csrfmiddlewaretoken':csrf()})
     assert status==200 and url==base+'/login/'

@@ -1,0 +1,78 @@
+{
+  "application_digest": "40adaba627c004bbfb0b15cec242c331784286dd3c945bb613ff02b903a0fbde",
+  "browser": {
+    "dark_mode": "passed",
+    "profile_persistence_and_sidebar": "passed",
+    "screenshots": "fictitious_profile_forms_without_factors",
+    "security_access_bulk_billing": "passed",
+    "session_retained": true,
+    "stale_form_rejected": true,
+    "widths": [
+      360,
+      768,
+      1366,
+      1920
+    ]
+  },
+  "development": {
+    "health": "ok",
+    "original_app_auth_rows_unchanged": true,
+    "original_keys_unchanged": true,
+    "profile_anonymous_redirect": true
+  },
+  "docker": {
+    "cleanup": "passed",
+    "encrypted_sql_restore": "passed",
+    "final_combined_verifier": "passed",
+    "fresh_diagnostic_startup": "passed",
+    "initial_disposable_readiness_timeout": true,
+    "initial_timeout_root_cause": "not_confirmed",
+    "password_mfa_retained": "passed",
+    "profile_https_csrf_and_stale_replay": "passed",
+    "source_loss_package_restore": "passed"
+  },
+  "persistent": {
+    "image_id": "sha256:963185d3317bf5a0b319077a8b27f09577a5aed02cb51b7ce8a4d0df2e1dc7e1",
+    "production_ready": false,
+    "projects": {
+      "staging": {
+        "data_recorder_sequences_unchanged": true,
+        "health": "ok",
+        "secrets_unchanged": true,
+        "workers_held": false
+      },
+      "staging-recovery-20261115": {
+        "data_recorder_sequences_unchanged": true,
+        "health": "ok",
+        "secrets_unchanged": true,
+        "workers_held": true
+      }
+    }
+  },
+  "production_ready": false,
+  "scope": "local_simulation",
+  "source_sha256": {
+    "core/account_profile.py": "33f15add468587c872c2976814a238d7fa5b4107188f8c3cc01298c15f015ee5",
+    "core/profile_views.py": "8a8a4def960ed5cbb589fc8dcb0d607d782b918348ffc58f0c87e60b376a6ff0",
+    "scripts/password_smoke.py": "b980f36f4df935547cde90604e20e8984c9f9f3e6263d8b1b6ba10ba89d38af9",
+    "scripts/verify_staging.py": "7f9763157c1711ccfe72dc82a2484f587fd4f4d63b854dc3c0ea94a1a025c91c",
+    "templates/security/profile.html": "e43b47ce26803b9585b76561b48fddef6c1847de122bfdf2f185ca83eee514cb"
+  },
+  "status": "passed",
+  "tests": {
+    "new_profile_tests": 25,
+    "postgresql": {
+      "failed": 0,
+      "passed": 634,
+      "skipped": 0
+    },
+    "sqlite": {
+      "failed": 0,
+      "passed": 634,
+      "skipped": 0
+    },
+    "targeted_profile_password": 46
+  },
+  "verified_at": "2026-11-18T22:31:54.250375+07:00",
+  "version": 1
+}
