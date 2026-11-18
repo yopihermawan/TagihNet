@@ -31,6 +31,28 @@ def member_for(actor):
     return member
 
 
+@retry_locked
+@transaction.atomic
+def save_sla_settings(actor, values, access_version, correlation_id=None):
+    initial = member_for(actor)
+    tenant = Tenant.objects.select_for_update(no_key=True).get(pk=initial.tenant_id)
+    Membership.objects.select_for_update().get(user_id=actor.pk, tenant_id=tenant.pk)
+    member = member_for(actor)
+    if ("settings" not in capabilities(member) or member.tenant_id != tenant.pk
+            or type(access_version) is not int or member.session_version != access_version):
+        raise PermissionDenied("Izin setelan SLA telah berubah.")
+    fields = {f"sla_{priority}_hours" for priority, _ in Ticket.PRIORITIES}
+    if (not isinstance(values,dict) or set(values) != fields
+            or any(type(value) is not int or not 1 <= value <= 720 for value in values.values())):
+        raise ValidationError("Target SLA harus bilangan bulat 1–720 jam.")
+    for field, value in values.items():
+        setattr(tenant,field,value)
+    tenant.save(update_fields=sorted(fields))
+    audit(tenant, actor, "operations.sla_changed", tenant.pk,
+        "SLA baru hanya berlaku untuk tiket yang dibuat berikutnya.", correlation_id)
+    return tenant
+
+
 def visible_tickets(member):
     query = Ticket.objects.filter(tenant=member.tenant)
     if member.role == "customer":

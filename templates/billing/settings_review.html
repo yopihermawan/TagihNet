@@ -1,0 +1,34 @@
+{% extends 'base.html' %}{% load tagihnet %}
+{% block content %}
+<a class="back-link" href="{% url 'billing_settings' %}">← Kembali ke setelan billing</a>
+<div class="page-heading"><div><span class="eyebrow">TINJAUAN PENGATURAN</span><h1>Tinjau setelan billing</h1>
+<p class="muted">Belum disimpan. Tinjauan berlaku 15 menit; konfirmasi memerlukan MFA dalam 5 menit terakhir.</p></div></div>
+<section class="panel padded billing-settings-review">
+  <h2>Rincian perubahan</h2>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="Perbandingan setelan billing"><table>
+    <thead><tr><th>Setelan</th><th>Saat ditinjau</th><th>Setelah konfirmasi</th></tr></thead>
+    <tbody><tr><th>Nama ISP</th><td>{{ proposal.before.name }}</td><td>{{ proposal.after.name }}</td></tr>
+    <tr><th>Alamat ISP</th><td>{{ proposal.before.address|linebreaksbr|default:'—' }}</td><td>{{ proposal.after.address|linebreaksbr|default:'—' }}</td></tr>
+    <tr><th>Tanggal jatuh tempo</th><td>{{ proposal.before.due_day }}</td><td>{{ proposal.after.due_day }}</td></tr>
+    <tr><th>Pajak (basis poin)</th><td>{{ proposal.before.tax_bp }} bp</td><td>{{ proposal.after.tax_bp }} bp</td></tr>
+    <tr><th>Footer faktur</th><td>{{ proposal.before.invoice_footer|linebreaksbr|default:'—' }}</td><td>{{ proposal.after.invoice_footer|linebreaksbr|default:'—' }}</td></tr></tbody>
+  </table></div>
+</section>
+<section class="panel padded form-panel billing-settings-impact">
+  <h2>Dampak dan contoh</h2>
+  <p>{{ impact.customers }} pelanggan dan {{ impact.invoices }} faktur sudah ada pada ISP ini. Jumlah ini dapat berubah.</p>
+  <p>Nominal, pajak, jatuh tempo dan footer faktur yang sudah terbit serta snapshot batch yang sudah disetujui tetap. Tagihan yang baru disiapkan memakai setelan terbaru. Pratinjau billing dan aktivasi PSB yang belum disetujui diperiksa ulang ketika dikonfirmasi.</p>
+  <p>Jadwal bulanan yang aktif menyiapkan siklus berikutnya dengan setelan terbaru. Hari penerbitan dan persetujuan jadwal tetap; batch yang sudah disetujui tidak dihitung ulang.</p>
+  <p><strong>Identitas penerbit mengikuti profil ISP terkini.</strong> Nama dan alamat ISP pada workspace, tampilan faktur, kuitansi dan PDF termasuk cetakan ulang dokumen lama akan memakai identitas terbaru. File yang sudah diunduh tidak berubah.</p>
+  <p>Contoh tagihan bulanan penuh {{ period|date:'F Y' }}, sebelum pajak {{ 100000|idr }}, diskon nol. Ini contoh perhitungan; tidak menerbitkan tagihan atau membekukan harga pelanggan.</p>
+  <dl class="definition-list"><dt>Jatuh tempo sebelum → sesudah</dt><dd>{{ examples.before.due|date:'d M Y' }} → {{ examples.after.due|date:'d M Y' }}</dd>
+    <dt>Pajak sebelum → sesudah</dt><dd>{{ examples.before.tax|idr }} → {{ examples.after.tax|idr }}</dd>
+    <dt>Total sebelum → sesudah</dt><dd>{{ examples.before.total|idr }} → {{ examples.after.total|idr }}</dd></dl>
+  <p>Tanggal 29–31 mengikuti hari terakhir bulan bila perlu. Perubahan tidak memindahkan pelanggan, mengubah jadwal penerbitan bulanan, mengirim pesan atau menjalankan perintah router. Untuk jadwal penerbitan gunakan menu Jadwal bulanan.</p>
+  <form method="post" action="{% url 'billing_settings_confirm' %}" class="stack-form">
+    {% csrf_token %}{{ form.non_field_errors }}{{ form.token }}{{ form.token.errors }}
+    <div class="field"><label for="{{ form.reviewed.id_for_label }}">{{ form.reviewed }} {{ form.reviewed.label }}</label>{{ form.reviewed.errors }}</div>
+    <button class="button primary">Konfirmasi setelan billing</button><a class="button" href="{% url 'billing_settings' %}">Batal</a>
+  </form>
+</section>
+{% endblock %}

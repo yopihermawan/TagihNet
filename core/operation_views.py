@@ -19,7 +19,7 @@ from .operation_forms import (ActivationConfirmationForm, ActivationForm, Commen
     SLASettingsForm, TicketCreationForm, TicketManageForm, TicketTransitionForm)
 from .operations import (INSTALLATION_TRANSITIONS, TICKET_TRANSITIONS, activate_installation, activation_quote, add_comment,
     assign_installation, create_installation, create_ticket, edit_installation, manage_ticket, member_for,
-    reschedule_installation, transition_installation,
+    reschedule_installation, save_sla_settings, transition_installation,
     transition_ticket, visible_installations, visible_tickets)
 from .permissions import capabilities, require
 from .security_views import recent_factor
@@ -364,11 +364,12 @@ def installation_activate(request, pk):
 def sla_settings(request):
     form = SLASettingsForm(request.POST or None, instance=request.member.tenant)
     if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            form.save()
-            audit(request.member.tenant, request.user, "operations.sla_changed", request.member.tenant.pk,
-                  "SLA baru hanya berlaku untuk tiket yang dibuat berikutnya.", request.correlation_id)
-        messages.success(request, "Target SLA disimpan. Snapshot tiket yang sudah ada tidak berubah.")
-        return redirect("sla_settings")
+        try:
+            save_sla_settings(request.user,form.cleaned_data,request.session.get("access_version"),request.correlation_id)
+        except OperationalError:
+            form.add_error(None,"Target SLA belum disimpan. Muat ulang dan coba lagi.")
+        else:
+            messages.success(request, "Target SLA disimpan. Snapshot tiket yang sudah ada tidak berubah.")
+            return redirect("sla_settings")
     return render(request, "core/form.html", {"form": form, "title": "Target SLA tiket", "back": "/operations/tickets/",
         "description": "Rentang 1–720 jam. Target berjalan sejak tiket dibuat, tidak berhenti saat Menunggu pelanggan. Perubahan berlaku untuk tiket baru; belum ada notifikasi SLA otomatis."})

@@ -21,7 +21,7 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Kuitansi pembayaran | Satu transaksi/sebagian, nomor stabil/WIB/terbilang, HTML/PDF A4/font lokal, reversal terkini, scope operator/portal, read-only | 2 · implemented lokal; simulasi; tanda tangan/verifikasi publik pending |
 | Gateway/webhook | Endpoint gateway tidak didaftarkan; tidak ada signature/settlement produksi | 3 · pending |
 | PDF | ReportLab lokal, A4 multipage, total/snapshot/label simulasi, footer plain text | 2 · implemented |
-| Setelan billing | Pajak basis poin termasuk nol, tanggal 1–31, footer teks, hanya berlaku pada faktur berikutnya | 2 · limited |
+| Setelan billing | Nama/alamat penerbit, pajak0–10.000bp, jatuh tempo1–31/footer teks, review/MFA/stale/audit, preservasi SLA bersamaan; nominal lama/batch disetujui tetap, identitas penerbit terkini pada cetak ulang | 2 · implemented lokal; prorata/siklus fleksibel/identitas penerbit historis pending |
 | Isolir/aktivasi | Recheck utang saat eksekusi; adapter palsu, backoff 30/60/120 detik, maksimal 3 percobaan | 3 · simulated |
 | MikroTik/RADIUS/CoA | Belum ada adapter read-only/write nyata, lab, VPN collector, accounting | 3 · pending |
 | Portal | Pelanggan melihat layanan/faktur/PDF dan kuitansi transaksi milik sendiri | 2 · limited |
@@ -42,7 +42,7 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Profil mandiri | Nama tampilan sendiri, informasi akun, token sesi/snapshot15menit, konflik bersamaan, audit atomik; sandi/MFA/akses dan consent tetap | 4 · implemented lokal; perubahan username/email/avatar pending |
 | Scope wilayah geografis | Penugasan teknisi tersedia; batas wilayah geografis belum tersedia | 4 · pending |
 | Backup/restore | AES-256-GCM streaming SQLite/PG, kunci terpisah, verify, target kosong/no-clobber, restore ledger+MFA | 5 · implemented lokal; offsite/retensi/PITR pending |
-| Backend PostgreSQL | Opsional, role non-superuser lab, 664 tes pada dua backend, migrasi paket0012 pada salinan/data lokal; 17 skenario lintas proses + pg_dump/pg_restore pada checkpoint sebelumnya | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
+| Backend PostgreSQL | Opsional, role non-superuser lab, 694 tes pada dua backend, migrasi paket0012 pada salinan/data lokal; 17 skenario lintas proses + pg_dump/pg_restore pada checkpoint sebelumnya | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
 | Staging lokal | Gunicorn HTTPS/WhiteNoise, PG verify-full, migrator/runtime terpisah, secret file, non-root/read-only, restart worker, bootstrap/MFA dan guard volume | 5 · implemented lokal; simulasi; VPS/domain/kapasitas/offsite pending |
 | Recovery staging | Backup streaming AES-GCM, fresh-project SQL restore, identitas/empty/key/lock guards, sesi baru, MFA tetap, worker hold/review dan rekonsiliasi tabel/sequence | 5 · implemented lokal; offsite/PITR/RPO/RTO pending |
 | Operasi staging | HTTPS/SQL/sertifikat/loop heartbeat/antrean, log transisi privat, watcher lokal dan backup periodik opt-in terautentikasi | 5 · implemented lokal; alert eksternal/systemd/offsite/retensi pending |

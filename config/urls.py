@@ -6,6 +6,7 @@ from core import report_views as reports
 from core import photo_views as photos
 from core import receipt_views as receipts
 from core import schedule_views as schedules
+from core import billing_settings_views as billing_settings
 from core import views
 from core import security_views as security
 from core import profile_views as profile
@@ -79,7 +80,8 @@ urlpatterns = [
     path("invoices/<int:pk>/pay/", views.payment_create, name="payment_create"),
     path("payments/<int:pk>/reverse/", views.payment_reverse, name="payment_reverse"),
     path("network/", views.network, name="network"),
-    path("settings/billing/", views.billing_settings, name="billing_settings"),
+    path("settings/billing/", billing_settings.billing_settings, name="billing_settings"),
+    path("settings/billing/confirm/", billing_settings.billing_settings_confirm, name="billing_settings_confirm"),
     path("audit/", views.audit_log, name="audit"),
     path("portal/", views.portal, name="portal"),
     path("operations/tickets/", operations.ticket_list, name="ticket_list"),

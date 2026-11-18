@@ -32,3 +32,4 @@ table{font-size:13px}th{font-size:11px}td strong{font-size:13px}td small{font-si
 .billing-report-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:1100px){.billing-report-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .receipt-paper{max-width:920px;overflow-wrap:anywhere}.receipt-paper .invoice-brand{gap:16px;flex-wrap:wrap}.receipt-paper .invoice-parties>div{min-width:0}.receipt-words{font-style:italic}.receipt-reversal{margin:24px 0;padding:16px;border:1px solid var(--line);border-left:4px solid #b45309;border-radius:12px}
+.billing-settings-review table{min-width:640px;table-layout:fixed}.billing-settings-review td,.billing-settings-review th{white-space:normal;overflow-wrap:anywhere;vertical-align:top}.billing-settings-review th:first-child{width:26%}.billing-settings-impact{margin-top:24px}

@@ -44,6 +44,8 @@ today=timezone.localdate();current=today.replace(day=1)
 last=(current-timedelta(days=1)).replace(day=1)
 previous=(last-timedelta(days=1)).replace(day=1)
 with transaction.atomic():
+    # This fixture's documented amounts/calendar must not depend on HTTPS setup settings.
+    tenant.tax_bp=0;tenant.due_day=20;tenant.save(update_fields=['tax_bp','due_day'])
     plan=Plan.objects.create(tenant=tenant,name='Paket Uji Beban',speed_mbps=30,price=225000)
     customers=Customer.objects.bulk_create([Customer(tenant=tenant,plan=plan,code=f'LOAD-{i:04}',name=f'Pelanggan Uji {i:04}',username=f'load-{i}',phone=f'081299{i:06}',address='Alamat fiktif uji beban',area='Load') for i in range(1,501)])
     invoices=[]

@@ -20,7 +20,7 @@ Sumber enforcement: `core/permissions.py`, `core/views.py:allowed_invoice`, dan 
 | Kuitansi pembayaran HTML/PDF | ISP sendiri | ISP sendiri | ISP sendiri | ISP sendiri | Tidak | Milik sendiri |
 | CSV pelanggan | Ya | Ya | Ya | Tidak | Tidak | Tidak |
 | Antrean jaringan | Ya | Tidak | Tidak | Tidak | Ya | Tidak |
-| Setelan billing | Ya | Tidak | Tidak | Tidak | Tidak | Tidak |
+| Setelan billing | Ya + tinjauan/MFA terbaru | Tidak | Tidak | Tidak | Tidak | Tidak |
 | Audit | Ya | Tidak | Tidak | Tidak | Tidak | Tidak |
 | Editor akun/peran | Ya, dengan MFA terbaru | Tidak | Tidak | Tidak | Tidak | Tidak |
 | Keamanan akun / MFA | Milik sendiri | Milik sendiri | Milik sendiri | Milik sendiri | Milik sendiri | Milik sendiri |

@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.debug import sensitive_post_parameters
 from .billing import audit, issue_invoice, record_payment, reverse_payment
-from .forms import BillingSettingsForm, CustomerForm, InvoiceForm, PaymentForm
+from .forms import CustomerForm, InvoiceForm, PaymentForm
 from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, with_financial_summary
 from .customer_profile import invoice_rows, profile_context
 from .invoice_queries import with_balances
@@ -301,20 +301,6 @@ def payment_reverse(request, pk):
 @require("network")
 def network(request):
     return render(request, "core/network.html", {"jobs": NetworkJob.objects.filter(tenant=request.member.tenant).select_related("customer").order_by("-id")[:30]})
-
-
-@require("settings")
-def billing_settings(request):
-    form = BillingSettingsForm(request.POST or None, instance=request.member.tenant)
-    if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            form.save()
-            audit(request.member.tenant, request.user, "billing.settings_updated", request.member.tenant.pk,
-                  "Berlaku untuk faktur berikutnya; snapshot faktur terbit tidak berubah.", request.correlation_id)
-        messages.success(request, "Setelan disimpan. Faktur yang sudah terbit tetap menggunakan snapshot sebelumnya.")
-        return redirect("billing_settings")
-    return render(request, "core/form.html", {"form": form, "title": "Setelan billing", "back": "/",
-                  "description": "Prabayar bulanan, tanpa prorata pada fondasi ini. Perubahan hanya memengaruhi faktur yang belum diterbitkan. Pajak 0 bp berarti nol, bukan belum diatur. Footer selalu diperlakukan sebagai teks biasa."})
 
 
 @require("audit")

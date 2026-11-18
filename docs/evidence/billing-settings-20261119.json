@@ -1,0 +1,116 @@
+{
+  "application_digest": "751b98a872c26a66fb4b801002151499ce106ab6fe6c9a75029f14c1f5d479f2",
+  "browser": {
+    "actual_sla_http_write_preserved": "passed",
+    "current_issuer_on_old_invoice": "passed",
+    "dark_mode": "passed",
+    "ledger_customer_plan_and_network_fingerprints_unchanged": true,
+    "no_write_from_edit_post": "passed",
+    "real_mfa_review_checkbox_confirm": "passed",
+    "screenshots": "fictitious_review_without_factors",
+    "stale_form_and_review_409": "passed",
+    "widths": [
+      360,
+      768,
+      1366,
+      1920
+    ]
+  },
+  "development": {
+    "all_database_rows_unchanged": true,
+    "health": "ok",
+    "no_migration_or_seed": true,
+    "original_keys_unchanged": true,
+    "production_ready": false,
+    "single_web_and_three_workers": true,
+    "status": "passed"
+  },
+  "docker": {
+    "billing_settings_https_csrf_mfa_stale_replay": "passed",
+    "cleanup": "passed",
+    "earlier_security_profile_password_catalog_guards": "passed",
+    "final_combined_verifier": "passed",
+    "initial_candidate_verifier_interrupted_for_sla_fix": true,
+    "interrupted_run_cleanup_observed": true,
+    "pending_future_recorder_without_repair": "passed",
+    "reviewed_issuer_and_settings_restored": "passed",
+    "source_loss_package_restore": "passed",
+    "sql_restore_all_models_sequences_binary_ledger": "passed"
+  },
+  "initial_test_corrections": [
+    "control_validation_before_trim",
+    "PDF_harness_simulation_argument",
+    "browser_selector_matches_required_label"
+  ],
+  "not_rerun": [
+    "full_operations_security_browser",
+    "17_generic_postgresql_process_scenarios",
+    "load_soak",
+    "same_schema_rollback_rehearsal",
+    "advisory_OS_penetration_audit",
+    "remote_CI_results",
+    "independent_host_restore"
+  ],
+  "persistent": {
+    "image_id": "sha256:723ffc72f7afbe2012b1605af336a945cbd38ee8086989375a2cc2b1766664b7",
+    "production_ready": false,
+    "projects": {
+      "staging": {
+        "health": "ok",
+        "models_sequences_and_recorder_unchanged": true,
+        "secrets_unchanged": true,
+        "workers_held": false
+      },
+      "staging-recovery-20261115": {
+        "health": "ok",
+        "models_sequences_and_recorder_unchanged": true,
+        "secrets_unchanged": true,
+        "workers_held": true
+      }
+    },
+    "source_monitor": {
+      "new_successful_tick": true,
+      "retained_backup_policy_key_and_custody": true,
+      "status": "ok"
+    }
+  },
+  "production_ready": false,
+  "schema": "core.0012_plan_availability",
+  "schema_and_dependency_changes": false,
+  "scope": "local_simulation",
+  "source_sha256": {
+    ".github/workflows/tests.yml": "ef98754198cbc53dad036b07d636b1ee38c961c7cfd498ef6da24ed19ccb288a",
+    "config/urls.py": "ba5ce71aaf614e1cd6bf4f62983e0a47d9714aa6984706f776284329ab6fef63",
+    "core/billing_settings.py": "70f01ebe6b9c66d35b26ebceef84eaa863f42dfa97e49b9bf3363a5129f912e3",
+    "core/billing_settings_views.py": "b64ba416e65b1cdc6e56794c8ecaf8b8812d0858781ae72a1ac6e93037ede3e4",
+    "core/forms.py": "2bccad51f9d864bfa77932aac1a118ad9ff4e154a03c65a2a4a6fa0560ad9468",
+    "core/operation_views.py": "b86e4e93826c56f822cf4cbd1f6ba0c064d6fb4eb5d38d5550917008a1d17759",
+    "core/operations.py": "0d1696d3340a9668e2023db5cf31384e92e0c20d9a0457bea85775018b15be6d",
+    "core/tests/test_billing_settings_review.py": "feebc81ed975c804646e5da2d30e340ff92d148eed4cf0414eb6593202a02d00",
+    "core/views.py": "58705b403ec6b2330a7e5520e83f0c9e5c7e02f88466d497e038cda9e010c97f",
+    "scripts/billing_settings_smoke.py": "319565bc6d72233f8d670c861e3160177e2e66be3cd11d028d4829297e73f570",
+    "scripts/staging_load.py": "680941b75bfd85831d012e31177886753dd99855b742f0abdd1ab5dede272023",
+    "scripts/verify_staging.py": "7bf7cd5059b78ecd4f2ec4d49bda678cf43c70130810e39477ea006f85dbc28f",
+    "scripts/verify_staging_backup.py": "b7ef0de2735e16071f791b418c6e328c02804281aa1b18f8ad2a38caf6299d08",
+    "static/app.css": "95fb8f802934c9a84d619e9bf8fb35a4451b1a23ed41038eed15bedea1ed312c",
+    "templates/billing/settings_review.html": "b2c5667d27a71516389603b9385002d8673da0f363106ccb8ff53c8916e55326"
+  },
+  "status": "passed",
+  "tests": {
+    "new": 30,
+    "postgresql": {
+      "failed": 0,
+      "passed": 694,
+      "skipped": 0
+    },
+    "sqlite": {
+      "failed": 0,
+      "passed": 694,
+      "skipped": 0
+    },
+    "targeted_postgresql_settings": 30,
+    "targeted_sqlite_settings_operations": 64
+  },
+  "verified_at": "2026-11-19T00:36:47.282319+07:00",
+  "version": 1
+}

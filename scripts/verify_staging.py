@@ -212,6 +212,21 @@ print('PASS: runtime SQL permissions and TLS verification, no migration/CA priva
     status,_,_,url=request('/plans/availability/confirm/',{'token':token,'reviewed':'on','csrfmiddlewaretoken':csrf()})
     assert status==200 and 'availability=active' in url
     print('PASS: plan creation/archive/reactivation through real HTTPS reviews/MFA, checkbox required and stale archive replay rejected.',flush=True)
+    status,_,body,_=request('/settings/billing/')
+    assert status==200
+    original_form=re.search(rb'name="token" value="([^"]+)"',body).group(1).decode()
+    fields={'token':original_form,'name':'ISP Staging Ditinjau','address':'Alamat Staging Fiktif','due_day':'31',
+        'tax_bp':'1100','invoice_footer':'Footer staging ditinjau.'}
+    assert request('/settings/billing/',fields)[0]==403
+    status,_,body,_=request('/settings/billing/',{**fields,'csrfmiddlewaretoken':csrf()})
+    assert status==200 and b'Tinjau setelan billing' in body
+    token=re.search(rb'name="token" value="([^"]+)"',body).group(1).decode()
+    assert request('/settings/billing/confirm/',{'token':token,'csrfmiddlewaretoken':csrf()})[0]==400
+    status,_,body,url=request('/settings/billing/confirm/',{'token':token,'reviewed':'on','csrfmiddlewaretoken':csrf()})
+    assert status==200 and url==base+'/settings/billing/' and b'value="ISP Staging Ditinjau"' in body
+    assert request('/settings/billing/',{**fields,'csrfmiddlewaretoken':csrf()})[0]==409
+    assert request('/settings/billing/confirm/',{'token':token,'reviewed':'on','csrfmiddlewaretoken':csrf()})[0]==409
+    print('PASS: billing settings real HTTPS/CSRF/review/checkbox/MFA save and stale form/review409; no direct save from edit POST.',flush=True)
     logs=compose(directory,'logs','--no-color',capture=True).stdout
     for name in ('session-key','mfa-key','runtime-password','migration-password','bootstrap-password'):
         assert (directory/'secrets'/name).read_text() not in logs

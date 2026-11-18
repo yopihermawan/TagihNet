@@ -29,6 +29,7 @@ Aset utama: identitas pelanggan, ledger rupiah, sesi operator, PDF/CSV, pengatur
 | TGN-001 · sedang / availability | Eksekusi pertama settings mencoba chmod pada file object, sehingga bootstrap gagal dan file key kosong tertinggal. Diganti pembuatan file eksklusif mode 0600 melalui `os.open`, validasi panjang kunci; artefak kosong milik eksekusi ini dihapus. Migrasi/seed/check berhasil sesudahnya. Tidak ada deployment produksi terdampak |
 | TGN-002 · rendah / integritas demo | Seed awal bergantung pada nama ISP yang dapat diubah. Diperbaiki dengan mengambil tenant dari membership owner yang ada dan menolak konflik akun. Uji seed ulang setelah rename menjaga jumlah record dan password |
 | TGN-003 · rendah / aksesibilitas | Sidebar mobile yang bergeser keluar layar masih dapat menerima fokus. Ditambah `inert` saat tertutup; dibuka melalui tombol, Escape mengembalikan fokus. Browser retest mengikuti perbaikan |
+| TGN-006 · sedang / integritas konfigurasi | Setelan billing langsung disimpan tanpa review/MFA/konflik; ModelForm billing maupun SLA dapat menyimpan kembali field tenant lain yang sudah berubah. Kini billing memakai token state/review/checkbox/MFA dan update field terpilih, SLA memakai jalur transaksi fresh dengan whitelist empat field. Tes HTTP menyisipkan konfirmasi billing sesudah validasi form SLA serta race kedua jalur aktual; kedua perubahan bertahan, audit gagal rollback. Snapshot ledger lama tetap |
 
 ## Risiko terbuka / gate sebelum produksi
 

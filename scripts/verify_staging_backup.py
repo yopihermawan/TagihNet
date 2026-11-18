@@ -127,6 +127,7 @@ def verify_restored_access(target,identity):
     assert status==200 and url==base+'/'
     assert request('/settings/access/')[0]==200
     assert 'PASS:' in shell(target,"from core.models import Plan,Customer; p=Plan.objects.get(name='Paket Restore'); assert not p.is_active; assert Customer.objects.filter(plan=p).count()==1; print('PASS: archived catalog and legacy assignment restored')")
+    assert 'PASS:' in shell(target,"from core.models import Tenant; t=Tenant.objects.get(name='ISP Staging Ditinjau'); assert t.address=='Alamat Staging Fiktif' and t.due_day==31 and t.tax_bp==1100 and t.invoice_footer=='Footer staging ditinjau.'; print('PASS: reviewed billing and issuer settings restored')")
     values=shell(target,"from core.models import Invoice,Payment,WorkPhoto; import hashlib; print('RESTORED:',Invoice.objects.get().balance,Payment.objects.count(),WorkPhoto.objects.get().pk,WorkPhoto.objects.get().checksum)")
     result=next(line for line in values.splitlines() if line.startswith('RESTORED:')).split()
     assert result[1:3]==['149750','2']

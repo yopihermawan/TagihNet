@@ -1,7 +1,7 @@
 from datetime import date
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Customer, Tenant
+from .models import Customer
 from .validation import normalize_phone
 from .plan_selection import selectable_plans
 
@@ -39,10 +39,19 @@ class PaymentForm(forms.Form):
     note = forms.CharField(label="Catatan (opsional)", max_length=250, required=False,
                           help_text="Tampil pada kuitansi, termasuk di portal pelanggan.")
 
-class BillingSettingsForm(forms.ModelForm):
-    class Meta:
-        model = Tenant
-        fields = ["name", "address", "due_day", "tax_bp", "invoice_footer"]
-        labels = {"name": "Nama ISP", "address": "Alamat ISP", "due_day": "Tanggal jatuh tempo (1–31)",
-                  "tax_bp": "Pajak dalam basis poin (100 bp = 1%)", "invoice_footer": "Footer faktur (teks biasa)"}
-        widgets = {"invoice_footer": forms.Textarea(attrs={"rows": 3})}
+class BillingSettingsForm(forms.Form):
+    name = forms.CharField(label="Nama ISP", max_length=100, strip=False)
+    address = forms.CharField(label="Alamat ISP", max_length=250, strip=False,
+        widget=forms.Textarea(attrs={"rows":3}))
+    due_day = forms.IntegerField(label="Tanggal jatuh tempo (1–31)", min_value=1, max_value=31)
+    tax_bp = forms.IntegerField(label="Pajak dalam basis poin (100 bp = 1%)", min_value=0, max_value=10000)
+    invoice_footer = forms.CharField(label="Footer faktur (teks biasa)", max_length=1000, required=False,
+        strip=False, widget=forms.Textarea(attrs={"rows":3}))
+    token = forms.CharField(max_length=65536, widget=forms.HiddenInput)
+
+    def clean(self):
+        from .billing_settings import FIELDS, validate_values
+        values = super().clean()
+        if not self.errors:
+            values.update(validate_values({key:values[key] for key in FIELDS}))
+        return values
