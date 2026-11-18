@@ -17,7 +17,8 @@ import pyotp
 from playwright.sync_api import sync_playwright, expect
 
 root = Path(__file__).resolve().parent.parent
-evidence = root / "docs/evidence"
+evidence = Path(os.environ.get("TAGIHNET_EVIDENCE_DIR", str(root / "docs/evidence")))
+evidence.mkdir(parents=True, exist_ok=True)
 password = "Isolated-operations-password-2026!"
 with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
     env = {**os.environ, "TAGIHNET_DB_ENGINE": "sqlite", "TAGIHNET_DATA_DIR": directory, "TAGIHNET_DEMO_PASSWORD": password,
@@ -443,11 +444,12 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             # Administrative NAS mapping and ledger-based due filters, in this disposable DB only.
             with sqlite3.connect(db_path) as db:
                 owner_tenant = db.execute("SELECT tenant_id FROM core_membership m JOIN auth_user u ON m.user_id=u.id WHERE u.username='owner'").fetchone()[0]
+                portal_customer = db.execute("SELECT customer_id FROM core_membership m JOIN auth_user u ON m.user_id=u.id WHERE u.username='pelanggan'").fetchone()[0]
                 mapped_customer, mapped_name, mapped_code, due_invoice, due_amount = db.execute(
                     "SELECT c.id,c.name,c.code,i.id,i.total FROM core_customer c JOIN core_invoice i ON i.customer_id=c.id "
-                    "WHERE c.tenant_id=? AND i.tenant_id=? AND i.due_date<? "
+                    "WHERE c.tenant_id=? AND i.tenant_id=? AND c.id<>? AND i.due_date<? "
                     "AND NOT EXISTS (SELECT 1 FROM core_payment p WHERE p.invoice_id=i.id) ORDER BY i.id LIMIT 1",
-                    (owner_tenant, owner_tenant, datetime.now(ZoneInfo('Asia/Jakarta')).date().isoformat())).fetchone()
+                    (owner_tenant, owner_tenant, portal_customer, datetime.now(ZoneInfo('Asia/Jakarta')).date().isoformat())).fetchone()
                 mapping_before = [db.execute("SELECT COUNT(*) FROM "+table).fetchone()[0] for table in ['core_invoice', 'core_payment', 'core_networkjob', 'core_monitoringpoll']]
             mapped_nas = int(monitor_url.rstrip('/').split('/')[-1])
             mapped_detail = base + f"/customers/{mapped_customer}/"

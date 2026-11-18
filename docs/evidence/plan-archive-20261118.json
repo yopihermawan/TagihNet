@@ -1,0 +1,138 @@
+{
+  "application_digest": "abbd07069ebd81424f8619efb84111a76f21392a960d6ab2167d8d9b20349f64",
+  "browser": {
+    "archive_reactivate_review_mfa_replay": "passed",
+    "customer_and_ledger_fingerprints_unchanged": true,
+    "dark_mode": "passed",
+    "existing_customer_legacy_choice": "passed",
+    "fixture_now_explicitly_excludes_portal_owner": true,
+    "initial_operations_fixture_selected_portal_owner": true,
+    "new_assignment_guards": "passed",
+    "operations_regression": "passed",
+    "widths": [
+      360,
+      768,
+      1366,
+      1920
+    ]
+  },
+  "cloud_setup": {
+    "current_database_unchanged_after_execution": true,
+    "existing_database_check_only": true,
+    "existing_keys_required": true,
+    "seed_only_on_empty_data_directory": true
+  },
+  "development": {
+    "health": "ok",
+    "keys_unchanged": true,
+    "production_ready": false,
+    "rows_unchanged_after_start": true,
+    "status": "passed",
+    "web_and_three_workers": "started_without_duplicates"
+  },
+  "docker": {
+    "archived_plan_and_legacy_assignment_restored": "passed",
+    "cleanup": "passed",
+    "encrypted_sql_restore": "passed",
+    "https_review_csrf_mfa_stale_replay": "passed",
+    "pending_and_future_recorder_without_repair": "passed",
+    "source_loss_package_restore": "passed"
+  },
+  "migration": {
+    "development": {
+      "existing_plans_active": 6,
+      "foreign_keys": "ok",
+      "old_rows_unchanged": true,
+      "production_ready": false,
+      "scope": "schema0011_to0012_sqlite",
+      "sequences_preserved_except_new_migration": true,
+      "status": "passed"
+    },
+    "postgresql": {
+      "image_id": "sha256:83dda3f5f6b0f9cbb376aa4ede8f9b22f741c5308cf97c4b063d3f407111f424",
+      "production_ready": false,
+      "projects": {
+        "staging": {
+          "health": "ok",
+          "old_rows_unchanged": true,
+          "secrets_unchanged": true,
+          "sequences_preserved_except_new_migration": true,
+          "workers_held": false
+        },
+        "staging-recovery-20261115": {
+          "health": "ok",
+          "old_rows_unchanged": true,
+          "secrets_unchanged": true,
+          "sequences_preserved_except_new_migration": true,
+          "workers_held": true
+        }
+      },
+      "status": "passed"
+    },
+    "restored_copy": {
+      "existing_plans_active": 6,
+      "foreign_keys": "ok",
+      "old_rows_unchanged": true,
+      "production_ready": false,
+      "scope": "schema0011_to0012_sqlite",
+      "sequences_preserved_except_new_migration": true,
+      "status": "passed"
+    }
+  },
+  "monitor_and_custody": {
+    "actual_manual_backup_recorded": true,
+    "clone_workers_held": true,
+    "post_migration_backup_authenticated": true,
+    "production_ready": false,
+    "status": "passed",
+    "watcher_new_successful_tick": true
+  },
+  "not_rerun": [
+    "remote_CI",
+    "17_generic_PostgreSQL_process_scenarios",
+    "load_soak",
+    "same_schema_image_rollback",
+    "advisory_OS_penetration_audit",
+    "independent_host_restore",
+    "reverse_migration"
+  ],
+  "production_ready": false,
+  "scope": "local_simulation",
+  "source_sha256": {
+    "core/forms.py": "9584b3d91dc2d01650f7815a3041f4b65692fd3b678bb096c5c882b20cbfd404",
+    "core/migration_operations.py": "89e890548bb8ec86f72fc46a2b27a3bb37357ffcce4a7ffd811df47f46c95af9",
+    "core/migrations/0012_plan_availability.py": "eab165bb2c3047e9f6f93ace3714d37d92d4c11b476fa5a7a5225f28dd695599",
+    "core/models.py": "3d0c5779dd660bee93fe6d6a247e949c1ec4d77d37d2a2eda1ff432a995975d9",
+    "core/operations.py": "b5ac6e96f5c8b900993618e14005b6772388cfc0b40edc935797b1a18c9b6bff",
+    "core/plan_availability.py": "5f1c96fcf0ceb06c5a347d55536b2977d6f2c4e45c0dffe9f5563ce31bb468ea",
+    "core/plan_selection.py": "4819a0ca0e3d0ded1058590d8623a208aa4a642daaea92fcfed014cdd623e272",
+    "core/plan_views.py": "b311dab5ad65dca22ee6566a17edd2488fed6a0b26ac9f582f5fe358fbd1a70d",
+    "core/tests/test_plan_availability.py": "e2dd3d6cf15f890ab678bd0ca840ffccbe8a8be35066497d1cc0af94dac6e040",
+    "core/views.py": "725ded398b809c0fdcee0577bcd9420d665d208a21c36fe158d7328814d48d28",
+    "scripts/operations_smoke.py": "ac3d919fe57cb879e8a56c3796ea8040a5ef0f5842da8db46471c237bad2c638",
+    "scripts/plan_archive_migration_check.py": "0cb79139f98c7f762e19eeef5977879b1a6ac9a6d8da07b09d43807bda308f3f",
+    "scripts/plan_archive_smoke.py": "8e081d871e1d54f3e2957d943089b3f8b7982a529e8de5bf7b80052301ae94fe",
+    "scripts/preflight_smoke.py": "f4e8d3d267250a7f7d2b570eb0860c200ed3ce1484c1691c8ce66d2c55ab33ac",
+    "scripts/verify_staging.py": "2dc7750440bfdad7da14458fb0696438ce07165b5727e61cb629fe059bd3861f",
+    "scripts/verify_staging_backup.py": "381e71e741975898efc1cee7f156191a1302aa4e5a05105d3cdb7f46fe85fa18",
+    "templates/plans/availability.html": "0c7d3dbaa94df370daf574b15bf3d616480da122b50536dee1d086ad3375c853",
+    "templates/plans/list.html": "1e3ff3f0496d4597bbb61c9255fb6fc98e22b29e79f7c08e6120a714d43781da"
+  },
+  "status": "passed",
+  "tests": {
+    "final_targeted_per_backend": 30,
+    "new_plan_archive_tests": 30,
+    "postgresql": {
+      "failed": 0,
+      "passed": 664,
+      "skipped": 0
+    },
+    "sqlite": {
+      "failed": 0,
+      "passed": 664,
+      "skipped": 0
+    }
+  },
+  "verified_at": "2026-11-18T23:47:19.554038+07:00",
+  "version": 1
+}

@@ -14,10 +14,10 @@ git status --short
 .venv/bin/python -c "from scripts.staging_lab import docker; print(docker('image','inspect','tagihnet-staging:local','--format','{{.Id}}',capture=True).stdout.strip())"
 ```
 
-Cloud dengan proxy CA dapat memakai opsi build `--proxy-ca-file /etc/ssl/certs/ca-certificates.crt`. Gunakan image ID `sha256:`64hex hasil build, bukan tag yang dapat berubah. Pada instance checkpoint ini ID yang sudah diuji adalah `sha256:963185d3317bf5a0b319077a8b27f09577a5aed02cb51b7ce8a4d0df2e1dc7e1`.
+Cloud dengan proxy CA dapat memakai opsi build `--proxy-ca-file /etc/ssl/certs/ca-certificates.crt`. Gunakan image ID `sha256:`64hex hasil build, bukan tag yang dapat berubah. Pada instance checkpoint ini ID yang sudah diuji adalah `sha256:83dda3f5f6b0f9cbb376aa4ede8f9b22f741c5308cf97c4b063d3f407111f424`.
 
 ```bash
-.venv/bin/python scripts/staging_lab.py pin-image --directory data/staging --image-id sha256:963185d3317bf5a0b319077a8b27f09577a5aed02cb51b7ce8a4d0df2e1dc7e1
+.venv/bin/python scripts/staging_lab.py pin-image --directory data/staging --image-id sha256:83dda3f5f6b0f9cbb376aa4ede8f9b22f741c5308cf97c4b063d3f407111f424
 ```
 
 Pin hanya menyimpan `image_id` pada manifest di bawah operation lock, setelah membuktikan image tersedia lokal. Tidak ada restart/migrate/service start atau perubahan recovery_pending. Seluruh panggilan Compose melalui helper memilih image itu untuk web/migrate/worker dan mengabaikan selector image dari environment luar. Perintah yang dapat menyalakan container menolak image pin yang hilang sebelum Compose dapat melakukan fallback/pull. Stop/down/status tetap dapat dipakai saat image hilang. Direktori lama tanpa pin memakai tag lokal untuk kompatibilitas, tetapi preflight rilis menolaknya.
@@ -30,17 +30,17 @@ Staging aktif harus mempunyai backup berkala yang enabled, percobaan terakhir ti
 
 Pada instance ini paket baru yang cocok dengan backup terpantau berada di:
 
-- `data/recovery-handoff/archives/profile-20261118`
-- `data/recovery-handoff/keys/profile-20261118`
+- `data/recovery-handoff/archives/plan-archive-20261118`
+- `data/recovery-handoff/keys/plan-archive-20261118`
 
-Paket `staging-20261115`, `release-20261115` dan `self-password-20261116` sebelumnya tetap valid dan dipertahankan; arsipnya berbeda sehingga tidak memenuhi gate aktif terhadap backup terpantau saat ini. Untuk backup berikutnya, export dari `last_archive`/key konfigurasi operasi ke **dua nama tujuan baru**, mengikuti RECOVERY-HANDOFF. Jangan mengubah metadata backup untuk membuat paket lama terlihat cocok. Folder/key tetap privat dan terpisah; ini masih satu workspace, bukan offsite.
+Paket `staging-20261115`, `release-20261115`, `self-password-20261116` dan `profile-20261118` sebelumnya tetap valid dan dipertahankan; arsipnya berbeda sehingga tidak memenuhi gate aktif terhadap backup terpantau saat ini. Untuk backup berikutnya, export dari `last_archive`/key konfigurasi operasi ke **dua nama tujuan baru**, mengikuti RECOVERY-HANDOFF. Jangan mengubah metadata backup untuk membuat paket lama terlihat cocok. Folder/key tetap privat dan terpisah; ini masih satu workspace, bukan offsite.
 
 ## Jalankan gate aktif
 
 Pastikan pekerjaan jatuh tempo sudah selesai dan tidak ada proses rilis/migrasi lain. Jalankan pemeriksaan setelah kandidat berjalan di lingkungan uji:
 
 ```bash
-.venv/bin/python scripts/staging_preflight.py --directory data/staging --image-id sha256:963185d3317bf5a0b319077a8b27f09577a5aed02cb51b7ce8a4d0df2e1dc7e1 --package-dir data/recovery-handoff/archives/profile-20261118 --keys-dir data/recovery-handoff/keys/profile-20261118 --output data/evidence/preflight-active-baru.json
+.venv/bin/python scripts/staging_preflight.py --directory data/staging --image-id sha256:83dda3f5f6b0f9cbb376aa4ede8f9b22f741c5308cf97c4b063d3f407111f424 --package-dir data/recovery-handoff/archives/plan-archive-20261118 --keys-dir data/recovery-handoff/keys/plan-archive-20261118 --output data/evidence/preflight-active-baru.json
 ```
 
 Output baru wajib; file/symlink yang sudah ada ditolak. JSON file0600 diterbitkan atomic/no-clobber. Exit0 hanya passed, exit1 untuk kegagalan/ketidaktersediaan. Tidak ada exception body, environment dump, key, OTP, password, pelanggan atau nominal pada laporan. Git HEAD/dirty hanya provenance checkout; gunakan commit bersih yang dapat direproduksi untuk kandidat rilis. Gate membandingkan byte aplikasi aktual, tidak menganggap label Git sebagai bukti image.
@@ -63,10 +63,18 @@ Digest membandingkan source terpilih, bukan tanda tangan supply chain, seluruh f
 Clone yang worker-nya ditahan harus memakai mode eksplisit recovery. Mode aktif menolaknya. Contoh memakai snapshot clone yang sudah ada:
 
 ```bash
-.venv/bin/python scripts/staging_preflight.py --directory data/staging-recovery-20261115 --mode recovery --image-id sha256:963185d3317bf5a0b319077a8b27f09577a5aed02cb51b7ce8a4d0df2e1dc7e1 --package-dir data/recovery-handoff/archives/staging-20261115 --keys-dir data/recovery-handoff/keys/staging-20261115 --output data/evidence/preflight-recovery-baru.json
+.venv/bin/python scripts/staging_preflight.py --directory data/staging-recovery-20261115 --mode recovery --image-id sha256:83dda3f5f6b0f9cbb376aa4ede8f9b22f741c5308cf97c4b063d3f407111f424 --package-dir data/recovery-handoff/archives/staging-20261115 --keys-dir data/recovery-handoff/keys/staging-20261115 --output data/evidence/preflight-recovery-baru.json
 ```
 
 Recovery tidak mensyaratkan backup otomatis clone atau antrean snapshot kosong. Web/database dan paket diverifikasi; worker yang ternyata berjalan menyebabkan gagal. Passed tidak mengizinkan resume/cutover otomatis. Operator tetap merekonsiliasi transaksi, akses/MFA/consent dan antrian pascasnapshot sebelum tindakan eksplisit berikutnya.
+
+## Migrasi paket 0011 → 0012
+
+Kandidat ini memakai `0012_plan_availability` dan digest aplikasi `abbd07069ebd81424f8619efb84111a76f21392a960d6ab2167d8d9b20349f64`. Semua paket lama tetap aktif; penulis/watcher dihentikan, backup0011 dengan kunci lama diautentikasi dan migrasi lebih dahulu diuji pada salinan. SQLite mempertahankan high-water ID saat rebuild tabel. Rekonsiliasi membandingkan semua baris dengan proyeksi kolom lama, seluruh sequence dan recorder baru tunggal. Lihat [PLANS](PLANS.md).
+
+Setelah migrasi, backup0012 baru dibuat dan seluruh autentikasinya diperiksa. Catatan backup source memakai waktu keberhasilan aktual backup manual tersebut; interval24jam tetap. Tidak ada pemajuan jam atau klaim bahwa scheduler sudah jatuh tempo. Watcher dimulai kembali dan harus menghasilkan tick sehat baru. Clone recovery tetap worker hold. Semua arsip/kunci/image lama dipertahankan; paket schema0011 lama dapat dipulihkan ke target baru lalu diuji migrasi maju, bukan ditimpa ke database aktif.
+
+Image lama0011 tidak boleh dipakai sebagai rollback otomatis setelah recorder0012 tercatat. Latihan rollback schema tetap terdahulu tidak membuktikan reverse migration ini. Pertahankan target gagal; gunakan restore ke target baru dengan image/backup kompatibel dan rekonsiliasi setelah snapshot. Tidak ada pengujian reverse migration produksi.
 
 ## Urutan rilis dan rollback
 

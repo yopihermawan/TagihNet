@@ -1,0 +1,23 @@
+{% extends 'base.html' %}{% load tagihnet %}
+{% block content %}
+<a class="back-link" href="{% url 'plan_list' %}?availability=all">← Kembali ke paket</a>
+<div class="page-heading"><div><span class="eyebrow">KETERSEDIAAN KATALOG</span>
+  <h1>{% if proposal.after %}Tinjau pengaktifan paket{% else %}Tinjau pengarsipan paket{% endif %}</h1>
+  <p class="muted">Belum disimpan. Tinjauan berlaku 15 menit; konfirmasi memerlukan MFA dalam 5 menit terakhir.</p>
+</div></div>
+<section class="panel padded form-panel">
+  <h2>{{ proposal.before.name }}</h2><p>{{ proposal.before.speed_mbps }} Mbps · {{ proposal.before.price|idr }} per bulan sebelum pajak · versi {{ proposal.version }}</p>
+  <dl class="definition-list"><dt>Status saat ditinjau</dt><dd>{% if proposal.before.is_active %}Aktif dalam katalog{% else %}Diarsipkan{% endif %}</dd>
+    <dt>Setelah konfirmasi</dt><dd>{% if proposal.after %}Aktif dalam katalog{% else %}Diarsipkan{% endif %}</dd></dl>
+  <h2>Dampak pada data yang sudah ada</h2>
+  <p>{{ impact.total }} pelanggan dan {{ impact.installations }} PSB yang belum selesai memakai paket ini. Jumlah ini dapat berubah.</p>
+  <p>Pelanggan dan PSB yang sudah memakai paket ini tetap dilayani. Harga, kecepatan, penugasan, faktur, pembayaran dan batch billing yang sudah disetujui tidak diubah. Tagihan berikutnya tetap memakai rincian paket terkini.</p>
+  <p>{% if proposal.after %}Paket kembali tersedia untuk pelanggan baru, impor CSV dan PSB baru.{% else %}Paket tidak ditawarkan untuk pelanggan baru, impor CSV dan PSB baru. Paket lama pada pelanggan/PSB yang sudah ada dapat dipertahankan. Paket dapat diaktifkan kembali nanti.{% endif %}</p>
+  <form method="post" action="{% url 'plan_availability_confirm' %}" class="stack-form">
+    {% csrf_token %}{{ form.non_field_errors }}{{ form.token }}{{ form.token.errors }}
+    <div class="field"><label for="{{ form.reviewed.id_for_label }}">{{ form.reviewed }} {{ form.reviewed.label }}</label>{{ form.reviewed.errors }}</div>
+    <button class="button primary">{% if proposal.after %}Konfirmasi pengaktifan paket{% else %}Konfirmasi pengarsipan paket{% endif %}</button>
+    <a class="button" href="{% url 'plan_list' %}?availability=all">Batal</a>
+  </form>
+</section>
+{% endblock %}

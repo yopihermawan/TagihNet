@@ -1,6 +1,7 @@
 from django import forms
 from .models import Customer, Installation, Membership, Plan, Tenant, Ticket
 from .validation import normalize_phone
+from .plan_selection import selectable_plans
 
 
 def technicians(tenant):
@@ -74,9 +75,9 @@ class InstallationCreationForm(RequestForm):
     plan = forms.ModelChoiceField(label="Paket", queryset=Plan.objects.none())
     assigned_to = TechnicianChoice(label="Teknisi (opsional saat prospek)", queryset=Membership.objects.none(), required=False)
 
-    def __init__(self, *args, tenant, **kwargs):
+    def __init__(self, *args, tenant, current_plan_id=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["plan"].queryset = Plan.objects.filter(tenant=tenant)
+        self.fields["plan"].queryset = selectable_plans(tenant, current_plan_id)
         self.fields["assigned_to"].queryset = technicians(tenant)
 
     def clean_phone(self):

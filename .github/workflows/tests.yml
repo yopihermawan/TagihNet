@@ -75,6 +75,7 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - run: python scripts/security_smoke.py
       - run: python scripts/operations_smoke.py
+      - run: python scripts/plan_archive_smoke.py
       - run: python scripts/verify_receipt.py
   staging:
     runs-on: ubuntu-latest

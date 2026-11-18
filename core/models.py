@@ -31,9 +31,10 @@ class Plan(models.Model):
     price = models.PositiveIntegerField(validators=[MinValueValidator(1), MaxValueValidator(100000000)])
     version = models.PositiveIntegerField(default=1)
     creation_key = models.UUIDField(null=True, blank=True, unique=True, editable=False)
+    is_active = models.BooleanField(default=True, db_index=True)
 
     def __str__(self):
-        return f"{self.name} · {self.speed_mbps} Mbps"
+        return f"{self.name} · {self.speed_mbps} Mbps" + ("" if self.is_active else " · Diarsipkan")
 
 
 class Customer(models.Model):

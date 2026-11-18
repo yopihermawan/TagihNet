@@ -100,6 +100,10 @@ run_schedule(schedule.pk,timezone.now().replace(year=future.year,month=future.mo
 ReminderPolicy.objects.create(tenant=tenant,billing_enabled=True,authorized_by=actor,authorization_version=1)
 Reminder.objects.create(tenant=tenant,kind='billing',invoice=invoice,business_date=timezone.localdate(),policy_version_planned=1,recipient='Fixture only',body='No delivery')
 assert invoice.balance==149750
+from core.plan_availability import review_availability,confirm_availability
+token,_=review_availability(actor,plan.pk,plan.version,False)
+confirm_availability(actor,token,time.time(),access_version)
+plan.refresh_from_db();assert not plan.is_active
 '''
 
 
@@ -122,6 +126,7 @@ def verify_restored_access(target,identity):
     status,_,url=request('/mfa/verify/',{'code':code,'csrfmiddlewaretoken':csrf()})
     assert status==200 and url==base+'/'
     assert request('/settings/access/')[0]==200
+    assert 'PASS:' in shell(target,"from core.models import Plan,Customer; p=Plan.objects.get(name='Paket Restore'); assert not p.is_active; assert Customer.objects.filter(plan=p).count()==1; print('PASS: archived catalog and legacy assignment restored')")
     values=shell(target,"from core.models import Invoice,Payment,WorkPhoto; import hashlib; print('RESTORED:',Invoice.objects.get().balance,Payment.objects.count(),WorkPhoto.objects.get().pk,WorkPhoto.objects.get().checksum)")
     result=next(line for line in values.splitlines() if line.startswith('RESTORED:')).split()
     assert result[1:3]==['149750','2']

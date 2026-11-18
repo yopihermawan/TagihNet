@@ -9,8 +9,10 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from .models import Plan
 from .permissions import require
 from .plans import FIELDS, confirm_change, impact, manager, read_review, review_change, values_for
+from .plan_availability import availability_impact, confirm_availability, read_availability, review_availability
 from .security_views import recent_factor
 from .views import paginate
+from django.views.decorators.debug import sensitive_post_parameters
 
 
 class PlanForm(forms.Form):
@@ -25,6 +27,11 @@ class ConfirmationForm(forms.Form):
     reviewed = forms.BooleanField(label="Saya menyetujui rincian paket dan dampaknya pada tagihan berikutnya.")
 
 
+class AvailabilityConfirmationForm(forms.Form):
+    token = forms.CharField(max_length=4096, widget=forms.HiddenInput)
+    reviewed = forms.BooleanField(label="Saya menyetujui perubahan ketersediaan katalog ini. Pelanggan, PSB dan tagihan yang sudah ada tetap dilayani.")
+
+
 @require("customers")
 @require_GET
 def plan_list(request):
@@ -33,7 +40,48 @@ def plan_list(request):
     search = request.GET.get("q", "").strip()[:80]
     if search:
         query = query.filter(name__icontains=search)
-    return render(request, "plans/list.html", {"page": paginate(request, query)})
+    availability = request.GET.get("availability", "active")
+    if availability not in {"active", "archived", "all"}:availability = "active"
+    if availability != "all":query = query.filter(is_active=availability == "active")
+    return render(request, "plans/list.html", {"page": paginate(request, query), "availability": availability})
+
+
+def availability_response(request, proposal, token, form=None, status=200):
+    return render(request, "plans/availability.html", {"proposal": proposal,
+        "impact": availability_impact(request.member.tenant, proposal["plan"]),
+        "form": form if form is not None else AvailabilityConfirmationForm(initial={"token": token})}, status=status)
+
+
+@require("manage_plans")
+@require_GET
+def plan_availability_review(request, pk, is_active):
+    manager(request.user)
+    plan = get_object_or_404(Plan, tenant=request.member.tenant, pk=pk)
+    token, proposal = review_availability(request.user, plan.pk, plan.version, is_active)
+    return availability_response(request, proposal, token)
+
+
+@require("manage_plans")
+@sensitive_post_parameters("token")
+@require_POST
+def plan_availability_confirm(request):
+    form = AvailabilityConfirmationForm(request.POST)
+    try:
+        proposal = read_availability(request.user, request.POST.get("token", "")[:4097])
+    except ValidationError:
+        messages.error(request, "Tinjauan ketersediaan paket tidak valid atau kedaluwarsa. Muat ulang paket.")
+        return redirect("plan_list")
+    if form.is_valid():
+        back = reverse("plan_reactivate" if proposal["after"] else "plan_archive", args=[proposal["plan"]])
+        if not recent_factor(request, return_to=back):return redirect("account_security")
+        try:
+            plan = confirm_availability(request.user, form.cleaned_data["token"], request.session["mfa_verified_at"], request.session["access_version"])
+        except ValidationError as error:form.add_error(None, error)
+        except OperationalError:form.add_error(None, "Status paket belum disimpan. Muat ulang paket dan tinjau lagi.")
+        else:
+            messages.success(request, "Paket aktif kembali dalam katalog." if plan.is_active else "Paket diarsipkan. Pelanggan dan PSB yang sudah ada tetap dilayani.")
+            return redirect(reverse("plan_list") + ("?availability=active" if plan.is_active else "?availability=archived"))
+    return availability_response(request, proposal, request.POST.get("token", "")[:4096], form, status=400)
 
 
 @require("manage_plans")

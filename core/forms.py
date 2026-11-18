@@ -3,6 +3,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from .models import Customer, Tenant
 from .validation import normalize_phone
+from .plan_selection import selectable_plans
 
 class CustomerForm(forms.ModelForm):
     class Meta:
@@ -15,7 +16,7 @@ class CustomerForm(forms.ModelForm):
     def __init__(self, *args, tenant, **kwargs):
         super().__init__(*args, **kwargs)
         self.instance.tenant = tenant
-        self.fields["plan"].queryset = tenant.plan_set.all()
+        self.fields["plan"].queryset = selectable_plans(tenant, self.instance.plan_id if self.instance.pk else None)
         self.fields["nas"].queryset = tenant.monitoringdevice_set.all()
         self.fields["nas"].empty_label = "Belum dipetakan"
         self.fields["nas"].help_text = "Pemetaan administratif; tidak menghubungkan sesi PPPoE atau mengubah router."

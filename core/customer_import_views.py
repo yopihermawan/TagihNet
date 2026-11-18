@@ -59,7 +59,7 @@ def import_upload(request):
             form.add_error(None, "Database sibuk. Ulangi unggahan dengan formulir yang sama; pratinjau tidak digandakan.")
         else:
             return redirect("customer_import_detail", pk=batch.pk)
-    return render(request, "imports/upload.html", {"form": form, "plans": request.member.tenant.plan_set.order_by("pk")})
+    return render(request, "imports/upload.html", {"form": form, "plans": request.member.tenant.plan_set.filter(is_active=True).order_by("pk")})
 
 
 def detail_response(request, batch, form=None, status=200):
@@ -133,7 +133,7 @@ def import_template(request):
     member = manager(request.user)
     response, writer = csv_response("tagihnet-template-pelanggan.csv")
     writer.writerow(COLUMNS)
-    plan = member.tenant.plan_set.order_by("pk").first()
+    plan = member.tenant.plan_set.filter(is_active=True).order_by("pk").first()
     writer.writerow(["Pelanggan Contoh", "contoh@example.invalid", "081299988877", "contoh-pelanggan",
         plan.pk if plan else "", "Wilayah Contoh", "Jl. Fiktif No. 1"])
     return response

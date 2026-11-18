@@ -188,6 +188,30 @@ print('PASS: runtime SQL permissions and TLS verification, no migration/CA priva
     assert request('/mfa/verify/',{'code':recovery_codes[0],'csrfmiddlewaretoken':csrf()})[3]==base+'/'
     assert request('/settings/access/')[0]==200
     print('PASS: own password change over verified HTTPS requires current password/MFA/CSRF, revokes old session, rejects old password and still requires MFA after login.',flush=True)
+    status,_,body,_=request('/plans/new/')
+    assert status==200
+    version=re.search(rb'name="version" value="([^"]+)"',body).group(1).decode()
+    status,_,body,_=request('/plans/new/',{'name':'Paket Katalog Fiktif','speed_mbps':'20','price':'175000',
+        'version':version,'csrfmiddlewaretoken':csrf()})
+    assert status==200
+    token=re.search(rb'name="token" value="([^"]+)"',body).group(1).decode()
+    status,_,body,_=request('/plans/confirm/',{'token':token,'reviewed':'on','csrfmiddlewaretoken':csrf()})
+    assert status==200
+    archive_path=re.search(rb'href="(/plans/\d+/archive/)"',body).group(1).decode()
+    status,_,body,_=request(archive_path)
+    assert status==200
+    token=re.search(rb'name="token" value="([^"]+)"',body).group(1).decode()
+    assert request('/plans/availability/confirm/',{'token':token,'csrfmiddlewaretoken':csrf()})[0]==400
+    status,_,body,url=request('/plans/availability/confirm/',{'token':token,'reviewed':'on','csrfmiddlewaretoken':csrf()})
+    assert status==200 and 'availability=archived' in url and b'Diarsipkan' in body
+    assert request('/plans/availability/confirm/',{'token':token,'reviewed':'on','csrfmiddlewaretoken':csrf()})[0]==400
+    reactivate_path=re.search(rb'href="(/plans/\d+/reactivate/)"',body).group(1).decode()
+    status,_,body,_=request(reactivate_path)
+    assert status==200
+    token=re.search(rb'name="token" value="([^"]+)"',body).group(1).decode()
+    status,_,_,url=request('/plans/availability/confirm/',{'token':token,'reviewed':'on','csrfmiddlewaretoken':csrf()})
+    assert status==200 and 'availability=active' in url
+    print('PASS: plan creation/archive/reactivation through real HTTPS reviews/MFA, checkbox required and stale archive replay rejected.',flush=True)
     logs=compose(directory,'logs','--no-color',capture=True).stdout
     for name in ('session-key','mfa-key','runtime-password','migration-password','bootstrap-password'):
         assert (directory/'secrets'/name).read_text() not in logs

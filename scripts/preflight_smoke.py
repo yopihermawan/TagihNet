@@ -51,13 +51,13 @@ def recovery(directory,package,keys,fingerprint,shell):
     assert result['status']=='passed',result['issues']
     denied=check(directory,expected,package,keys)
     assert denied['status']=='failed' and denied['issues'][0]['code']=='recovery_mode_mismatch'
-    record=shell(directory,"from django.db.migrations.recorder import MigrationRecorder; import json; r=MigrationRecorder.Migration.objects.get(app='core',name='0011_billing_schedule'); print('MIGRATION:'+json.dumps({'id':r.pk,'app':r.app,'name':r.name,'applied':r.applied.isoformat()})); r.delete()")
+    record=shell(directory,"from django.db import connection; from django.db.migrations.loader import MigrationLoader; from django.db.migrations.recorder import MigrationRecorder; import json; leaves=MigrationLoader(connection).graph.leaf_nodes('core'); assert len(leaves)==1; app,name=leaves[0]; r=MigrationRecorder.Migration.objects.get(app=app,name=name); print('MIGRATION:'+json.dumps({'id':r.pk,'app':r.app,'name':r.name,'applied':r.applied.isoformat()})); r.delete()")
     data=json.loads(next(line.removeprefix('MIGRATION:') for line in record.splitlines() if line.startswith('MIGRATION:')))
     try:
         pending_before=fingerprint(directory)
         result=check(directory,expected,package,keys,mode='recovery')
         assert result['status']=='failed' and any(i['code']=='migrations_pending' for i in result['issues'])
-        shell(directory,"from django.db.migrations.recorder import MigrationRecorder; assert not MigrationRecorder.Migration.objects.filter(app='core',name='0011_billing_schedule').exists()")
+        shell(directory,"from django.db.migrations.recorder import MigrationRecorder; assert not MigrationRecorder.Migration.objects.filter(app="+repr(data['app'])+",name="+repr(data['name'])+").exists()")
         assert fingerprint(directory)==pending_before  # The gate must not repair/run migrations.
     finally:
         # Restore only the exact fixture record removed above, preserving its ID/time/sequence.

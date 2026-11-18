@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-self-profile` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-plan-archive` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Staging lokal
 
@@ -26,7 +26,7 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 - [Workspace pelanggan](docs/CUSTOMER-WORKSPACE.md): tujuh tab data nyata, ledger/pembayaran/reversal, tiket/audit berizin, pagination dan pemulihan posisi daftar.
 - [Filter NAS/jatuh tempo](docs/CUSTOMER-FILTERS.md), piutang/tanggal terawal per pelanggan, konsisten dengan ekspor dan pembaruan pembayaran/reversal.
 - Impor CSV pelanggan: template, maksimal 200 baris/128 KiB, validasi/duplikat, laporan CSV aman, konfirmasi MFA atomik dan replay tanpa duplikasi.
-- [Pengelolaan paket](docs/PLANS.md): katalog tenant, buat/ubah nama/kecepatan/harga, tinjauan dampak, MFA, versi dan audit sebelum/sesudah.
+- [Pengelolaan paket](docs/PLANS.md): buat/ubah, arsip/aktifkan kembali dengan tinjauan, MFA dan audit; paket lama tetap melayani pelanggan/PSB dan billing.
 - Satu layanan/paket per pelanggan; faktur bulanan idempoten, snapshot harga/pajak, diskon, pembayaran sebagian, penolakan lebih bayar, dan reversal penuh dengan histori.
 - Faktur massal: pratinjau maksimal 500 pelanggan, MFA konfirmasi, snapshot disetujui, worker resumable, duplikat dilewati, serta pembatalan sisa pekerjaan.
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.

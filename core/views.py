@@ -19,7 +19,8 @@ from .forms import BillingSettingsForm, CustomerForm, InvoiceForm, PaymentForm
 from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, with_financial_summary
 from .customer_profile import invoice_rows, profile_context
 from .invoice_queries import with_balances
-from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment
+from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment, Tenant
+from .plan_selection import assignment_plan
 from .pdf import render_invoice
 from .permissions import require, membership, capabilities
 from .security import complete_login, remember_password, throttle
@@ -140,7 +141,15 @@ def customer_form(request, pk=None):
     if request.method == "POST" and form.is_valid():
         try:
             with transaction.atomic():
-                item = form.save(commit=False)
+                Tenant.objects.select_for_update(no_key=True).get(pk=request.member.tenant_id)
+                current = Customer.objects.select_for_update().get(pk=pk, tenant=request.member.tenant) if pk else None
+                chosen = assignment_plan(request.member.tenant, form.cleaned_data["plan"].pk,
+                    current.plan_id if current else None, lock=True)
+                proposed = form.save(commit=False)
+                item = current if current else Customer(tenant=request.member.tenant)
+                for field in CustomerForm._meta.fields:
+                    setattr(item, field, getattr(proposed, field))
+                item.plan = chosen
                 if not item.code:
                     item.code = "TN-" + uuid.uuid4().hex[:10].upper()
                 item.save()
@@ -150,6 +159,10 @@ def customer_form(request, pk=None):
             return redirect("customer_detail", pk=item.pk)
         except IntegrityError:
             form.add_error(None, "Username atau telepon sudah digunakan pelanggan lain pada ISP ini.")
+        except ValidationError as error:
+            form.add_error(None, error)
+        except OperationalError:
+            form.add_error(None, "Pelanggan belum disimpan. Muat ulang dan periksa paket sebelum mencoba lagi.")
     return render(request, "core/form.html", {"form": form, "title": "Ubah pelanggan" if pk else "Tambah pelanggan",
                   "description": "Identitas, layanan, dan wilayah pelanggan. Harga paket ditentukan di server.", "back": "/customers/"})
 

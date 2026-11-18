@@ -289,7 +289,7 @@ def installation_edit(request, pk):
     order = get_object_or_404(visible_installations(member_for(request.user)), pk=pk)
     initial = {field: getattr(order, field) for field in ["name", "email", "phone", "username", "address", "area"]}
     initial.update(plan=order.plan_id, version=order.version, request_key=uuid.uuid4())
-    form = InstallationEditForm(request.POST or None, tenant=request.member.tenant, initial=initial)
+    form = InstallationEditForm(request.POST or None, tenant=request.member.tenant, current_plan_id=order.plan_id, initial=initial)
     if request.method == "POST" and form.is_valid():
         data = dict(form.cleaned_data)
         key, version, reason = data.pop("request_key"), data.pop("version"), data.pop("reason")

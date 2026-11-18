@@ -9,7 +9,8 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from .billing import audit, invoice_snapshot, retry_locked, write_snapshot_invoice
-from .models import Customer, Installation, Membership, NetworkJob, Ticket, WorkEvent
+from .models import Customer, Installation, Membership, NetworkJob, Tenant, Ticket, WorkEvent
+from .plan_selection import assignment_plan
 from .permissions import CAPABILITIES, capabilities
 from .validation import normalize_phone
 
@@ -206,6 +207,8 @@ def add_comment(actor, target_id, body, internal, key, installation=False):
 @transaction.atomic
 def create_installation(actor, data, request_key=None):
     member = member_for(actor)
+    Tenant.objects.select_for_update(no_key=True).get(pk=member.tenant_id)
+    member = member_for(actor)
     if "installations" not in capabilities(member):
         raise PermissionDenied
     allowed = {"name", "email", "phone", "username", "address", "area", "plan_id", "assigned_id"}
@@ -213,7 +216,6 @@ def create_installation(actor, data, request_key=None):
         raise ValidationError("Field PSB tidak diizinkan.")
     values = dict(data)
     values["phone"] = normalize_phone(values["phone"])
-    plan = member.tenant.plan_set.get(pk=values["plan_id"])
     assigned = assignee(member.tenant, values.pop("assigned_id", None))
     values["assigned_id"] = assigned.pk if assigned else None
     signature = digest(values)
@@ -223,6 +225,7 @@ def create_installation(actor, data, request_key=None):
         if existing.created_by_id != actor.pk or existing.fingerprint != signature:
             raise ValidationError("Kunci permintaan PSB telah digunakan untuk data berbeda.")
         return existing
+    assignment_plan(member.tenant, values["plan_id"], lock=True)
     if Customer.objects.filter(tenant=member.tenant).filter(Q(phone=values["phone"]) | Q(username__iexact=values["username"])).exists():
         raise ValidationError("Telepon atau username sudah dipakai pelanggan. Tinjau data sebelum membuat PSB.")
     values.pop("assigned_id")
@@ -261,6 +264,8 @@ def assign_installation(actor, order_id, assigned_id, version, key):
 @transaction.atomic
 def edit_installation(actor, order_id, values, reason, version, key):
     member = member_for(actor)
+    Tenant.objects.select_for_update(no_key=True).get(pk=member.tenant_id)
+    member = member_for(actor)
     if "installations" not in capabilities(member):
         raise PermissionDenied
     order = visible_installations(member).select_for_update().get(pk=order_id)
@@ -276,7 +281,7 @@ def edit_installation(actor, order_id, values, reason, version, key):
     if order.status not in {"prospect", "survey", "scheduled"}:
         raise ValidationError("Identitas/paket hanya dapat diubah sebelum tahap Pengerjaan.")
     reason = checked_text(reason, minimum=10, maximum=2000)
-    new_plan = member.tenant.plan_set.get(pk=values["plan_id"])
+    new_plan = assignment_plan(member.tenant, values["plan_id"], order.plan_id, lock=True)
     if Customer.objects.filter(tenant=member.tenant).filter(Q(phone=values["phone"]) | Q(username__iexact=values["username"])).exists():
         raise ValidationError("Telepon atau username sudah digunakan pelanggan. Tidak ada perubahan diterapkan.")
     changed = sorted(field for field in fields if getattr(order, field) != values[field])
