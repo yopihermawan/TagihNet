@@ -10,7 +10,7 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Pelanggan | Satu paket/layanan, cari/filter/sort/URL/pagination, tambah/ubah/detail, deteksi duplikat, CSV | 2 · implemented |
 | Paket/profil | Katalog tenant, buat/ubah/arsip/aktifkan kembali, tinjauan/MFA/versi/replay/audit; paket arsip dibatasi untuk penugasan baru, pelanggan/PSB/billing lama tetap dilayani | 2 · implemented lokal; jadwal harga/profil router nyata pending |
 | Filter NAS/jatuh tempo | Pemetaan NAS simulasi nullable per pelanggan, tenant/CSRF/audit, filter NAS/unassigned dan overdue/today/next7/unpaid/clear berbasis ledger, piutang/tanggal terawal, query ekspor sama | 3 · implemented lokal; sesi/router nyata pending |
-| Detail pelanggan bertab | Ringkasan/layanan/faktur/pembayaran/tiket/lokasi/riwayat, izin server per tab, pagination, ledger tanpa query per baris, URL + scroll kembali | 3 · implemented lokal; drawer overlay dan koordinat/topologi pending |
+| Detail pelanggan bertab | Ringkasan/layanan/faktur/pembayaran/tiket/lokasi/riwayat, izin server per tab, pagination, ledger tanpa query per baris, URL + scroll kembali | 3 · implemented lokal; drawer overlay/topologi pending |
 | Multi-tenant | Membership satu ISP per akun; tenant dari login, dua tenant seed, objek/PDF/CSV terbatasi | 2 · implemented |
 | Role dan cakupan | Tujuh preset termasuk Teknisi dan peran kustom tenant; owner membuat/mengubah akun dan izin, sesi dicabut, owner terakhir dilindungi. Teknisi dibatasi penugasan; sales dan scope wilayah geografis belum | 2 · limited |
 | Faktur | Bulanan full month, tanggal akhir bulan, snapshot harga/pajak/diskon, constraint satu pelanggan/periode | 2 · implemented |
@@ -25,7 +25,7 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Isolir/aktivasi | Recheck utang saat eksekusi; adapter palsu, backoff 30/60/120 detik, maksimal 3 percobaan | 3 · simulated |
 | MikroTik/RADIUS/CoA | Belum ada adapter read-only/write nyata, lab, VPN collector, accounting | 3 · pending |
 | Portal | Pelanggan melihat layanan/faktur/PDF dan kuitansi transaksi milik sendiri | 2 · limited |
-| Peta | Tautan pencarian OpenStreetMap; belum koordinat/topologi ODC/ODP | 2 · limited |
+| Lokasi/peta | Koordinat WGS84 pelanggan/PSB nullable, paired/range checks, editor berscope/stale, portal sendiri/teknisi ditugaskan, copy aktivasi, tautan OpenStreetMap tanpa request otomatis | 2/4 · implemented lokal; akurasi lapangan/topologi/geofencing/geocoder pending |
 | Tiket/portal/teknisi | Kategori/prioritas/SLA snapshot, komentar publik/internal, state machine/version/replay, assignment-only teknisi | 4 · implemented lokal |
 | PSB | Prospek sampai Terpasang, jadwal/penugasan, cancel beralasan, quote aktivasi/MFA, customer+invoice+job atomik | 4 · implemented lokal |
 | Edit/jadwal ulang PSB | Edit sebelum Pengerjaan; perubahan pada Terjadwal kembali Survei; reschedule beralasan/version/replay dan histori | 4 · implemented lokal |
@@ -42,7 +42,7 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Profil mandiri | Nama tampilan sendiri, informasi akun, token sesi/snapshot15menit, konflik bersamaan, audit atomik; sandi/MFA/akses dan consent tetap | 4 · implemented lokal; perubahan username/email/avatar pending |
 | Scope wilayah geografis | Penugasan teknisi tersedia; batas wilayah geografis belum tersedia | 4 · pending |
 | Backup/restore | AES-256-GCM streaming SQLite/PG, kunci terpisah, verify, target kosong/no-clobber, restore ledger+MFA | 5 · implemented lokal; offsite/retensi/PITR pending |
-| Backend PostgreSQL | Opsional, role non-superuser lab, 694 tes pada dua backend, migrasi paket0012 pada salinan/data lokal; 17 skenario lintas proses + pg_dump/pg_restore pada checkpoint sebelumnya | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
+| Backend PostgreSQL | Opsional, role non-superuser lab, 725 tes pada dua backend, migrasi koordinat0013 pada salinan/data lokal; 17 skenario lintas proses + pg_dump/pg_restore pada checkpoint sebelumnya | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
 | Staging lokal | Gunicorn HTTPS/WhiteNoise, PG verify-full, migrator/runtime terpisah, secret file, non-root/read-only, restart worker, bootstrap/MFA dan guard volume | 5 · implemented lokal; simulasi; VPS/domain/kapasitas/offsite pending |
 | Recovery staging | Backup streaming AES-GCM, fresh-project SQL restore, identitas/empty/key/lock guards, sesi baru, MFA tetap, worker hold/review dan rekonsiliasi tabel/sequence | 5 · implemented lokal; offsite/PITR/RPO/RTO pending |
 | Operasi staging | HTTPS/SQL/sertifikat/loop heartbeat/antrean, log transisi privat, watcher lokal dan backup periodik opt-in terautentikasi | 5 · implemented lokal; alert eksternal/systemd/offsite/retensi pending |

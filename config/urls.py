@@ -7,6 +7,7 @@ from core import photo_views as photos
 from core import receipt_views as receipts
 from core import schedule_views as schedules
 from core import billing_settings_views as billing_settings
+from core import location_views as locations
 from core import views
 from core import security_views as security
 from core import profile_views as profile
@@ -63,6 +64,7 @@ urlpatterns = [
     path("customers/export/", views.customer_export, name="customer_export"),
     path("customers/<int:pk>/", views.customer_detail, name="customer_detail"),
     path("customers/<int:pk>/edit/", views.customer_form, name="customer_edit"),
+    path("customers/<int:pk>/location/", locations.location_edit, {"kind":"customer"}, name="customer_location"),
     path("invoices/", views.invoices, name="invoices"),
     path("invoices/new/", views.invoice_create, name="invoice_create"),
     path("invoices/schedule/", schedules.schedule_form, name="billing_schedule"),
@@ -93,6 +95,7 @@ urlpatterns = [
     path("operations/installations/", operations.installation_list, name="installation_list"),
     path("operations/installations/new/", operations.installation_create, name="installation_create"),
     path("operations/installations/<int:pk>/", operations.installation_detail, name="installation_detail"),
+    path("operations/installations/<int:pk>/location/", locations.location_edit, {"kind":"installation"}, name="installation_location"),
     path("operations/installations/<int:pk>/status/", operations.installation_status, name="installation_status"),
     path("operations/installations/<int:pk>/comment/", operations.installation_comment, name="installation_comment"),
     path("operations/installations/<int:pk>/assign/", operations.installation_assign, name="installation_assign"),

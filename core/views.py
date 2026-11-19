@@ -21,6 +21,7 @@ from .customer_profile import invoice_rows, profile_context
 from .invoice_queries import with_balances
 from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment, Tenant
 from .plan_selection import assignment_plan
+from .locations import display as location_display
 from .pdf import render_invoice
 from .permissions import require, membership, capabilities
 from .security import complete_login, remember_password, throttle
@@ -311,7 +312,8 @@ def audit_log(request):
 @require("portal")
 def portal(request):
     return render(request, "core/portal.html", {"customer": request.member.customer,
-                  "invoices": Invoice.objects.filter(tenant=request.member.tenant, customer=request.member.customer)})
+                  "invoices": Invoice.objects.filter(tenant=request.member.tenant, customer=request.member.customer),
+                  "location":location_display(request.member.customer)})
 
 
 @require_GET

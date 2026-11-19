@@ -24,6 +24,7 @@ from .operations import (INSTALLATION_TRANSITIONS, TICKET_TRANSITIONS, activate_
 from .permissions import capabilities, require
 from .security_views import recent_factor
 from .views import paginate
+from .locations import display as location_display
 
 QUOTE_SALT = "tagihnet.psb.activation.v1"
 
@@ -89,6 +90,9 @@ def ticket_create(request):
 
 def ticket_response(request, ticket, comment_form=None, status_form=None, status=200):
     member = member_for(request.user)
+    ticket = visible_tickets(member).select_related("customer", "assigned_to__user").get(pk=ticket.pk)
+    if ticket.customer.tenant_id != member.tenant_id:
+        raise Http404("Lokasi tidak tersedia.")
     customer = member.role == "customer"
     events = ticket.events.select_related("actor").order_by("-created_at", "-pk")
     if customer:
@@ -100,7 +104,8 @@ def ticket_response(request, ticket, comment_form=None, status_form=None, status
     return render(request, "operations/ticket_detail.html", {"ticket": ticket, "page": paginate(request, events),
         "comment_form": comment_form or CommentForm(customer=customer, initial={"request_key": uuid.uuid4()}),
         "status_form": status_form, "can_transition": bool(choices) and not customer,
-        "can_manage": "tickets" in capabilities(member) and ticket.status != "closed"}, status=status)
+        "can_manage": "tickets" in capabilities(member) and ticket.status != "closed",
+        "location":location_display(ticket.customer)}, status=status)
 
 
 @login_required
@@ -208,6 +213,7 @@ def installation_create(request):
 
 def installation_response(request, order, transition_form=None, comment_form=None, status=200):
     member = member_for(request.user)
+    order = visible_installations(member).select_related("plan", "assigned_to__user", "customer").get(pk=order.pk)
     choices = [choice for choice in Installation.STATES if choice[0] in INSTALLATION_TRANSITIONS.get(order.status, set())
                and not (member.role == "technician" and choice[0] == "cancelled")]
     transition_form = transition_form or InstallationTransitionForm(initial={"request_key": uuid.uuid4(), "version": order.version})
@@ -218,6 +224,7 @@ def installation_response(request, order, transition_form=None, comment_form=Non
         "can_edit": "installations" in capabilities(member) and order.status in {"prospect", "survey", "scheduled"},
         "can_reschedule": "installations" in capabilities(member) and order.status == "scheduled",
         "can_activate": "activate_installations" in capabilities(member) and order.status == "installed",
+        "location":location_display(order),"can_edit_location":order.status not in {"activated","cancelled"},
         "page": paginate(request, order.events.select_related("actor").order_by("-created_at", "-pk"))}, status=status)
 
 
@@ -355,7 +362,8 @@ def installation_activate(request, pk):
     if request.method != "POST":
         form = ActivationConfirmationForm(initial={"quote": token})
     return render(request, "operations/activation.html", {"order": order, "period_form": period_form,
-        "form": form, "snapshot": snapshot, "period": period, "can_activate": order.status == "installed"})
+        "form": form, "snapshot": snapshot, "period": period, "can_activate": order.status == "installed",
+        "location":location_display(order)})
 
 
 @require("settings")

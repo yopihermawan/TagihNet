@@ -81,6 +81,9 @@ tenant=actor.membership.tenant
 tenant.tax_bp=1100;tenant.save()
 plan=Plan.objects.create(tenant=tenant,name='Paket Restore',speed_mbps=30,price=225000)
 customer=Customer.objects.create(tenant=tenant,plan=plan,code='RESTORE-1',name='Pelanggan Restore Fiktif',username='restore-1',phone='081299998881',address='Alamat Fiktif',area='Restore')
+from core.locations import form_token,save_location
+location_token,_=form_token(actor,'customer',customer.pk)
+save_location(actor,'customer',customer.pk,location_token,'-6.900001','107.600001',access_version)
 period=timezone.localdate().replace(day=1)
 invoice,_=issue_invoice(tenant,customer.pk,period,actor)
 record_payment(tenant,invoice.pk,100000,uuid.uuid4(),actor,'Fixture restore')
@@ -128,6 +131,9 @@ def verify_restored_access(target,identity):
     assert request('/settings/access/')[0]==200
     assert 'PASS:' in shell(target,"from core.models import Plan,Customer; p=Plan.objects.get(name='Paket Restore'); assert not p.is_active; assert Customer.objects.filter(plan=p).count()==1; print('PASS: archived catalog and legacy assignment restored')")
     assert 'PASS:' in shell(target,"from core.models import Tenant; t=Tenant.objects.get(name='ISP Staging Ditinjau'); assert t.address=='Alamat Staging Fiktif' and t.due_day==31 and t.tax_bp==1100 and t.invoice_footer=='Footer staging ditinjau.'; print('PASS: reviewed billing and issuer settings restored')")
+    location=shell(target,"from core.models import Customer,Installation; from decimal import Decimal; c=Customer.objects.get(username='restore-1'); assert c.latitude==Decimal('-6.900001') and c.longitude==Decimal('107.600001'); o=Installation.objects.get(username='location-staging'); assert o.latitude==Decimal('-6.917464') and o.longitude==Decimal('107.619123'); print('LOCATION:'+str(c.pk))")
+    customer_id=next(line.removeprefix('LOCATION:') for line in location.splitlines() if line.startswith('LOCATION:'))
+    assert b'-6.900001' in request(f'/customers/{customer_id}/?tab=location')[1]
     values=shell(target,"from core.models import Invoice,Payment,WorkPhoto; import hashlib; print('RESTORED:',Invoice.objects.get().balance,Payment.objects.count(),WorkPhoto.objects.get().pk,WorkPhoto.objects.get().checksum)")
     result=next(line for line in values.splitlines() if line.startswith('RESTORED:')).split()
     assert result[1:3]==['149750','2']

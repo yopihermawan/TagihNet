@@ -45,6 +45,9 @@ Worker tidak menerima tenant dari request pengguna; tiap job menyimpan tenant da
 | Aktivasi PSB/customer/invoice awal | Ya + MFA terbaru | Tidak bawaan | Tidak | Tidak | Butuh activate_installations dan prasyarat |
 | Catatan internal tiket | Ya | Ya | Hanya tiket ditugaskan | Tidak pernah dibaca/ditulis | Sesuai tickets |
 | Target SLA | Sesuai settings | Tidak bawaan | Tidak | Tidak | Sesuai settings |
+| Ubah koordinat pelanggan | customers + edit_customers | Ya | Tidak | Tidak, hanya baca lokasi sendiri | Sesuai dua izin tersebut |
+| Ubah koordinat PSB belum selesai | installations | Ya | Hanya PSB ditugaskan | Tidak | Sesuai installations |
+| Baca lokasi pada tiket/PSB | Sesuai akses pekerjaan | Sesuai akses pekerjaan | Hanya pekerjaan ditugaskan | Tiket/layanan sendiri | Sesuai scope pekerjaan |
 
 Batch dan scope invoice tidak berubah. Peran Teknisi tidak dapat diberi custom role untuk menghindari scope global yang tidak disengaja. State mutation memakai versi dan UUID replay; komentar publik/internal difilter pada backend. Detail aktivasi dan keterbatasan data minimum ada di SUPPORT-AND-INSTALLATIONS.md. Tabel preset awal di atas tetap berlaku untuk fungsi billing; teknisi tidak mendapat fungsi finansial tersebut.
 

@@ -1,0 +1,147 @@
+{
+  "application_digest": "44df7efa26391fdcf51bc4ba8895c6a3c618f290a78fee7d149a407aed6dac13",
+  "browser": {
+    "activation_coordinates_copied": "passed",
+    "assigned_psb_only_global_customer_refused": "passed",
+    "dark_mode": "passed",
+    "no_external_map_requests": true,
+    "old_activation_quote_refused": "passed",
+    "paired_and_stale_form_validation": "passed",
+    "real_owner_technician_mfa": "passed",
+    "screenshots": "fictitious_location_without_factors",
+    "widths": [
+      360,
+      768,
+      1366,
+      1920
+    ]
+  },
+  "development": {
+    "all0013_rows_unchanged_after_start": true,
+    "health": "ok",
+    "no_seed_or_duplicate_processes": true,
+    "original_keys_unchanged": true,
+    "production_ready": false,
+    "single_web_and_three_workers": true,
+    "status": "passed"
+  },
+  "docker": {
+    "all_models_sequences_photos_ledger": "passed",
+    "cleanup": "passed",
+    "combined_verifier": "passed",
+    "customer_and_psb_coordinates_restored": "passed",
+    "pending_and_future_recorder_without_repair": "passed",
+    "psb_coordinates_https_csrf_half_pair_stale409": "passed",
+    "source_loss_package_restore": "passed"
+  },
+  "initial_corrections": [
+    "location_token_condition_parenthesis",
+    "legacy_unknown_location_wording",
+    "single_CSRF_selector"
+  ],
+  "migration": {
+    "development": {
+      "existing_customers_without_invented_coordinates": 30,
+      "foreign_keys": "ok",
+      "old_rows_unchanged": true,
+      "production_ready": false,
+      "scope": "schema0012_to0013_sqlite",
+      "sequences_preserved_except_new_migration": true,
+      "status": "passed"
+    },
+    "postgresql": {
+      "image_id": "sha256:55ee60b3f061b1005a90f46928ba243c1703d66e8b8b795509a0d435a58be4a1",
+      "production_ready": false,
+      "projects": {
+        "staging": {
+          "health": "ok",
+          "new_coordinates_null": true,
+          "old_rows_unchanged": true,
+          "secrets_unchanged": true,
+          "sequences_preserved_except_new_migration": true,
+          "workers_held": false
+        },
+        "staging-recovery-20261115": {
+          "health": "ok",
+          "new_coordinates_null": true,
+          "old_rows_unchanged": true,
+          "secrets_unchanged": true,
+          "sequences_preserved_except_new_migration": true,
+          "workers_held": true
+        }
+      },
+      "status": "passed"
+    },
+    "restored_copy": {
+      "existing_customers_without_invented_coordinates": 30,
+      "foreign_keys": "ok",
+      "old_rows_unchanged": true,
+      "production_ready": false,
+      "scope": "schema0012_to0013_sqlite",
+      "sequences_preserved_except_new_migration": true,
+      "status": "passed"
+    }
+  },
+  "monitor_and_custody": {
+    "actual_post_migration_backup_authenticated": true,
+    "manual_backup_actual_success_time_recorded": true,
+    "new_custody_pair_verified": true,
+    "production_ready": false,
+    "status": "passed",
+    "watcher_new_successful_tick": true
+  },
+  "new_dependencies": false,
+  "not_rerun": [
+    "full_legacy_operations_security_browser",
+    "17_generic_postgresql_process_scenarios",
+    "load_soak",
+    "same_schema_rollback_rehearsal",
+    "advisory_OS_penetration_audit",
+    "remote_CI_results",
+    "reverse_migration",
+    "independent_host_restore"
+  ],
+  "production_ready": false,
+  "schema": "core.0013_location_coordinates",
+  "scope": "local_simulation",
+  "source_sha256": {
+    "config/urls.py": "04ce020cfa999ec126ef7621d46a1b4f0d4e98a109fa0a075cddbd900cf71f69",
+    "core/customer_profile.py": "24a24f166a769912bea1f3b285f7e4096f2ff47abb0d8a3c31f38d4af3bb2c14",
+    "core/location_views.py": "25382fd406b414fbf8f1705d2437b3049ab82e8f0b4a3ecbefb6528bd8cdba0c",
+    "core/locations.py": "0a739e8c34cb65db5df341d0e96d29f49bf31e29d4661a5fa1abfacec36bb729",
+    "core/migration_operations.py": "b69b3011484b86c1ea3dd710144a4f7d5f8816660baae8a09d51f653a67d5ad5",
+    "core/migrations/0013_location_coordinates.py": "500ab95f7a0accabbd375a157bb28d19d3be5a696288ea4577fe64f348c0c6b3",
+    "core/models.py": "e19d261aa40d06f862a913cec97a3d7221112633921a6e98da024ec2927f4b60",
+    "core/operation_views.py": "11df1659e7cf071d12f45ff55d53f8fd52d4bf3bfb7c6f89c5e83d52919d817a",
+    "core/operations.py": "b159beecbd070ac8fa92e52ddf12f78924c50cd90522e9a4bf91e29f5fd0b9ac",
+    "core/tests/test_customer_profile.py": "4a9c3accad6bed2340983f9e6d0d37ef8b5cf2261ad29d5f7a7f778beff06f54",
+    "core/tests/test_locations.py": "53ba0ea6baf6a5eae76cd88186d8048fa17d66631ba454fae3bbb5bf0f95fcbc",
+    "core/tests/test_plan_availability.py": "3c1cb8adb3bdee180b8dd1fcc4de132a2cf0e5041a19b9c2341215faab359387",
+    "core/views.py": "0d5719179112e5c187c19d920d96313e2a4ed2b69e4064a2c46ef107e26590df",
+    "scripts/location_migration_check.py": "6ebd05a7a6456d869f594292291677dfcb7ae5831eb639d54249b08a2c7ff651",
+    "scripts/location_smoke.py": "c849f136b38cb7094dfd5500147bfcabb1830d1e8021e4cc764699c41b9b35b9",
+    "scripts/verify_staging.py": "fc020b1c5a2f80dcff5781dad1453fec0c4ed9123ba7ca9dfc5a035950e4c271",
+    "scripts/verify_staging_backup.py": "44894435b7696443984994d287029e9d7492e7d0d48df1d54b2cda49f646db00",
+    "templates/core/portal.html": "3a07eb55eded582efeb703d6d3d39b88fdb6dd80587073d2f950282d930d830b",
+    "templates/customers/location.html": "1cc70e051abc38f6ca0d66be4ffe3b5cf2f7e0b9f2939d337b09598cd013ac84",
+    "templates/locations/coordinates.html": "366870777b4cb6e12cc7b9d0e2dc085d2bbb98e5c212931c3365775d54362ef3",
+    "templates/locations/edit.html": "a1d46be4218ed667166d524d948cebfc9e3ba3805414d4d96fdd6f17a8457591",
+    "templates/operations/activation.html": "cdc5024d7b7dd32969aaaf28e9cd1edf85f6d685accf864ce75b357e2bc17a63"
+  },
+  "status": "passed",
+  "tests": {
+    "new": 31,
+    "postgresql": {
+      "failed": 0,
+      "passed": 725,
+      "skipped": 0
+    },
+    "sqlite": {
+      "failed": 0,
+      "passed": 725,
+      "skipped": 0
+    }
+  },
+  "verified_at": "2026-11-19T19:40:38.939294+07:00",
+  "version": 1
+}

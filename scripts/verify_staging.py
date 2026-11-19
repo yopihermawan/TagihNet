@@ -227,6 +227,24 @@ print('PASS: runtime SQL permissions and TLS verification, no migration/CA priva
     assert request('/settings/billing/',{**fields,'csrfmiddlewaretoken':csrf()})[0]==409
     assert request('/settings/billing/confirm/',{'token':token,'reviewed':'on','csrfmiddlewaretoken':csrf()})[0]==409
     print('PASS: billing settings real HTTPS/CSRF/review/checkbox/MFA save and stale form/review409; no direct save from edit POST.',flush=True)
+    status,_,body,_=request('/operations/installations/new/')
+    assert status==200
+    key=re.search(rb'name="request_key" value="([^"]+)"',body).group(1).decode()
+    plan_id=archive_path.split('/')[2]
+    status,_,body,url=request('/operations/installations/new/',{'request_key':key,'name':'PSB Koordinat Fiktif',
+        'email':'','phone':'081299987654','username':'location-staging','address':'Alamat Lokasi Fiktif','area':'Uji Lokasi',
+        'plan':plan_id,'assigned_to':'','csrfmiddlewaretoken':csrf()})
+    assert status==200 and re.fullmatch(re.escape(base)+r'/operations/installations/\d+/',url)
+    location_path=url.removeprefix(base)+'location/'
+    status,_,body,_=request(location_path)
+    assert status==200
+    token=re.search(rb'name="token" value="([^"]+)"',body).group(1).decode()
+    assert request(location_path,{'token':token,'latitude':'-6.917464','longitude':'107.619123'})[0]==403
+    assert request(location_path,{'token':token,'latitude':'-6.917464','csrfmiddlewaretoken':csrf()})[0]==400
+    status,_,body,_=request(location_path,{'token':token,'latitude':'-6.917464','longitude':'107.619123','csrfmiddlewaretoken':csrf()})
+    assert status==200 and b'-6.917464' in body and b'mlat=-6.917464' in body
+    assert request(location_path,{'token':token,'latitude':'1','longitude':'2','csrfmiddlewaretoken':csrf()})[0]==409
+    print('PASS: PSB coordinates over verified HTTPS require CSRF, reject half-pair/stale409 and render a fixed external map link without embedded map requests.',flush=True)
     logs=compose(directory,'logs','--no-color',capture=True).stdout
     for name in ('session-key','mfa-key','runtime-password','migration-password','bootstrap-password'):
         assert (directory/'secrets'/name).read_text() not in logs

@@ -188,7 +188,7 @@ class CustomerProfileTests(TestCase):
     def test_location_encodes_external_search_and_does_not_invent_coordinates(self):
         Customer.objects.filter(pk=self.customer.pk).update(address='Jl. Fiktif & <img src=x>', area='<script>area</script>')
         response = self.get('location')
-        self.assertContains(response, 'Belum diverifikasi')
+        self.assertContains(response, 'Koordinat belum diisi')
         self.assertContains(response, '&lt;img src=x&gt;')
         self.assertContains(response, 'rel="noopener noreferrer"')
         self.assertNotContains(response, '<script>area</script>')

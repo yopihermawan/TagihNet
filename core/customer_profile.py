@@ -5,6 +5,7 @@ from django.db.models.functions import Coalesce
 from django.http import Http404
 from .models import AuditEvent, Invoice, NetworkJob, Payment
 from .operations import visible_tickets
+from .locations import display
 from .permissions import capabilities
 
 TABS = (
@@ -28,6 +29,8 @@ def profile_context(member, customer, selected):
         "tab_template": f"customers/{selected}.html", "balance": customer.receivable_amount}
     tenant = member.tenant
     rows = None
+    if selected == "location":
+        context.update(location=display(customer),can_edit_location="edit_customers" in rights)
     if selected == "service":
         rows = NetworkJob.objects.filter(tenant=tenant, customer=customer).order_by("-updated_at", "-pk")
     elif selected == "invoices":
@@ -44,7 +47,7 @@ def profile_context(member, customer, selected):
         rows = visible_tickets(member).filter(customer=customer).select_related("assigned_to__user")
     elif selected == "history":
         rows = AuditEvent.objects.filter(tenant=tenant, target=str(customer.pk),
-            action__in=["customer.created", "customer.updated"]).select_related("actor").order_by("-created_at", "-pk")
+            action__in=["customer.created", "customer.updated", "customer.location_updated"]).select_related("actor").order_by("-created_at", "-pk")
     return context, rows
 
 

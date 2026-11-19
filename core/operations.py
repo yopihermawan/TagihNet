@@ -394,7 +394,7 @@ def activation_quote(order, period):
     customer = Customer(tenant=order.tenant, plan=order.plan, name=order.name, email=order.email,
         phone=order.phone, username=order.username, address=order.address, area=order.area)
     snapshot = invoice_snapshot(order.tenant, customer, period)
-    identity = {field: getattr(order, field) for field in ["name", "email", "phone", "username", "address", "area", "plan_id"]}
+    identity = {field: getattr(order, field) for field in ["name", "email", "phone", "username", "address", "area", "plan_id", "latitude", "longitude"]}
     return snapshot, digest({"snapshot": snapshot, "identity": identity, "version": order.version, "status": order.status})
 
 
@@ -418,7 +418,7 @@ def activate_installation(actor, order_id, period, fingerprint, verified_at, acc
         raise ValidationError("Telepon atau username sudah dipakai pelanggan. Tidak ada pelanggan/faktur baru dibuat.")
     customer = Customer(tenant=member.tenant, plan=order.plan, code="TN-" + uuid.uuid4().hex[:10].upper(),
         name=order.name, email=order.email, phone=order.phone, username=order.username, address=order.address,
-        area=order.area, service_state="pending")
+        area=order.area, service_state="pending", latitude=order.latitude, longitude=order.longitude)
     customer.full_clean()
     customer.save()
     snapshot = invoice_snapshot(order.tenant, customer, period)

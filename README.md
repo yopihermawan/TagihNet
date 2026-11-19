@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-billing-settings-review` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-location-coordinates` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Staging lokal
 
@@ -24,6 +24,7 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 - Dashboard yang menghitung data dari ledger, disertai definisi metrik, periode, cakupan, serta waktu pembaruan WIB.
 - Cari/filter/sort pelanggan, pagination server-side 10/25/50 yang tersimpan di URL, tambah/ubah/detail, dan ekspor CSV berizin.
 - [Workspace pelanggan](docs/CUSTOMER-WORKSPACE.md): tujuh tab data nyata, ledger/pembayaran/reversal, tiket/audit berizin, pagination dan pemulihan posisi daftar.
+- [Koordinat pelanggan/PSB](docs/LOCATIONS.md): WGS84 manual, scope penugasan teknisi/portal sendiri, konflik form, pemindahan saat aktivasi dan tautan peta tanpa pemuatan eksternal otomatis.
 - [Filter NAS/jatuh tempo](docs/CUSTOMER-FILTERS.md), piutang/tanggal terawal per pelanggan, konsisten dengan ekspor dan pembaruan pembayaran/reversal.
 - Impor CSV pelanggan: template, maksimal 200 baris/128 KiB, validasi/duplikat, laporan CSV aman, konfirmasi MFA atomik dan replay tanpa duplikasi.
 - [Pengelolaan paket](docs/PLANS.md): buat/ubah, arsip/aktifkan kembali dengan tinjauan, MFA dan audit; paket lama tetap melayani pelanggan/PSB dan billing.

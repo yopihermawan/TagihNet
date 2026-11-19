@@ -9,6 +9,17 @@ from django.db.models import Q, Sum
 from django.utils import timezone
 
 
+def location_constraints(prefix):
+    return [
+        models.CheckConstraint(condition=(Q(latitude__isnull=True, longitude__isnull=True)
+            | Q(latitude__isnull=False, longitude__isnull=False)), name=f"{prefix}_coordinates_pair"),
+        models.CheckConstraint(condition=Q(latitude__isnull=True) | Q(latitude__gte=-90, latitude__lte=90),
+            name=f"{prefix}_latitude_range"),
+        models.CheckConstraint(condition=Q(longitude__isnull=True) | Q(longitude__gte=-180, longitude__lte=180),
+            name=f"{prefix}_longitude_range"),
+    ]
+
+
 class Tenant(models.Model):
     name = models.CharField(max_length=100)
     address = models.CharField(max_length=250, default="Indonesia")
@@ -44,6 +55,10 @@ class Customer(models.Model):
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=20)
     address = models.CharField(max_length=250)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True,
+        validators=[MinValueValidator(-90), MaxValueValidator(90)])
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True,
+        validators=[MinValueValidator(-180), MaxValueValidator(180)])
     area = models.CharField(max_length=80)
     username = models.SlugField(max_length=64)
     plan = models.ForeignKey(Plan, on_delete=models.PROTECT)
@@ -55,7 +70,7 @@ class Customer(models.Model):
 
     class Meta:
         ordering = ["name", "id"]
-        constraints = [
+        constraints = location_constraints("customer") + [
             models.UniqueConstraint(fields=["tenant", "code"], name="customer_code_per_tenant"),
             models.UniqueConstraint(fields=["tenant", "username"], name="customer_username_per_tenant"),
             models.UniqueConstraint(models.F("tenant"), models.functions.Lower("username"), name="customer_username_ci_per_tenant"),
@@ -368,6 +383,10 @@ class Installation(models.Model):
     phone = models.CharField(max_length=20)
     username = models.SlugField(max_length=64)
     address = models.CharField(max_length=250)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True,
+        validators=[MinValueValidator(-90), MaxValueValidator(90)])
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True,
+        validators=[MinValueValidator(-180), MaxValueValidator(180)])
     area = models.CharField(max_length=80)
     plan = models.ForeignKey(Plan, on_delete=models.PROTECT)
     assigned_to = models.ForeignKey(Membership, null=True, blank=True, on_delete=models.PROTECT)
@@ -381,7 +400,7 @@ class Installation(models.Model):
 
     class Meta:
         ordering = ["-updated_at", "-pk"]
-        constraints = [models.UniqueConstraint(fields=["tenant", "request_key"], name="installation_request_per_tenant")]
+        constraints = location_constraints("installation") + [models.UniqueConstraint(fields=["tenant", "request_key"], name="installation_request_per_tenant")]
 
     @property
     def number(self):

@@ -9,7 +9,7 @@ Checkpoint `feature/tagihnet-customer-workspace` menyatukan informasi pelanggan 
 | Faktur / `invoices` | Periode, tanggal jatuh tempo, status finansial, total terbit/pembayaran sah/sisa, tautan detail/PDF. | `invoices` |
 | Pembayaran / `payments` | Histori transaksi, pencatat, catatan, reversal/alasan; total bruto/direversal/sah seluruh periode dan seluruh halaman. | `invoices` |
 | Tiket / `tickets` | Tiket pelanggan, status, prioritas/SLA, teknisi dan pembaruan. Isi komentar tidak disalin ke daftar ini. | `tickets` |
-| Lokasi / `location` | Alamat/wilayah dan pencarian OpenStreetMap eksternal; koordinat belum diverifikasi. | Tidak ada. |
+| Lokasi / `location` | Alamat/wilayah, koordinat WGS84 manual atau status kosong, tautan OpenStreetMap eksplisit. Edit terpisah memerlukan edit_customers. | Tidak ada untuk membaca. |
 | Riwayat / `history` | Audit penambahan/perubahan identitas dan layanan pelanggan, pelaku/waktu/rincian. | `audit` |
 
 Tab tanpa izin tidak muncul. Permintaan langsung tetap ditolak403; tab asing/path-like ditolak404 dan tidak dipakai untuk memilih template arbitrer. Pelanggan tenant lain/tidak ditemukan ditolak404 pada seluruh tab. Kasir/NOC/teknisi/portal tidak mendapat akses workspace melalui izin modul lain. Peran kustom `customers` saja tetap dapat membaca piutang ringkasan seperti sebelumnya, tetapi tidak mendapat daftar faktur, transaksi pembayaran, tiket atau audit. Query data tambahan dijalankan setelah izin tab diperiksa.

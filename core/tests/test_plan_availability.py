@@ -338,4 +338,6 @@ class PlanAvailabilityMigrationTests(TransactionTestCase):
                 cursor.execute("SELECT seq FROM sqlite_sequence WHERE name='core_plan'" if connection.vendor=='sqlite' else 'SELECT last_value FROM core_plan_id_seq')
                 self.assertEqual(cursor.fetchone()[0],sequence)
             self.assertEqual(apps.get_model('core','Customer').objects.get(pk=customer.pk).plan_id,plan.pk)
-        finally:MigrationExecutor(connection).migrate(new_target)
+        finally:
+            latest=MigrationExecutor(connection)
+            latest.migrate(latest.loader.graph.leaf_nodes())

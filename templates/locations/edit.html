@@ -1,0 +1,10 @@
+{% extends 'base.html' %}{% block content %}
+<a class="back-link" href="{{ back }}">← Kembali ke {% if kind == 'installation' %}PSB{% else %}pelanggan{% endif %}</a>
+<div class="page-heading"><div><span class="eyebrow">LOKASI LAYANAN</span><h1>Ubah koordinat lokasi</h1><p class="muted">{{ item.name }} · {{ item.address }}</p></div></div>
+<section class="panel form-panel padded"><h2>Koordinat WGS84</h2>
+<p>Isi lintang dan bujur bersama, atau kosongkan keduanya untuk menghapus koordinat. Gunakan titik desimal dan paling banyak enam angka di belakangnya. Contoh: lintang −6.917464, bujur 107.619123.</p>
+<p class="info-note">Data diisi oleh pengguna; tidak ada pelacakan GPS, pencarian koordinat dari alamat, atau verifikasi lapangan otomatis. Form berlaku 15 menit dan menolak data lama yang sudah berubah.</p>
+<form method="post" class="stack-form">{% csrf_token %}{{ form.non_field_errors }}
+{% for field in form %}{% if field.is_hidden %}{{ field }}{{ field.errors }}{% else %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
+<div class="form-actions"><button class="button primary">Simpan koordinat</button><a class="button" href="{{ back }}">Batal</a></div></form></section>
+{% endblock %}

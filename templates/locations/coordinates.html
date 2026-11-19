@@ -1,0 +1,7 @@
+<div class="location-coordinates">
+{% if location.present %}<dl class="definition-list"><dt>Lintang</dt><dd>{{ location.latitude }}</dd><dt>Bujur</dt><dd>{{ location.longitude }}</dd></dl>
+<p class="info-note">WGS84 · input pengguna, belum diverifikasi otomatis. Tautan peta membuka OpenStreetMap dan menyertakan koordinat ini.</p>
+<a class="button" href="{{ location.url }}" target="_blank" rel="noopener noreferrer">Buka koordinat di peta ↗</a>
+{% else %}<p>Koordinat belum diisi.</p><p class="info-note">Tidak ada titik yang dibuat otomatis dari alamat. Pencarian alamat membuka OpenStreetMap dan menyertakan alamat layanan.</p>
+<a class="button" href="{{ location.url }}" target="_blank" rel="noopener noreferrer">Cari alamat di peta ↗</a>{% endif %}
+</div>
