@@ -31,7 +31,9 @@ def landing(member):
     rights = capabilities(member)
     return next((route for right, route in [("portal", "portal"), ("dashboard", "dashboard"),
         ("network", "network"), ("customers", "customers"), ("invoices", "invoices"),
-        ("field_work", "ticket_list"), ("tickets", "ticket_list"), ("installations", "installation_list")] if right in rights), "account_security")
+        ("field_work", "ticket_list"), ("tickets", "ticket_list"), ("installations", "installation_list"),
+        ("sales", "business_sales"), ("cash", "business_cash"), ("team", "business_team"),
+        ("payroll", "business_payroll"), ("hotspot", "business_hotspot"), ("topology", "business_topology")] if right in rights), "account_security")
 
 
 @sensitive_post_parameters("password")
@@ -258,7 +260,7 @@ def invoice_detail(request, pk):
     invoice = allowed_invoice(request, pk)
     return render(request, "core/invoice_detail.html", {"invoice": invoice,
         "payments": invoice.payments.select_related("recorded_by", "reversal"),
-        "payment_form": PaymentForm(initial={"amount": invoice.balance, "event_key": uuid.uuid4()})})
+        "payment_form": PaymentForm(tenant=invoice.tenant,initial={"amount": invoice.balance, "event_key": uuid.uuid4()})})
 
 
 @require_GET
@@ -273,11 +275,12 @@ def invoice_pdf(request, pk):
 @require_POST
 def payment_create(request, pk):
     invoice = get_object_or_404(Invoice, tenant=request.member.tenant, pk=pk)
-    form = PaymentForm(request.POST)
+    form = PaymentForm(request.POST,tenant=request.member.tenant)
     if form.is_valid():
         try:
             _, created = record_payment(request.member.tenant, invoice.pk, form.cleaned_data["amount"],
-                form.cleaned_data["event_key"], request.user, form.cleaned_data["note"], request.correlation_id)
+                form.cleaned_data["event_key"], request.user, form.cleaned_data["note"], request.correlation_id,
+                fund_id=form.cleaned_data['fund'].pk if form.cleaned_data['fund'] else None)
             messages.success(request, "Pembayaran simulasi tercatat. Rekonsiliasi jaringan masuk antrean." if created else "Pembayaran sudah tercatat; duplikat diabaikan.")
             return redirect("invoice_detail", pk=pk)
         except ValidationError as exc:

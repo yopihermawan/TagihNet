@@ -78,6 +78,7 @@ jobs:
       - run: python scripts/plan_archive_smoke.py
       - run: python scripts/billing_settings_smoke.py
       - run: python scripts/location_smoke.py
+      - run: python scripts/local_business_smoke.py
       - run: python scripts/verify_receipt.py
   staging:
     runs-on: ubuntu-latest

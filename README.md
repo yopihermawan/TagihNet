@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-location-coordinates` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-local-operations` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Staging lokal
 
@@ -13,7 +13,7 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 ## Yang bisa digunakan
 
 - Login/logout, pemulihan akun lokal, rate limit persisten, timeout idle 30 menit dan absolut 8 jam.
-- Dua ISP fiktif dengan pembatasan tenant dari akun yang terautentikasi; preset owner, operasional, keuangan, kasir, NOC, dan pelanggan.
+- Dua ISP fiktif dengan pembatasan tenant dari akun yang terautentikasi; delapan preset: owner, operasional, keuangan, kasir, NOC, pelanggan, Teknisi, dan Sales.
 - MFA wajib untuk operator: QR TOTP lokal, secret terenkripsi, kode pemulihan sekali pakai, pencegahan replay, dan verifikasi ulang aksi sensitif.
 - [Ubah sandi mandiri](docs/AUTHENTICATION.md): bukti sandi lama dan MFA, pencabutan seluruh sesi, audit atomik dan penahanan persetujuan billing lama.
 - [Profil saya](docs/ACCOUNT-PROFILE.md): ubah nama tampilan sendiri, informasi akun, form terikat sesi, deteksi perubahan bersamaan dan audit tanpa mengubah akses.
@@ -40,10 +40,11 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 - Edit identitas/paket PSB sebelum Pengerjaan serta jadwal ulang beralasan, dengan versi dan riwayat sebelum/sesudah.
 - Pengingat billing/SLA opt-in: antrean simulasi, deduplikasi persisten, retry terbatas, serta pemeriksaan ulang kondisi dan izin.
 - Preset Teknisi dengan akses hanya pada pekerjaan yang ditugaskan, tanpa daftar pelanggan atau nominal billing.
+- [Kas, payroll, sales, voucher dan topologi](docs/LOCAL-OPERATIONS.md): alur lokal dengan tinjauan/MFA, idempotensi, koreksi historis, slip sendiri, prospek menjadi PSB, kampanye opt-in, voucher terenkripsi/PDF privat dan port ODP berkapasitas.
 - Backup CLI terenkripsi dengan kunci terpisah, autentikasi arsip, penolakan target berisi data, serta restore drill ledger dan MFA.
 - Mode terang/gelap, navigasi mobile, fallback peta eksternal, dan jejak audit.
 
-[FEATURE-MATRIX](docs/FEATURE-MATRIX.md) merinci fungsi yang selesai, terbatas, dan belum dibuat. Gateway pembayaran, MikroTik/RADIUS nyata, scope wilayah geografis, lampiran selain foto/kanal notifikasi nyata, hotspot, payroll, dan migrasi produksi belum tersedia. Tidak ada menu palsu untuk modul tersebut.
+[FEATURE-MATRIX](docs/FEATURE-MATRIX.md) merinci fungsi yang selesai, terbatas, dan belum dibuat. [Modul operasional lokal](docs/LOCAL-OPERATIONS.md) kini mencakup kas/dana/pengeluaran/tutup buku, tim/payroll/slip sendiri, sales/prospek/komisi/kampanye, voucher hotspot simulasi dan topologi ODC/ODP/port pelanggan. Gateway pembayaran, MikroTik/RADIUS nyata, scope wilayah geografis, kanal notifikasi nyata dan migrasi produksi tetap belum tersedia.
 
 ## Stack dan struktur
 
@@ -53,6 +54,8 @@ Python 3.12+, Django **5.2 LTS**, SQLite sebagai default pengembangan dan Postgr
 config/                  pengaturan, pilihan database, URL, WSGI
 core/models.py           tenant, pelanggan, faktur, ledger, audit, antrean
 core/billing.py          transaksi domain dan hitungan integer rupiah
+core/business*.py        model, izin, tinjauan dan alur operasional lokal
+core/cash.py             arus kas, koreksi dan tutup buku
 core/bulk_billing.py     preview, persetujuan snapshot, worker massal per baris
 core/customer_import.py  parsing CSV, pratinjau privat dan impor atomik
 core/operations.py       tiket, scope penugasan, SLA, PSB dan aktivasi atomik

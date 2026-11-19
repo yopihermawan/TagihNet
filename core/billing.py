@@ -96,27 +96,37 @@ def issue_invoice(tenant, customer_id, period, actor, discount=0, correlation_id
 
 @retry_locked
 @transaction.atomic
-def record_payment(tenant, invoice_id, amount, event_key, actor, note="", correlation_id=None):
+def record_payment(tenant, invoice_id, amount, event_key, actor, note="", correlation_id=None, fund_id=None):
     if not settings.SIMULATION:
         raise ValidationError("Adapter pembayaran produksi belum tersedia. Pencatatan ini hanya untuk simulasi.")
+    from .models import Fund, PaymentFunding
+    Tenant.objects.select_for_update(no_key=True).get(pk=tenant.pk)
     invoice = Invoice.objects.select_for_update().get(tenant=tenant, pk=invoice_id)
     # Serialize all billing and worker actions through this customer's row.
     Customer.objects.select_for_update().get(pk=invoice.customer_id, tenant=tenant)
     existing = Payment.objects.filter(tenant=tenant, event_key=event_key).first()
     if existing:
-        if existing.invoice_id != invoice.pk or existing.amount != amount:
+        allocated=PaymentFunding.objects.filter(payment=existing).values_list('fund_id',flat=True).first()
+        if existing.invoice_id != invoice.pk or existing.amount != amount or allocated != fund_id:
             raise ValidationError("Kunci idempotensi telah digunakan untuk pembayaran berbeda.")
         return existing, False
     if type(amount) is not int or amount <= 0 or amount > invoice.balance:
         raise ValidationError("Nominal harus positif dan tidak melebihi sisa tagihan.")
+    fund=None
+    if fund_id is not None:
+        if type(fund_id) is not int:raise ValidationError('Dana tidak valid.')
+        fund=Fund.objects.filter(tenant=tenant,pk=fund_id,active=True).first()
+        if fund is None:raise ValidationError('Pilih dana aktif pada ISP yang sama.')
     # A shared event key can race across different customers, whose row locks are independent.
     # get_or_create contains the unique-key insert in a savepoint and returns the winner.
     payment, created = Payment.objects.get_or_create(tenant=tenant, event_key=event_key,
         defaults={"invoice": invoice, "amount": amount, "recorded_by": actor, "note": note})
     if not created:
-        if payment.invoice_id != invoice.pk or payment.amount != amount:
+        allocated=PaymentFunding.objects.filter(payment=payment).values_list('fund_id',flat=True).first()
+        if payment.invoice_id != invoice.pk or payment.amount != amount or allocated != fund_id:
             raise ValidationError("Kunci idempotensi telah digunakan untuk pembayaran berbeda.")
         return payment, False
+    if fund:PaymentFunding.objects.create(tenant=tenant,payment=payment,fund=fund)
     NetworkJob.objects.create(tenant=tenant, customer=invoice.customer)
     audit(tenant, actor, "payment.simulated", payment.pk, f"{invoice.number}; Rp{amount}", correlation_id)
     return payment, True
@@ -127,6 +137,7 @@ def record_payment(tenant, invoice_id, amount, event_key, actor, note="", correl
 def reverse_payment(tenant, payment_id, reason, actor, correlation_id=None):
     if not settings.SIMULATION:
         raise ValidationError("Reversal pada fondasi ini hanya tersedia dalam simulasi.")
+    Tenant.objects.select_for_update(no_key=True).get(pk=tenant.pk)
     payment = Payment.objects.select_for_update(of=("self",)).select_related("invoice").get(tenant=tenant, pk=payment_id)
     Customer.objects.select_for_update().get(tenant=tenant, pk=payment.invoice.customer_id)
     if len(reason.strip()) < 10 or len(reason) > 250:

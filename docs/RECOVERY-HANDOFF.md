@@ -59,3 +59,21 @@ Verifier gabungan membuat sumber fiktif dengan dua tenant, ledger/pembayaran/rev
 Target baru harus cocok seluruh tabel aplikasi/auth/framework dan sequence sebelum up. HTTPS/password/TOTP/CSRF, penolakan sesi lama, unduhan foto/checksum, saldo149.750, replay OTP dalam target dan worker hold diperiksa lagi. Staging utama/default demo/clone yang dipertahankan tidak dihapus atau dienroll MFA untuk latihan. CI staging memakai verifier ini; hasil remote harus diperiksa terpisah.
 
 Latihan ini masih pada Docker host yang sama. Pemulihan server/region terpisah, vault/custody independen, retensi, PITR/failover, RPO/RTO, beban dan audit produksi tetap belum dibuktikan. Tidak ada perubahan model atau dependensi pada checkpoint ini.
+
+
+## Paket operasional lokal — 19 November 2026 WIB
+
+Paket terbaru source adalah `data/recovery-handoff/archives/local-operations-20261119`
+dengan custody terpisah `data/recovery-handoff/keys/local-operations-20261119`.
+Arsip berasal dari backup aktual pascamigrasi0014 memakai kunci lama; autentikasi
+arsip/manifest/MFA dan gate source aktif telah lulus. Pasangan lama tetap disimpan.
+Clone held tetap memakai pasangan historis `staging-20261115` untuk gate recovery,
+tanpa resume worker atau reset sandi arsip.
+
+Latihan gabungan terbaru menyertakan18 tabel bisnis berisi data fiktif: dana/arus
+kas/koreksi/tutup buku, gaji/payroll dibayar/slip, prospek/komisi/kampanye,
+voucher terenkripsi/aktivasi dan topologi/port. Semua tabel/sequence serta
+pemulihan setelah sumber fixture hilang lulus. Kunci MFA asli kini juga diperlukan
+untuk dekripsi kata sandi voucher lewat HKDF terpisah; kunci backup tidak
+menggantikan kunci tersebut. Data staging pengguna sendiri tidak diisi fixture.
+Paket masih lokal satu workspace; offsite/vault/retensi/PITR/RPO/RTO belum dibuktikan.

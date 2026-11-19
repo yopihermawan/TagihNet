@@ -179,3 +179,40 @@ Customer/PSB memakai Decimal WGS84 berpasangan/rentang/nullable dengan CHECK dat
 Teknisi hanya membaca pekerjaan yang ditugaskan dan dapat mengubah lokasi PSB belum selesai; editor pelanggan global tetap ditolak. Detail membaca ulang scope sebelum menampilkan lokasi. Portal hanya layanan sendiri. Lokasi PSB masuk fingerprint aktivasi dan disalin atomik ke pelanggan; quote lama stale, replay tetap satu hasil. Tidak ada perubahan finansial dari edit koordinat. Tidak ada geocoder/tracking/iframe/tile atau request peta otomatis; anchor fixed-host HTTPS menyertakan lokasi hanya saat pengguna membukanya, dengan noopener/noreferrer. Penjelasan pembagian data tampil pada halaman.
 
 31 tes baru/725 per backend serta browser4viewport/dark mencakup finite/nol/NULL/pasangan/rentang, scope/CSRF/stale/token/akses/MFA/audit rollback, activation copy, konflik dua koneksi dan migrasi lama/nonkosong/deleted-ID. SQLite constraint rebuild mempertahankan sequence lewat operasi khusus; data tersimpan harus direkonsiliasi dan backup diuji sebelum writer dimulai. Tidak ada reverse migration produksi, geofencing/scope wilayah, verifikasi akurasi atau klaim audit independen. [LOCATIONS](LOCATIONS.md) dan [TEST-REPORT](TEST-REPORT.md).
+
+
+## Kas/payroll/sales/voucher/topologi — 19 November 2026 WIB
+
+Registry tertutup menentukan action/model/form/izin; URL atau field POST tidak
+memilih model arbitrer. Seluruh query memakai tenant membership terkini. Token form
+serta tinjauan menandatangani pelaku/tenant/versi akses/revisi MFA/baseline/pilihan
+terkait, dengan umur 15 menit. Konfirmasi checkbox+CSRF+MFA maksimal5menit mengunci
+tenant→membership, memeriksa ulang hak/snapshot dan menyimpan UUID hasil+audit dalam
+transaksi yang sama. Pengulangan token yang sama tidak menggandakan efek bisnis.
+
+Pencatatan kas, keputusan saldo, dua sisi transfer, pembayaran payroll/komisi dan
+koreksi diserialisasi per tenant. Pencatatan pembayaran/reversal lama kini mengikuti
+kunci tenant yang sama agar tidak berlomba dengan kas. Koreksi menambahkan pembalik;
+penutupan menyimpan snapshot dan menolak tanggal manual ke bulan tertutup. Nilai
+rupiah dibatasi integer. Payroll memisahkan data tim dan gaji serta membekukan
+identitas/penerima/komponen gaji; perubahan data atau consent membatalkan kelayakan
+pembayaran lama. Scope Sales berdasarkan assigned_to, bukan creator; konversi tidak
+memperluas izin PSB. Komisi tercipta sekali saat aktivasi.
+
+Password voucher acak dienkripsi Fernet memakai HKDF terpisah dari material kunci
+MFA asli; tidak ada master key baru. Restore perlu custody MFA asli, termasuk jika
+hanya voucher yang menggunakan enkripsi. Daftar/detail tidak menyertakan password;
+cetak melalui POST/CSRF/freshMFA/no-store/attachment dan audit metadata. Tidak ada
+password/token/ciphertext di audit. Simulasi aktivasi menetapkan expiry sekali;
+refund membalik kas dan mencabut seluruh batch atomik. Tidak ada RADIUS atau akses
+internet nyata. Port pelanggan unik, kapasitas dan induk satu tenant diperiksa
+kembali. Public promo eksplisit/bertanggal/paket aktif, tanpa data pelanggan privat
+atau pengumpulan data publik.
+
+46 tes baru/771 per backend serta browser6modul×4viewport/dark lulus. Dua race baru
+memeriksa saldo yang diperebutkan dan request sama secara serentak. Ini tidak
+menetapkan audit ASVS independen, kontrol dua orang, keamanan host administrator,
+RPO/RTO/offsite atau kesiapan integrasi produksi. Batas fitur dan kontrak lengkap:
+[LOCAL-OPERATIONS](LOCAL-OPERATIONS.md).
+
+Perbaikan akhir modul ini juga menyimpan alasan tindakan beralasan pada audit, memvalidasi ulang panjang teks setelah NFC, menolak bidi/surrogate/control dan tanggal sebelum tahun2000. Uji kegagalan audit memastikan posting+receipt rollback lalu token sama dapat dicoba ulang.

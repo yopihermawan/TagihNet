@@ -25,6 +25,7 @@ from verify_staging import TestIdentity,verify
 from scripts.ops_smoke import verify_source, verify_recovery
 from scripts.recovery_package import export_package,verify_package,restore_package
 from scripts.preflight_smoke import active as preflight_active,recovery as preflight_recovery
+from scripts.business_backup_fixture import FIXTURE as BUSINESS_FIXTURE,CHECK as BUSINESS_CHECK
 
 
 def port():
@@ -111,6 +112,7 @@ plan.refresh_from_db();assert not plan.is_active
 
 
 def verify_restored_access(target,identity):
+    assert 'PASS:' in shell(target,BUSINESS_CHECK)
     base=f"https://localhost:{manifest(target)['port']}"
     context=ssl.create_default_context(cafile=str(target/'secrets/ca.crt'))
     jar=http.cookiejar.CookieJar()
@@ -134,7 +136,7 @@ def verify_restored_access(target,identity):
     location=shell(target,"from core.models import Customer,Installation; from decimal import Decimal; c=Customer.objects.get(username='restore-1'); assert c.latitude==Decimal('-6.900001') and c.longitude==Decimal('107.600001'); o=Installation.objects.get(username='location-staging'); assert o.latitude==Decimal('-6.917464') and o.longitude==Decimal('107.619123'); print('LOCATION:'+str(c.pk))")
     customer_id=next(line.removeprefix('LOCATION:') for line in location.splitlines() if line.startswith('LOCATION:'))
     assert b'-6.900001' in request(f'/customers/{customer_id}/?tab=location')[1]
-    values=shell(target,"from core.models import Invoice,Payment,WorkPhoto; import hashlib; print('RESTORED:',Invoice.objects.get().balance,Payment.objects.count(),WorkPhoto.objects.get().pk,WorkPhoto.objects.get().checksum)")
+    values=shell(target,"from core.models import Invoice,Payment,WorkPhoto; import hashlib; print('RESTORED:',Invoice.objects.get(customer__username='restore-1').balance,Payment.objects.count(),WorkPhoto.objects.get().pk,WorkPhoto.objects.get().checksum)")
     result=next(line for line in values.splitlines() if line.startswith('RESTORED:')).split()
     assert result[1:3]==['149750','2']
     status,content,_=request(f'/operations/photos/{result[3]}/download/')
@@ -159,7 +161,7 @@ def drill(root):
         verify_source(source)
         preflight_active(source,fingerprint)
         compose(source,'stop','web','network-worker','billing-worker','reminder-worker',capture=True)
-        shell(source,FIXTURE)
+        shell(source,FIXTURE+BUSINESS_FIXTURE)
         before=fingerprint(source)
         assert before['core_payment'][0]==2 and before['core_paymentreversal'][0]==1 and before['core_workphoto'][0]==1
         keyfile=root/'archive-key.json';generate_key(keyfile);key=read_key(keyfile)

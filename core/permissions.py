@@ -11,9 +11,18 @@ CAPABILITIES = {
     "noc": {"network"},
     "customer": {"portal"},
     "technician": {"field_work"},
+    "sales": {"sales"},
 }
+CAPABILITIES["owner"].update({"cash", "manage_cash", "team", "manage_team", "payroll", "manage_payroll", "sales", "manage_sales", "hotspot", "manage_hotspot", "topology", "manage_topology"})
+CAPABILITIES["noc"].add("topology")
 
 CAPABILITY_LABELS = {
+    "cash": "Lihat kas dan tutup buku", "manage_cash": "Catat kas, dana dan tutup buku",
+    "team": "Lihat tim", "manage_team": "Kelola tim",
+    "payroll": "Lihat payroll seluruh tim", "manage_payroll": "Kelola gaji dan payroll",
+    "sales": "Lihat prospek dan komisi", "manage_sales": "Kelola seluruh prospek, komisi dan kampanye",
+    "hotspot": "Lihat voucher simulasi", "manage_hotspot": "Kelola dan cetak voucher simulasi",
+    "topology": "Lihat topologi administratif", "manage_topology": "Kelola ODC, ODP dan port pelanggan",
     "manage_billing_schedule": "Atur penerbitan faktur terjadwal",
     "billing_reports": "Lihat laporan penagihan", "export_billing_reports": "Ekspor laporan penagihan",
     "manage_plans": "Buat/ubah paket dan harga bulanan",
@@ -31,7 +40,7 @@ CAPABILITY_LABELS = {
 }
 
 def capabilities(member):
-    if member.role in {"owner", "customer", "technician"} or not member.access_role_id:
+    if member.role in {"owner", "customer", "technician", "sales"} or not member.access_role_id:
         return CAPABILITIES[member.role].copy()
     if member.access_role.tenant_id != member.tenant_id:
         raise PermissionDenied
@@ -46,7 +55,7 @@ def membership(user):
         raise PermissionDenied
     if member.role == "customer" and (not member.customer_id or member.customer.tenant_id != member.tenant_id):
         raise PermissionDenied
-    if member.access_role_id and (member.access_role.tenant_id != member.tenant_id or member.role in {"owner", "customer", "technician"}):
+    if member.access_role_id and (member.access_role.tenant_id != member.tenant_id or member.role in {"owner", "customer", "technician", "sales"}):
         raise PermissionDenied
     return member
 

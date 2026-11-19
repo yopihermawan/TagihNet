@@ -26,7 +26,7 @@ Sumber enforcement: `core/permissions.py`, `core/views.py:allowed_invoice`, dan 
 | Keamanan akun / MFA | Milik sendiri | Milik sendiri | Milik sendiri | Milik sendiri | Milik sendiri | Milik sendiri |
 | Secret integrasi / upload / webhook | Belum tersedia untuk semua peran | — | — | — | — | — |
 
-Tabel di atas adalah preset awal. Owner dapat menetapkan peran kustom pada akun operator; capability efektif menggantikan preset pada setiap endpoint dan menu, termasuk PDF. `manage_access` tidak dapat didelegasikan. Owner/customer/teknisi tidak boleh menerima peran kustom. Izin tulis memerlukan izin baca terkait. Membership dibaca dari database, bukan claim browser. Perubahan akun/role meningkatkan session_version sehingga sesi lama dicabut pada request berikutnya. Pemilik aktif terakhir dilindungi dalam transaksi. Editor membutuhkan MFA terverifikasi dalam 5 menit terakhir. Lihat [AUTHENTICATION](AUTHENTICATION.md).
+Tabel di atas adalah preset awal. Owner dapat menetapkan peran kustom pada akun operator; capability efektif menggantikan preset pada setiap endpoint dan menu, termasuk PDF. `manage_access` tidak dapat didelegasikan. Owner/customer/teknisi/sales tidak boleh menerima peran kustom. Izin tulis memerlukan izin baca terkait. Membership dibaca dari database, bukan claim browser. Perubahan akun/role meningkatkan session_version sehingga sesi lama dicabut pada request berikutnya. Pemilik aktif terakhir dilindungi dalam transaksi. Editor membutuhkan MFA terverifikasi dalam 5 menit terakhir. Lihat [AUTHENTICATION](AUTHENTICATION.md).
 
 Preset Teknisi kini tersedia dengan akses hanya pada tiket/PSB yang ditugaskan. Scope wilayah geografis dan role Sales masih belum tersedia. Keuangan/operasional pada checkpoint ini melihat identitas pelanggan satu ISP; minimisasi field lebih lanjut perlu disepakati sebelum produksi. NOC melihat nama pelanggan dalam antrean rekonsiliasi serta snapshot sesi sintetis monitoring ISP sendiri, tanpa nominal/sandi layanan.
 
@@ -103,3 +103,23 @@ bootstrap_isp membuat owner aplikasi awal pada database kosong, tanpa Django sup
 ## Restore staging
 
 Backup/restore staging adalah operasi host-admin lewat Docker, bukan capability baru owner web. Tools memakai role migrator dalam container PG yang identitas/volumenya cocok; runtime tetap tanpa DDL. Source/used target tidak diterima. Target restore memakai MFA asli dan session key baru, old cookie ditolak. Up recovery hanya web, worker hold memerlukan explicit resume setelah operator meninjau data/akses/job. Jangan memberi akses Docker atau file archive/MFA key kepada akun aplikasi. Lihat [STAGING-RECOVERY](STAGING-RECOVERY.md).
+
+
+## Modul operasional lokal — 19 November 2026 WIB
+
+Delapan preset kini mencakup Sales. Owner mendapat izin baca/kelola kas, tim,
+payroll, sales, hotspot dan topologi; NOC mendapat baca topologi tanpa finansial.
+Preset lain tetap pada izin sebelumnya. Sales hanya melihat prospek yang ditugaskan
+kepadanya serta komisinya sendiri; reassignment mencabut akses lama. Pengajuan
+prospek menjadi PSB tidak memberikan hak mutasi/aktivasi PSB kepada Sales.
+
+Komponen gaji terpisah dari data tim. Slip sendiri menggunakan membership historis
+pada PayrollLine untuk run dibayar/direversal, tanpa hak payroll global. Pencetakan
+kredensial voucher memakai POST/CSRF/izin kelola/MFA terbaru; GET tidak menyertakan
+kata sandi. Kampanye publik opt-in hanya memuat penawaran dan kontak publik.
+
+Peran kustom memakai dependency izin baca seperti dijelaskan dalam
+[LOCAL-OPERATIONS](LOCAL-OPERATIONS.md). Konfirmasi perubahan mengulang pemeriksaan
+pelaku aktif/tenant/versi akses/revisi MFA di transaksi tenant→membership. Tinjauan
+berlaku 15 menit dan faktor maksimal 5 menit; hasil UUID persisten mencegah efek
+ganda. Modul ini tidak mengaktifkan adapter produksi saat SIMULATION=False.

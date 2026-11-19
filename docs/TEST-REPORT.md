@@ -1,8 +1,10 @@
-# Laporan pengujian — 15 November 2026, WIB
+# Laporan pengujian — 19 November 2026, WIB
 
-Target terbaru: backup/SQL recovery staging, staging lokal HTTPS/PostgreSQL TLS, jadwal penagihan bulanan, kuitansi pembayaran, foto pekerjaan privat, laporan penagihan historis, workspace pelanggan bertab, NAS/filter jatuh tempo pelanggan, paket/harga, billing, operasional, pengingat, PSB, monitoring NAS simulasi dan backup terenkripsi TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite dan PostgreSQL 16.15 (psycopg 3.3.6), Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
+Target histori awal: backup/SQL recovery staging, staging lokal HTTPS/PostgreSQL TLS, jadwal penagihan bulanan, kuitansi pembayaran, foto pekerjaan privat, laporan penagihan historis, workspace pelanggan bertab, NAS/filter jatuh tempo pelanggan, paket/harga, billing, operasional, pengingat, PSB, monitoring NAS simulasi dan backup terenkripsi TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite dan PostgreSQL 16.15 (psycopg 3.3.6), Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
 
-## Eksekusi dan bukti
+Checkpoint terbaru adalah [operasional lokal](LOCAL-OPERATIONS.md): **771 tes per backend**, ditambah verifikasi browser, proses PostgreSQL, migrasi dan pemulihan yang dijelaskan pada bagian terakhir. Tabel awal berikut mempertahankan histori checkpoint 15 November.
+
+## Eksekusi dan bukti historis
 
 | Perintah | Hasil yang diamati |
 | --- | --- |
@@ -381,3 +383,60 @@ Watcher dan penulis source/clone PG dihentikan, backup0012 masing-masing diauten
 Backup manual source0013 benar-benar dibuat dan diautentikasi sebelum catatan sukses memakai waktu aktual; interval24jam tetap. Custody baru archives/locations-20261119 dan keys/locations-20261119 diverifikasi; seluruh pasangan/arsip/kunci/image lama dipertahankan. Watcher menghasilkan tick sehat baru. Development web/tiga worker dimulai sesudah data/antrean/kunci diperiksa, health/login/anonymous location redirect lulus dan seluruh baris0013/kunci tetap.
 
 Ringkasan agregat dan hash source: [locations-20261119.json](evidence/locations-20261119.json); kontrak: [LOCATIONS](LOCATIONS.md). Tidak ada reverse migration produksi atau auto-downgrade image setelah0013. Full legacy operations/security browser,17 generic PG process scenarios/load/soak/same-schema rollback/advisory/OS audit tidak diulang. CI dikonfigurasi, hasil remote tidak diklaim. Tidak ada klaim akurasi lokasi, geofencing/scope wilayah, independent-host restore, offsite atau kesiapan produksi.
+
+
+## Operasional lokal lengkap — 19 November 2026 WIB
+
+Branch kumulatif `feature/tagihnet-local-operations`, schema `0014_local_operations`.
+Kas/dana/pengeluaran/transfer/koreksi/tutup buku, tim/payroll/slip sendiri,
+Sales/prospek/komisi/kampanye, voucher hotspot simulasi dan topologi ODC/ODP/port
+memiliki alur aplikasi yang dapat dijalankan. Kontrak/batas: [LOCAL-OPERATIONS](LOCAL-OPERATIONS.md).
+Ringkasan publik tanpa data/kunci: [evidence](evidence/local-operations-20261119.json).
+
+| Pemeriksaan | Hasil yang diamati |
+| --- | --- |
+| `manage.py test --noinput` SQLite | 771 tes, OK; 46 tes baru sejak checkpoint0013 |
+| `postgres_lab.py run manage.py test --noinput` | 771 tes PostgreSQL, OK |
+| Pengujian ulang `test_local_business` setelah validator NFC terakhir | 46 SQLite dan46 PostgreSQL, OK; bidi/surrogate/ekspansi normalisasi, alasan audit dan rollback posting+receipt tercakup |
+| `local_business_smoke.py` | MFA nyata pada database sementara; enam modul, formulir/tinjauan/konfirmasi, kas/payroll/slip sendiri, sales→PSB/scope, voucher PDF/aktivasi/refund, topologi/port dan promo publik;360/768/1366/1920px/dark tanpa scroll halaman atau error browser |
+| `verify_postgres.py` | 17 skenario dua proses, pg_dump/restore dan restore terenkripsi lulus; database lab asli tetap |
+| `verify_encrypted_backup.py` | Seluruh18 tabel bisnis berisi fixture, semua tabel/sequence cocok, voucher dapat didekripsi dengan kunci MFA asli, login/TOTP/recovery/photo/ledger pulih; temporary database/keys dibersihkan |
+| `verify_staging_backup.py` image final | Exit0 sampai cleanup; HTTPS/SQL TLS/role runtime/privilege/container/host/MFA/CSRF/worker/monitor/backup/custody gates, seluruh tabel, termasuk18 model bisnis berisi fixture, ledger/payroll/slip/komisi/promo/voucher terenkripsi/topologi/tutup buku pulih |
+| Source-loss recovery | Paket+custody penerima memulihkan database setelah sumber/volume/arsip/key fixture asli dihapus; seluruh tabel/sequence cocok, password/TOTP/CSRF/photo berfungsi, worker tetap held |
+| Salinan0013→0014 SQLite dan PG | Arsip kunci asli dipulihkan ke target baru, migrasi maju dan rekonsiliasi hash baris/kolom/sequence sebelum data yang dipertahankan dimigrasikan |
+| Data lokal yang dipertahankan | SQLite/source staging/held clone pada0014; seluruh nilai lama/kunci tetap,18 tabel baru kosong. Tambahan yang diharapkan:18 content type/72 permission/1 recorder dan sequence metadata terkait |
+| Gate kandidat aktif dan recovery | Keduanya passed/issues kosong pada image final; backup aktual pascamigrasi terautentikasi, custody baru cocok, watcher fresh/ok, clone tetap held |
+| Development startup | Satu web8000 dan tiga worker, health simulation/login/new-route guard lulus, seluruh baris/kunci0014 tetap dan tidak ada seed |
+| Check/drift/dependencies/diff | `check`, `makemigrations --check --dry-run`, `pip check`, `git diff --check` lulus; dependency tetap |
+
+Image final `sha256:d443b72d46605e1bc528509997ece72bc73d7624d1064bd90d71663af977def6`;
+application tree `44db2c9c171f45818ca7e5c744db546174c819fe730c76bf76472bf6cf64c7b3`.
+Source dibekukan selama run final. Satu run sebelumnya menolak `source_mismatch`
+ketika perbaikan audit/input ditambahkan sesudah image dibangun; image dibangun
+ulang dan run final lulus. Harness proses shared-UUID kini rendezvous sebelum
+kunci tenant, mengikuti serialisasi pembayaran/keputusan kas; barrier lama di
+posisi insert menyebabkan timeout pada harness dan telah diperbaiki.
+
+Source tetap1 ISP/1 owner staging tanpa MFA/plan/customer/invoice/PSB atau data bisnis
+baru. Default tetap30 pelanggan/37 faktur/19 pembayaran, tanpa perubahan koordinat,
+NAS, MFA, akun atau job lama. Backup pra0014 dan seluruh arsip lama tetap disimpan.
+Backup source aktual `TagihNet-20261119-post-local-operations-0014.tnbk` memakai
+kunci lama; waktu sukses manual dicatat sesuai operasi nyata. Paket baru
+`local-operations-20261119` mempunyai folder arsip/kunci terpisah. Ini masih satu
+workspace, bukan custody offsite. Clone tetap memakai sandi arsip/MFA asli dan
+session/TLS/DB key targetnya; bootstrap-password clone tidak digunakan.
+
+Bukti privat berawalan `data/evidence/local-operations-`: before-0014,
+sqlite-proof-0014, development-0014/development-baseline-0014,
+pg-stopped-before-0014/pg-restored-proof-0014/pg-after-0014,
+monitor-0014/development-running-0014. Gate setelah commit bersih disimpan sebagai
+`local-operations-preflight-active-20261119.json` dan
+`local-operations-preflight-recovery-20261119.json`. File data/kunci/baseline privat
+tersebut tidak masuk Git; jalankan ulang dengan nama output baru.
+
+Ruang lingkup tetap simulasi lokal. Tidak ada gateway/webhook settlement/router/
+RADIUS/SMTP nyata, VPS/domain/public TLS, offsite/retensi/PITR, uji kapasitas/soak
+baru atau audit keamanan independen. Hasil CI remote belum diperiksa. Image0013
+bukan rollback otomatis bagi schema0014; pemulihan memerlukan target baru dengan
+arsip/image kompatibel dan rekonsiliasi pascasnapshot. Cakupan lanjut tetap pada
+[FEATURE-MATRIX](FEATURE-MATRIX.md), tanpa persentase kesiapan produksi.

@@ -1,0 +1,58 @@
+{
+  "application_sha256": "44db2c9c171f45818ca7e5c744db546174c819fe730c76bf76472bf6cf64c7b3",
+  "branch": "feature/tagihnet-local-operations",
+  "checked_at_wib": "2026-11-19T22:11:54+07:00",
+  "gates": {
+    "active": "passed",
+    "development_single_web_and_three_workers": true,
+    "new_separate_custody_pair_verified": true,
+    "postmigration_backup_authenticated": true,
+    "recovery": "passed",
+    "source_watcher_fresh": true
+  },
+  "image_id": "sha256:d443b72d46605e1bc528509997ece72bc73d7624d1064bd90d71663af977def6",
+  "limits": [
+    "no VPS/domain or production deployment",
+    "payment/router/RADIUS/messages remain simulated or disabled",
+    "no offsite custody/PITR/production capacity or independent security audit established",
+    "remote CI results not claimed"
+  ],
+  "production_ready": false,
+  "recovery": {
+    "disposable_stacks_cleaned": true,
+    "original_mfa_key_recovers_voucher_credentials": true,
+    "postgresql_all_tables_with_business_data": true,
+    "source_loss_transported_package": true,
+    "sqlite_all_tables_with_business_data": true
+  },
+  "retained_data": {
+    "development_customers": 30,
+    "development_invoices": 37,
+    "development_payments": 19,
+    "expected_content_types_added": 18,
+    "expected_permissions_added": 72,
+    "migration_recorder_added": 1,
+    "new_business_tables_empty": 18,
+    "old_rows_columns_and_keys_preserved": true,
+    "persistent_owners_not_enrolled_or_reset": true,
+    "recovery_workers_held": true
+  },
+  "schema": "0014_local_operations",
+  "scope": "local_simulation",
+  "status": "passed",
+  "tests": {
+    "browser_modules": 6,
+    "browser_widths": [
+      360,
+      768,
+      1366,
+      1920
+    ],
+    "business_rechecks_after_normalization_postgresql": 46,
+    "business_rechecks_after_normalization_sqlite": 46,
+    "cross_process_scenarios": 17,
+    "dark_mode": true,
+    "postgresql": 771,
+    "sqlite": 771
+  }
+}

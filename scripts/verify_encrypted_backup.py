@@ -11,6 +11,8 @@ from pathlib import Path
 from cryptography.fernet import Fernet
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0,str(ROOT))
+from scripts.business_backup_fixture import FIXTURE as BUSINESS_FIXTURE,CHECK as BUSINESS_CHECK
 
 
 def fingerprint(path):
@@ -67,6 +69,7 @@ schedule = confirm_change(owners[0], token, time.time(), 1)
 assert run_schedule(schedule.pk) is not None
 
 '''
+    fixture+='\nfrom django.utils import timezone\nactor=owners[0];tenant=tenants[0];customer=customers[0];access_version=1\n'+BUSINESS_FIXTURE
     run("manage.py", "shell", "-c", fixture, env=env)
     before = fingerprint(source/"tagihnet.sqlite3")
     key = directory/"separate-keys/backup.json"
@@ -123,7 +126,7 @@ user = get_user_model().objects.get(username="owner0")
 assert not verify_factor(user, code)
 recovery = hashlib.sha256(b"tagihnet-isolated-drill-only").hexdigest()[:32]
 assert verify_factor(user, recovery) and not verify_factor(user, recovery)
-assert Invoice.objects.get().balance == 149750
+assert Invoice.objects.get(customer__username='rumah',tenant__name='ISP 0').balance == 149750
 from core.models import WorkPhoto
 photo = WorkPhoto.objects.get()
 response = client.get(f"/operations/photos/{photo.pk}/download/")
@@ -135,7 +138,7 @@ assert BillingScheduleRun.objects.get().batch.status == "queued"
 assert client.get("/invoices/schedule/").status_code == 200
 
 '''
-    run("manage.py", "shell", "-c", authenticate, env=restored_env)
+    run("manage.py", "shell", "-c", authenticate+BUSINESS_CHECK, env=restored_env)
     assert fingerprint(source/"tagihnet.sqlite3") == before
     print("PASS: restored password + TOTP login with CSRF, OTP/recovery replay rejected, balance and authorized photo download reconcile; wrong MFA key fails independently.", flush=True)
 print("PASS: temporary source/restored databases, plaintext staging, keys and archive cleaned; user demo untouched.")

@@ -15,8 +15,22 @@ from core import bulk_views as bulk
 from core import operation_views as operations
 from core import reminder_views as reminders
 from core import monitoring_views as monitoring
+from core import business_views as business
 
 urlpatterns = [
+    path('business/cash/',business.module_page,{'module':'cash'},name='business_cash'),
+    path('business/team/',business.module_page,{'module':'team'},name='business_team'),
+    path('business/payroll/',business.module_page,{'module':'payroll'},name='business_payroll'),
+    path('business/sales/',business.module_page,{'module':'sales'},name='business_sales'),
+    path('business/hotspot/',business.module_page,{'module':'hotspot'},name='business_hotspot'),
+    path('business/topology/',business.module_page,{'module':'topology'},name='business_topology'),
+    path('business/actions/confirm/',business.action_confirm,name='business_confirm'),
+    path('business/actions/<str:action>/',business.action_form,name='business_action'),
+    path('business/actions/<str:action>/<int:pk>/',business.action_form,name='business_action_object'),
+    path('business/<str:module>/<str:kind>/<int:pk>/',business.detail_page,name='business_detail'),
+    path('business/vouchers/<int:pk>/print/',business.voucher_print,name='voucher_print'),
+    path('account/payslips/',business.own_payslips,name='own_payslips'),
+    path('promo/<uuid:key>/',business.public_campaign,name='public_campaign'),
     path("operations/tickets/<int:pk>/photos/", photos.photo_list, name="ticket_photos"),
     path("operations/installations/<int:pk>/photos/", photos.photo_list, {"installation": True}, name="installation_photos"),
     path("operations/photos/<uuid:photo_id>/download/", photos.photo_download, name="work_photo_download"),

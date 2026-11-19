@@ -1,7 +1,7 @@
 from datetime import date
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Customer
+from .models import Customer, Fund
 from .validation import normalize_phone
 from .plan_selection import selectable_plans
 
@@ -38,6 +38,12 @@ class PaymentForm(forms.Form):
     event_key = forms.UUIDField(widget=forms.HiddenInput)
     note = forms.CharField(label="Catatan (opsional)", max_length=250, required=False,
                           help_text="Tampil pada kuitansi, termasuk di portal pelanggan.")
+    fund = forms.ModelChoiceField(label='Dana penerimaan (opsional)',queryset=Fund.objects.none(),required=False,
+        empty_label='Belum dipetakan',help_text='Pemetaan kas lokal; tidak memindahkan uang atau menghubungi bank.')
+
+    def __init__(self,*args,tenant=None,**kwargs):
+        super().__init__(*args,**kwargs)
+        if tenant:self.fields['fund'].queryset=Fund.objects.filter(tenant=tenant,active=True)
 
 class BillingSettingsForm(forms.Form):
     name = forms.CharField(label="Nama ISP", max_length=100, strip=False)

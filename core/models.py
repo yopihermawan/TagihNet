@@ -138,7 +138,7 @@ class AccessRole(models.Model):
 
 class Membership(models.Model):
     ROLES = [("owner", "Owner ISP"), ("ops", "Admin operasional"), ("finance", "Keuangan"),
-             ("cashier", "Kasir"), ("noc", "NOC"), ("customer", "Pelanggan"), ("technician", "Teknisi")]
+             ("cashier", "Kasir"), ("noc", "NOC"), ("customer", "Pelanggan"), ("technician", "Teknisi"), ("sales", "Sales")]
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
     role = models.CharField(max_length=16, choices=ROLES)
@@ -573,3 +573,8 @@ class AuthAttempt(models.Model):
 
 def month_due(period, day):
     return date(period.year, period.month, min(day, calendar.monthrange(period.year, period.month)[1]))
+
+
+from .business_models import (Fund, PaymentFunding, CashMovement, CashCorrection, CashClose,
+    Employee, SalaryTerms, PayrollRun, PayrollLine, Campaign, Lead, Commission,
+    HotspotProfile, VoucherBatch, Voucher, NetworkNode, CustomerEndpoint, BusinessAction)

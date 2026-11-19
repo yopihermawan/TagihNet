@@ -26,7 +26,7 @@ def member_for(actor):
         raise PermissionDenied
     if member.role == "customer" and (not member.customer_id or member.customer.tenant_id != member.tenant_id):
         raise PermissionDenied
-    if member.access_role_id and (member.access_role.tenant_id != member.tenant_id or member.role in {"owner", "customer", "technician"}):
+    if member.access_role_id and (member.access_role.tenant_id != member.tenant_id or member.role in {"owner", "customer", "technician", "sales"}):
         raise PermissionDenied
     return member
 
@@ -402,6 +402,8 @@ def activation_quote(order, period):
 @transaction.atomic
 def activate_installation(actor, order_id, period, fingerprint, verified_at, access_version):
     member = member_for(actor)
+    Tenant.objects.select_for_update(no_key=True).get(pk=member.tenant_id)
+    member = member_for(actor)
     if "activate_installations" not in capabilities(member) or member.session_version != access_version or not 0 <= time.time() - verified_at <= 300:
         raise PermissionDenied("Izin aktivasi dan MFA terbaru diperlukan.")
     order = visible_installations(member).select_for_update().get(pk=order_id)
@@ -429,4 +431,6 @@ def activate_installation(actor, order_id, period, fingerprint, verified_at, acc
     order.version += 1
     order.save()
     event(member, order, "activated", "Aktivasi administrasi selesai: pelanggan dan faktur awal dibuat. Provisioning jaringan masuk antrean terpisah.")
+    from .business_services import accrue_commission
+    accrue_commission(order)
     return order

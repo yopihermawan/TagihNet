@@ -99,15 +99,10 @@ def child(data):
         raise ValueError("Unknown process case")
 
     try:
-        if data["case"] == "cross_payment":
-            original = QuerySet.create
-            def create(query, **kwargs):
-                if query.model is Payment:
-                    gate()
-                return original(query, **kwargs)
-            with patch.object(QuerySet, "create", create):
-                result = action()
-        elif data["case"] == "bulk_single":
+        # Payments now serialize at the tenant row, including different invoices.
+        # Rendezvous before action(), never after taking that shared lock: the
+        # latter would wait for a second writer that intentionally cannot enter.
+        if data["case"] == "bulk_single":
             if data["role"] == 0:
                 original = billing.write_snapshot_invoice
                 def write(*args, **kwargs):
