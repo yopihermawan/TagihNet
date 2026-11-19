@@ -5,6 +5,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
+from .document_identity import document_issuer
 
 def rupiah(value):
     return "Rp" + f"{value:,}".replace(",", ".")
@@ -22,7 +23,11 @@ def render_invoice(invoice, simulation):
     flow = [text("TagihNet", "Title"), text("Billing rapi, jaringan terkendali."), Spacer(1, 6*mm)]
     if simulation:
         flow.extend([text("SIMULASI — BUKAN BUKTI PEMBAYARAN NYATA", "Heading3"), Spacer(1, 3*mm)])
-    flow.extend([text(invoice.tenant.name, "Heading2"), text(invoice.tenant.address),
+    issuer = document_issuer(invoice)
+    flow.extend([text(issuer.name, "Heading2"), text(issuer.address)])
+    if issuer.notice:
+        flow.append(text(issuer.notice))
+    flow.extend([
                  text(f"FAKTUR {invoice.number}", "Heading2"), text(f"Status: {invoice.status_label}"),
                  text(f"Pelanggan: {invoice.customer_name} ({invoice.customer.code})"), text(invoice.customer_address),
                  text(f"Periode layanan: {invoice.period:%m/%Y} | Jatuh tempo: {invoice.due_date:%d/%m/%Y}"), Spacer(1, 6*mm)])

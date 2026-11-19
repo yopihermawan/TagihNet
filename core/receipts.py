@@ -14,11 +14,12 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
 from .pdf import rupiah
+from .document_identity import document_issuer
 
 WIB = ZoneInfo("Asia/Jakarta")
 SIMULATION_NOTICE = "SIMULASI - BUKAN BUKTI PEMBAYARAN NYATA"
-SOURCE_NOTICE = ("Nama dan alamat pelanggan mengikuti snapshot faktur. Identitas ISP dan nama akun pencatat "
-                 "mengikuti data saat dicetak. Status koreksi diperiksa saat dicetak. "
+SOURCE_NOTICE = ("Nama dan alamat pelanggan mengikuti snapshot faktur. Identitas penerbit mengikuti snapshot pembayaran "
+                 "bila tersedia. Nama akun pencatat mengikuti data saat dicetak. Status koreksi diperiksa saat dicetak. "
                  "Kuitansi satu transaksi ini tidak menyatakan faktur telah lunas.")
 
 # Fonts ship with the pinned ReportLab package; no user path, download or system font dependency.
@@ -59,7 +60,7 @@ def terbilang(amount):
 
 def receipt_context(payment, printed_at):
     created = payment.created_at.astimezone(WIB)
-    return {"payment": payment, "invoice": payment.invoice,
+    return {"payment": payment, "invoice": payment.invoice, "issuer": document_issuer(payment),
             "receipt_number": f"TN-KW-{created:%Y%m%d}-{payment.pk:06d}",
             "amount_words": terbilang(payment.amount), "printed_at": printed_at,
             "simulation_notice": SIMULATION_NOTICE, "source_notice": SOURCE_NOTICE}
@@ -67,7 +68,7 @@ def receipt_context(payment, printed_at):
 
 def render_receipt(context):
     """Draw only escaped local text; never interpret user input as PDF markup or assets."""
-    payment, invoice = context["payment"], context["invoice"]
+    payment, invoice, issuer = context["payment"], context["invoice"], context["issuer"]
     buffer = BytesIO()
     document = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=20*mm, rightMargin=20*mm,
         topMargin=18*mm, bottomMargin=20*mm, title=context["receipt_number"], author="TagihNet")
@@ -89,13 +90,16 @@ def render_receipt(context):
     flow = [text("TagihNet", "Title"), text(context["simulation_notice"], "Heading3"),
         text("KUITANSI PEMBAYARAN", "Heading1"), text(context["receipt_number"]), Spacer(1, 4*mm),
         text("DIREVERSAL - TRANSAKSI TIDAK BERLAKU" if reversal else "TERCATAT - SIMULASI", "Heading2"),
-        text(invoice.tenant.name, "Heading2"), text(invoice.tenant.address), Spacer(1, 3*mm),
+        text(issuer.name, "Heading2"), text(issuer.address)]
+    if issuer.notice:
+        flow.append(text(issuer.notice))
+    flow.extend([Spacer(1, 3*mm),
         text("Diterima dari: " + invoice.customer_name), text(invoice.customer_address),
         text("Nominal transaksi: " + rupiah(payment.amount), "Heading2"),
         text("Terbilang: " + context["amount_words"]), Spacer(1, 3*mm),
         text("Untuk faktur: " + invoice.number), text(f"Periode layanan: {invoice.period:%m/%Y}"),
         text("Dibayar: " + stamp(payment.created_at)), text("Dicatat oleh: " + payment.recorded_by.username),
-        text("Catatan: " + (payment.note or "Tanpa catatan")), Spacer(1, 4*mm)]
+        text("Catatan: " + (payment.note or "Tanpa catatan")), Spacer(1, 4*mm)])
     if reversal:
         flow.extend([text("Rincian koreksi", "Heading2"),
             text("Dikoreksi: " + stamp(reversal.created_at)),

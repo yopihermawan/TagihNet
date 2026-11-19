@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.db import OperationalError, transaction
 from django.utils import timezone
 from .models import AuditEvent, Customer, Invoice, InvoiceLine, NetworkJob, Payment, PaymentReversal, Tenant, month_due
+from .document_identity import capture_invoice_issuer, capture_payment_issuer
 
 
 def retry_locked(function):
@@ -71,6 +72,7 @@ def write_snapshot_invoice(tenant, customer, period, snapshot, actor, correlatio
         raise ValidationError("Snapshot nominal tidak konsisten.")
     values["due_date"] = date.fromisoformat(values["due_date"])
     invoice = Invoice.objects.create(tenant=tenant, customer=customer, period=period, **values)
+    capture_invoice_issuer(invoice)
     InvoiceLine.objects.create(invoice=invoice, **line)
     audit(tenant, actor, "invoice.issued", invoice.pk, invoice.number, correlation_id)
     return invoice
@@ -100,7 +102,7 @@ def record_payment(tenant, invoice_id, amount, event_key, actor, note="", correl
     if not settings.SIMULATION:
         raise ValidationError("Adapter pembayaran produksi belum tersedia. Pencatatan ini hanya untuk simulasi.")
     from .models import Fund, PaymentFunding
-    Tenant.objects.select_for_update(no_key=True).get(pk=tenant.pk)
+    tenant = Tenant.objects.select_for_update(no_key=True).get(pk=tenant.pk)
     invoice = Invoice.objects.select_for_update().get(tenant=tenant, pk=invoice_id)
     # Serialize all billing and worker actions through this customer's row.
     Customer.objects.select_for_update().get(pk=invoice.customer_id, tenant=tenant)
@@ -126,6 +128,7 @@ def record_payment(tenant, invoice_id, amount, event_key, actor, note="", correl
         if payment.invoice_id != invoice.pk or payment.amount != amount or allocated != fund_id:
             raise ValidationError("Kunci idempotensi telah digunakan untuk pembayaran berbeda.")
         return payment, False
+    capture_payment_issuer(payment, tenant)
     if fund:PaymentFunding.objects.create(tenant=tenant,payment=payment,fund=fund)
     NetworkJob.objects.create(tenant=tenant, customer=invoice.customer)
     audit(tenant, actor, "payment.simulated", payment.pk, f"{invoice.number}; Rp{amount}", correlation_id)

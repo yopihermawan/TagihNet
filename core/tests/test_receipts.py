@@ -184,7 +184,7 @@ class ReceiptTests(TestCase):
         payment = Payment.objects.get(pk=self.payment.pk)
         self.assertEqual(receipt_context(payment, datetime(2027, 1, 1, tzinfo=dt_timezone.utc))["receipt_number"], number)
 
-    def test_customer_snapshot_is_preserved_issuer_is_current(self):
+    def test_customer_and_issuer_snapshots_are_preserved(self):
         original = self.invoice.customer_name
         Customer.objects.filter(pk=self.customers[0].pk).update(name="Nama berubah", address="Alamat berubah")
         self.tenants[0].name = "ISP nama terkini"
@@ -194,7 +194,8 @@ class ReceiptTests(TestCase):
         self.assertContains(response, "Jl. Contoh")
         self.assertNotContains(response, "Nama berubah")
         self.assertNotContains(response, "Alamat berubah")
-        self.assertContains(response, "ISP nama terkini")
+        self.assertEqual(response.context["issuer"].name, "ISP 0")
+        self.assertTrue(response.context["issuer"].historical)
         self.assertContains(response, "mengikuti data saat dicetak")
 
     def test_reversal_updates_existing_receipt_without_losing_original(self):
@@ -268,8 +269,8 @@ class ReceiptTests(TestCase):
     def test_long_text_wraps_without_layout_failure_or_truncation(self):
         self.invoice.customer_name = "P"*100
         self.invoice.customer_address = "A"*250
-        self.invoice.tenant.name = "I"*100
-        self.invoice.tenant.address = "B"*250
+        from core.models import PaymentIssuerSnapshot
+        PaymentIssuerSnapshot.objects.filter(payment=self.payment).update(name="I"*100, address="B"*250)
         self.payment.invoice = self.invoice
         self.payment.note = "C"*250
         self.payment.save(update_fields=["note"])

@@ -221,3 +221,8 @@ Perbaikan akhir modul ini juga menyimpan alasan tindakan beralasan pada audit, m
 ## Drawer dan navigasi workspace
 
 Menu disaring capability server sebelum HTML dirender; storage/pencarian hanya preferensi UI. Preview GET numerik terbatasi tenant/capability pelanggan, menolak POST/tenant asing dan mengabaikan pemilihan tab/tenant dari query. Partial HTML escaped/private/no-store/noindex, tanpa note/riwayat transaksi atau kredensial. Client hanya fetch origin/rute tetap, menolak redirect/nonHTML/error, membersihkan konten saat tutup dan menolak respons lama. Dialog/menu mobile mengelola fokus serta inert background; perbaikan ini bukan sertifikasi WCAG.10 tes baru/781 per backend, browser fixture fiktif dan HTTPS/backup/source-loss lulus, data/kunci/schema tetap. [WORKSPACE-UX](WORKSPACE-UX.md).
+
+
+## Identitas penerbit dokumen
+
+Schema0015 menyimpan nama/alamat penerbit faktur dan pembayaran baru dalam transaksi dokumen+audit. Cetak ulang GET hanya membaca snapshot; dokumen lama diberi penjelasan fallback tanpa backfill. Scope tenant/portal tetap mengikuti dokumen induk. HTML/PDF memakai teks escaped lokal tanpa URL/aset dari input. Replay, reversal, audit failure dan snapshot failure diuji; ini bukan kontrol antiubah oleh administrator database atau tanda tangan dokumen. [DOCUMENT-ISSUERS](DOCUMENT-ISSUERS.md).

@@ -15,7 +15,7 @@ from .views import allowed_invoice
 @never_cache
 def payment_receipt(request, invoice_pk, payment_pk, pdf=False):
     invoice = allowed_invoice(request, invoice_pk)
-    payment = get_object_or_404(Payment.objects.select_related("recorded_by", "reversal__recorded_by"),
+    payment = get_object_or_404(Payment.objects.select_related("tenant", "issuer_snapshot", "recorded_by", "reversal__recorded_by"),
                                tenant=invoice.tenant, invoice=invoice, pk=payment_pk)
     payment.invoice = invoice
     context = receipt_context(payment, timezone.now())

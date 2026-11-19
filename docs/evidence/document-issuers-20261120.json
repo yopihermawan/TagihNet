@@ -1,0 +1,62 @@
+{
+  "application_sha256": "f292cbd0e326f33a9cad90ad5315b955b3b733d1534d3784b17bd2777c792767",
+  "branch": "feature/tagihnet-document-issuers",
+  "checked_at_wib": "2026-11-20T00:49:01.200182+07:00",
+  "development": {
+    "post_migration_backup_restored_identically": true,
+    "seed_run": false,
+    "single_web_and_three_workers": true
+  },
+  "historical_backfill": false,
+  "image_id": "sha256:fcc69e39928afc614cdd385caab9fcc9d0400888d39e48af565aec383a885438",
+  "limits": [
+    "local simulation only",
+    "no statutory document or digital signature claim",
+    "no remote CI result or independent security certification claimed",
+    "no production gateway/router/notification/capacity/offsite verification"
+  ],
+  "migration": {
+    "content_types_added": 2,
+    "migration_recorder_added": 1,
+    "new_tables_empty_on_retained_data": 2,
+    "old_business_rows_and_columns_unchanged": true,
+    "old_sequences_preserved_except_expected_metadata": true,
+    "original0014_archives_restored_and_migrated_before_persistent_apply": true,
+    "original_keys_preserved": true,
+    "permissions_added": 8
+  },
+  "migration_required": true,
+  "production_ready": false,
+  "schema": "0015_document_issuers",
+  "scope": "local_simulation",
+  "staging": {
+    "active_gate": "passed",
+    "encrypted_backup_and_transported_source_loss_restore": "passed",
+    "new_authenticated_backup_and_separate_custody": true,
+    "recovery_gate": "passed",
+    "recovery_workers_held": true,
+    "source_watcher_fresh_ok": true
+  },
+  "status": "passed",
+  "tests": {
+    "issuer_browser": "passed",
+    "new_issuer_tests": 11,
+    "postgresql": 792,
+    "postgresql_plain_and_encrypted_restore": "passed",
+    "postgresql_process_scenarios": 17,
+    "settings_browser": "passed",
+    "sqlite": 792,
+    "sqlite_encrypted_restore": "passed",
+    "standalone_pdf_pages": [
+      1,
+      4
+    ],
+    "targeted": 74,
+    "viewports": [
+      360,
+      768,
+      1366,
+      1920
+    ]
+  }
+}

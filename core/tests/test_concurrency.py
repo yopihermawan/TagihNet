@@ -4,7 +4,7 @@ from datetime import date
 from django.db import close_old_connections
 from django.test import TransactionTestCase, override_settings
 from core.billing import issue_invoice, record_payment
-from core.models import Invoice, Payment
+from core.models import Invoice, Payment, InvoiceIssuerSnapshot, PaymentIssuerSnapshot
 from .test_workflow import fixtures
 
 @override_settings(SIMULATION=True)
@@ -27,6 +27,7 @@ class ConcurrencyTests(TransactionTestCase):
             date(2026, 2, 1), self.owners[0])[0].pk)
         self.assertEqual(results[0], results[1])
         self.assertEqual(Invoice.objects.count(), 1)
+        self.assertEqual(InvoiceIssuerSnapshot.objects.count(), 1)
 
     def test_concurrent_payment_replay_affects_ledger_once(self):
         invoice, _ = issue_invoice(self.tenants[0], self.customers[0].pk, date(2026, 2, 1), self.owners[0])
@@ -35,4 +36,5 @@ class ConcurrencyTests(TransactionTestCase):
             key, self.owners[0])[0].pk)
         self.assertEqual(results[0], results[1])
         self.assertEqual(Payment.objects.count(), 1)
+        self.assertEqual(PaymentIssuerSnapshot.objects.count(), 1)
         self.assertEqual(invoice.balance, 0)

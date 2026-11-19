@@ -34,6 +34,7 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
     with sqlite3.connect(database) as db:
         tenant_id=db.execute("SELECT tenant_id FROM core_membership m JOIN auth_user u ON m.user_id=u.id WHERE u.username='owner'").fetchone()[0]
         invoice_id=db.execute('SELECT id FROM core_invoice WHERE tenant_id=? ORDER BY id LIMIT 1',(tenant_id,)).fetchone()[0]
+        original_issuer=db.execute('SELECT name FROM core_invoiceissuersnapshot WHERE invoice_id=?',(invoice_id,)).fetchone()[0]
     server=subprocess.Popen([sys.executable,'manage.py','runserver',f'127.0.0.1:{port}','--noreload'],
         cwd=ROOT,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.STDOUT)
     try:
@@ -103,10 +104,10 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
             assert context.request.post(base+'/settings/billing/confirm/',form={'token':token,'reviewed':'on','csrfmiddlewaretoken':csrf},headers=headers).status==409
             phase='existing_invoice'
             page.goto(base+f'/invoices/{invoice_id}/')
-            expect(page.get_by_text('Nusantara Net Ditinjau',exact=True).last).to_be_visible()
+            expect(page.locator('.invoice-paper').get_by_text(original_issuer,exact=False)).to_be_visible()
             assert ledger()==before and not failures
             browser.close()
-        print('PASS: isolated real MFA/settings review/checkbox/confirm/stale form+review409, concurrent SLA preserved, unchanged ledger, current issuer, dark mode and4 viewports; no factors saved.',flush=True)
+        print('PASS: isolated real MFA/settings review/checkbox/confirm/stale form+review409, concurrent SLA preserved, unchanged ledger, preserved document issuer, dark mode and4 viewports; no factors saved.',flush=True)
     except Exception as error:
         raise SystemExit('Billing settings browser failed at '+phase+': '+type(error).__name__+'; no diagnostic/factors printed.') from None
     finally:

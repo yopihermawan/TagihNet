@@ -47,7 +47,7 @@ class BillingSettingsReviewTests(TestCase):
         token=response.context['form'].initial['token']
         review=self.client.post('/settings/billing/',{**self.values(tax_bp=0),'token':token})
         self.assertContains(review,'Tinjau setelan billing')
-        self.assertContains(review,'Identitas penerbit mengikuti profil ISP terkini.')
+        self.assertContains(review,'Identitas penerbit disimpan pada dokumen baru.')
         self.assertEqual(Tenant.objects.values().get(pk=self.tenant.pk),before)
         self.assertFalse(AuditEvent.objects.filter(action='billing.settings_updated').exists())
         self.assertFalse(Invoice.objects.exists());self.assertFalse(NetworkJob.objects.exists())
@@ -270,7 +270,8 @@ class BillingSettingsReviewTests(TestCase):
         scheduled=scheduler.run_schedule(schedule.pk,datetime(2027,2,1,10,tzinfo=ZoneInfo('Asia/Jakarta')))
         self.assertEqual(process_batch(scheduled.batch_id),1)
         self.assertEqual(Invoice.objects.get(period=date(2027,2,1)).total,225000)
-        self.assertContains(self.client.get(f'/invoices/{old.pk}/'),'Nama penerbit baru')
+        self.assertEqual(self.client.get(f'/invoices/{old.pk}/').context['issuer'].name, 'ISP 0')
+        self.assertEqual(saved.issuer_snapshot.name, 'Nama penerbit baru')
         old.refresh_from_db();self.assertTrue(render_invoice(old,True).startswith(b'%PDF-'))
 
     def test_unapproved_psb_activation_quote_becomes_stale(self):

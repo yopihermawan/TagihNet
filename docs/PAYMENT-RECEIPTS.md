@@ -2,11 +2,11 @@
 
 Pada detail faktur, setiap pembayaran memiliki tautan **Lihat kuitansi**, termasuk transaksi yang sudah direversal. Operator yang dapat membuka tab Pembayaran pada detail pelanggan juga menemukan tautan di sana. Pelanggan masuk melalui faktur miliknya di portal. Halaman kuitansi menyediakan **Cetak / PDF A4**; gunakan perintah cetak pembaca PDF.
 
-Satu kuitansi mewakili satu pembayaran, termasuk pembayaran sebagian. Nomor `TN-KW-YYYYMMDD-ID` berasal dari tanggal transaksi WIB dan ID pembayaran, berbeda dari nomor faktur. Membuka atau mencetak ulang tidak menerbitkan transaksi, mengubah saldo, menambah audit bisnis atau membuat job. Tidak ada tabel, migrasi, worker atau dependensi runtime baru.
+Satu kuitansi mewakili satu pembayaran, termasuk pembayaran sebagian. Nomor `TN-KW-YYYYMMDD-ID` berasal dari tanggal transaksi WIB dan ID pembayaran, berbeda dari nomor faktur. Membuka atau mencetak ulang tidak menerbitkan transaksi, mengubah saldo, menambah audit bisnis atau membuat job. Pembukaan dan pencetakan tidak menulis snapshot; schema0015 menambah tabel identitas untuk pembayaran baru tanpa worker atau dependensi runtime baru.
 
 Kuitansi memuat nominal asli, terbilang integer rupiah, tanggal pembayaran WIB hingga detik, nomor/periode faktur, pelanggan, pencatat dan catatan pembayaran. Form pembayaran menjelaskan bahwa catatan tampil pada kuitansi dan portal; jangan masukkan catatan internal ke field ini. Nominal kuitansi tidak digabung dengan pembayaran lain dan tidak menyatakan faktur lunas. Buka faktur untuk saldo terbaru.
 
-Nama/alamat pelanggan menggunakan snapshot faktur. Nama/alamat ISP dan username pencatat menggunakan data akun saat dicetak karena model sebelumnya tidak menyimpan snapshot penerbit/pencatat. Waktu cetak ditampilkan. Dokumen ini merupakan tampilan ledger terkini, bukan salinan penerbitan yang dibekukan, kuitansi fiskal bertanda tangan atau sarana verifikasi publik.
+Nama/alamat pelanggan menggunakan snapshot faktur. Nama/alamat ISP menggunakan snapshot yang dibuat saat pembayaran dicatat, terpisah dari identitas penerbit faktur. Dokumen lama tanpa snapshot memakai profil terkini dengan penjelasan bahwa identitas historis belum tersimpan. Username pencatat memakai data akun saat dicetak. [Kontrak identitas penerbit](DOCUMENT-ISSUERS.md) menjelaskan perubahan profil, replay dan migrasi tanpa backfill. Waktu cetak ditampilkan. Dokumen ini merupakan tampilan ledger terkini, bukan salinan penerbitan yang dibekukan, kuitansi fiskal bertanda tangan atau sarana verifikasi publik.
 
 Reversal mempertahankan nominal, nomor dan waktu pembayaran asli. Cetak ulang menampilkan **Direversal · transaksi tidak berlaku**, waktu/pencatat/alasan koreksi. PDF menandai reversal pada halaman pertama dan footer setiap halaman. Salinan PDF yang sudah disimpan atau dicetak sebelumnya tidak dapat diperbarui otomatis. Cek ulang lewat aplikasi untuk status terkini.
 
@@ -27,7 +27,7 @@ Respons privat/no-store dan nosniff. HTML memakai autoescape; ReportLab menggamb
 
 ## Verifikasi
 
-31 tes kuitansi/terbilang mencakup peran, tenant/ID swap, portal sendiri/pelanggan lain, sesi dicabut/user nonaktif, GET-only, tanpa mutasi ledger, pembayaran sebagian, nomor stabil/tanggal WIB, snapshot pelanggan, penerbit terkini, reversal, label simulasi tetap, cache, XSS/markup, judul/ukuran PDF, font tertanam/aksen Latin dan teks panjang. Suite penuh: 413 tes per backend, SQLite dan PostgreSQL.
+Checkpoint awal sebelum schema0015: 31 tes kuitansi/terbilang mencakup peran, tenant/ID swap, portal sendiri/pelanggan lain, sesi dicabut/user nonaktif, GET-only, tanpa mutasi ledger, pembayaran sebagian, nomor stabil/tanggal WIB, snapshot pelanggan, penerbit terkini pada implementasi awal, reversal, label simulasi tetap, cache, XSS/markup, judul/ukuran PDF, font tertanam/aksen Latin dan teks panjang. Suite penuh: 413 tes per backend, SQLite dan PostgreSQL.
 
 Untuk pengujian backend, pasang `requirements-test.txt`; `requirements-dev.txt` menyertakannya. PostgreSQL juga memerlukan `requirements-postgres.txt`. Runtime tetap menggunakan `requirements.txt`. CI diperbarui agar pembaca PDF hanya menjadi dependensi tes; hasil CI remote belum diverifikasi.
 
@@ -42,3 +42,5 @@ Verifier PDF standalone tidak mengakses database dan menulis fixture fiktif ke `
 ![Kuitansi operator](evidence/payment-receipt-desktop.png)
 
 ![Kuitansi portal seluler](evidence/payment-receipt-portal-mobile.png)
+
+Checkpoint schema0015 menambah11 tes identitas penerbit dan memperbarui tes reprint/replay bersamaan. Hasil terbaru, termasuk seluruh suite pada dua backend, ada pada [TEST-REPORT](TEST-REPORT.md).

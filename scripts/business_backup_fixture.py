@@ -45,6 +45,8 @@ payment=m.Payment.objects.filter(tenant=tenant).order_by('pk').first()
 m.PaymentFunding.objects.create(tenant=tenant,payment=payment,fund=fund)
 previous=(timezone.localdate().replace(day=1)-timedelta(days=1)).replace(day=1)
 business_action('cash_close',{'period':previous.strftime('%Y-%m')})
+assert m.InvoiceIssuerSnapshot.objects.count()==m.Invoice.objects.count()>0
+assert m.PaymentIssuerSnapshot.objects.count()==m.Payment.objects.count()>0
 assert all(model.objects.exists() for model in (m.Fund,m.PaymentFunding,m.CashMovement,m.CashCorrection,m.CashClose,m.Employee,m.SalaryTerms,
     m.PayrollRun,m.PayrollLine,m.Campaign,m.Lead,m.Commission,m.HotspotProfile,m.VoucherBatch,m.Voucher,m.NetworkNode,m.CustomerEndpoint,m.BusinessAction))
 '''
@@ -64,5 +66,24 @@ assert m.CustomerEndpoint.objects.get(tenant=fund.tenant).port==1
 assert m.Commission.objects.get(tenant=fund.tenant).amount==5000
 assert m.CashClose.objects.filter(tenant=fund.tenant).count()==1
 assert m.Campaign.objects.get(tenant=fund.tenant).published
+from core.document_identity import document_issuer
+from core.pdf import render_invoice
+from core.receipts import receipt_context,render_receipt
+from django.utils import timezone
+for document in m.Invoice.objects.select_related('issuer_snapshot','tenant'):
+    assert document_issuer(document).historical
+    assert document.issuer_snapshot.name==document.tenant.name
+    assert document.issuer_snapshot.address==document.tenant.address
+    assert document.issuer_snapshot.captured_at==document.issued_at
+    assert render_invoice(document,True).startswith(b'%PDF-')
+for document in m.Payment.objects.select_related('issuer_snapshot','tenant','invoice','recorded_by','reversal__recorded_by'):
+    assert document_issuer(document).historical
+    assert document.issuer_snapshot.name==document.tenant.name
+    assert document.issuer_snapshot.address==document.tenant.address
+    assert document.issuer_snapshot.captured_at==document.created_at
+    assert render_receipt(receipt_context(document,timezone.now())).startswith(b'%PDF-')
+assert m.InvoiceIssuerSnapshot.objects.count()==m.Invoice.objects.count()>0
+assert m.PaymentIssuerSnapshot.objects.count()==m.Payment.objects.count()>0
+print('PASS: invoice and payment historical issuer rows/timestamps and PDFs restored')
 print('PASS: business cash/payroll/slip/commission/campaign/encrypted vouchers/topology/closing restored')
 '''

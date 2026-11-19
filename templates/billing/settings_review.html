@@ -19,7 +19,7 @@
   <p>{{ impact.customers }} pelanggan dan {{ impact.invoices }} faktur sudah ada pada ISP ini. Jumlah ini dapat berubah.</p>
   <p>Nominal, pajak, jatuh tempo dan footer faktur yang sudah terbit serta snapshot batch yang sudah disetujui tetap. Tagihan yang baru disiapkan memakai setelan terbaru. Pratinjau billing dan aktivasi PSB yang belum disetujui diperiksa ulang ketika dikonfirmasi.</p>
   <p>Jadwal bulanan yang aktif menyiapkan siklus berikutnya dengan setelan terbaru. Hari penerbitan dan persetujuan jadwal tetap; batch yang sudah disetujui tidak dihitung ulang.</p>
-  <p><strong>Identitas penerbit mengikuti profil ISP terkini.</strong> Nama dan alamat ISP pada workspace, tampilan faktur, kuitansi dan PDF termasuk cetakan ulang dokumen lama akan memakai identitas terbaru. File yang sudah diunduh tidak berubah.</p>
+  <p><strong>Identitas penerbit disimpan pada dokumen baru.</strong> Nama dan alamat ISP disimpan saat faktur diterbitkan atau pembayaran dicatat, lalu dipakai pada tampilan dan PDF cetak ulang. Dokumen lama tanpa snapshot menampilkan profil ISP terkini beserta penanda riwayat yang belum tersimpan. Profil pada workspace mengikuti setelan terbaru. File yang sudah diunduh tidak berubah.</p>
   <p>Contoh tagihan bulanan penuh {{ period|date:'F Y' }}, sebelum pajak {{ 100000|idr }}, diskon nol. Ini contoh perhitungan; tidak menerbitkan tagihan atau membekukan harga pelanggan.</p>
   <dl class="definition-list"><dt>Jatuh tempo sebelum → sesudah</dt><dd>{{ examples.before.due|date:'d M Y' }} → {{ examples.after.due|date:'d M Y' }}</dd>
     <dt>Pajak sebelum → sesudah</dt><dd>{{ examples.before.tax|idr }} → {{ examples.after.tax|idr }}</dd>

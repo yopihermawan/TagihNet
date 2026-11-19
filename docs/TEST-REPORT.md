@@ -478,6 +478,40 @@ dienroll/reset untuk tes. Backup pra/pasca UI terautentikasi memakai kunci lama;
 waktu sukses dicatat nyata dan pasangan custody baru `workspace-ux-20261119`
 dipisahkan dari arsip. Semua image/arsip/custody lama dipertahankan.
 
+## Identitas penerbit dokumen — 20 November 2026 WIB
+
+Branch `feature/tagihnet-document-issuers`, schema `0015_document_issuers`.
+Faktur baru menyimpan nama/alamat ISP saat diterbitkan; pembayaran baru menyimpan
+identitasnya sendiri saat dicatat. HTML/PDF cetak ulang memakai snapshot masing-masing.
+Dokumen lama tanpa snapshot menampilkan profil terkini dengan penjelasan riwayat
+yang belum tersimpan. Tidak ada backfill dari migrasi, GET, replay atau reversal.
+Snapshot nominal/footer/jatuh tempo batch yang disetujui tetap; identitas penerbit
+diambil saat penerbitan aktual melalui writer bersama satuan/batch/scheduler/PSB.
+Kontrak dan bukti visual: [DOCUMENT-ISSUERS](DOCUMENT-ISSUERS.md).
+
+792 tes SQLite dan 792 PostgreSQL lulus, termasuk 11 tambahan untuk identitas pada
+waktu faktur/pembayaran yang berbeda, HTML/PDF historis/legacy, GET tanpa perubahan
+bisnis, replay tanpa backfill, snapshot approved money dengan tenant cache lama,
+scope tenant, escaping serta rollback kegagalan snapshot/audit. Targeted 74 lulus.
+Uji race yang ada juga memastikan tepat satu snapshot untuk faktur/pembayaran
+serentak. Verifier PostgreSQL terpisah lulus 17 skenario lintas proses serta
+pg_dump/pg_restore biasa dan terenkripsi, dengan database asli lab tidak berubah.
+
+Chromium dengan database/server/kunci/MFA fiktif sementara memeriksa identitas
+faktur A, kuitansi B dan profil C, empat lebar 360/768/1366/1920, penanda legacy,
+HTML/PDF serta hash baris bisnis tetap. Browser setelan billing lulus tinjauan,
+MFA, konflik form/review lama, preservasi SLA dan identitas dokumen setelah profil
+berubah. Verifier PDF standalone tetap tanpa Django/database: A4 satu halaman
+normal dan empat halaman reversal/stress, marker akhir teks terbaca.
+
+Drill backup SQLite memulihkan seluruh tabel/sequence, dua tabel issuer nonkosong,
+18 tabel bisnis nonkosong, MFA, foto dan ledger. Verifier Docker lengkap lulus
+HTTPS/SQL TLS/role runtime/security/worker restart/heartbeat/backup+custody gates,
+restore SQL dan login password/TOTP/CSRF/foto, serta paket portable setelah hanya
+sumber fiktif beserta volume/arsip/kuncinya dihapus. Identitas dan waktu snapshot
+serta PDF dibaca ulang dari database hasil restore. Seluruh stack sementara
+dibersihkan; akun pemilik persisten tidak diubah atau dienroll.
+
 Gate kandidat aktif/recovery lulus/issues kosong. Bukti privat berawalan
 `data/evidence/workspace-ux-`: development-before/after, staging-before,
 staging-recovery-20261115-before, staging-rollout, custody dan kandidat gates.
@@ -486,3 +520,37 @@ dan `workspace-ux-preflight-recovery-20261119.json`, tanpa overwrite bukti lama.
 Check/model drift/pip/diff lulus.17 skenario proses PostgreSQL sebelumnya tetap
 histori; tidak dijalankan ulang untuk perubahan UI ini. Hasil CI remote, load/soak
 baru, audit keamanan/WCAG independen atau deployment produksi tidak diklaim.
+
+
+Migrasi schema0014 diuji terlebih dahulu dari arsip asli SQLite dan PostgreSQL
+dengan kunci yang sudah ada, ke target baru yang terpisah. Setelah bukti salinan
+lulus, database pengembangan, source staging dan clone yang dipertahankan dinaikkan
+ke schema0015. Hash seluruh baris/kolom bisnis lama tetap; sequence lama tetap
+kecuali metadata Django yang tepat: dua content type, delapan permission dan satu
+migration recorder. Kedua tabel issuer baru kosong pada data yang dipertahankan.
+Kunci sesi/MFA/TLS/database/bootstrap/backup asli tetap. Manifest proyek hanya
+berubah pada image; clone tetap recovery_pending, web/DB saja, backup OFF.
+
+Backup source aktual `TagihNet-20261120-post-document-issuers-0015.tnbk`
+diautentikasi dengan kunci asli, dicatat dengan waktu keberhasilan nyata, dan
+diekspor ke pasangan custody baru `document-issuers-20261120`. Watcher source
+kembali segar/ok dengan backup opt-in tetap. Default satu web/tiga worker sehat,
+baris/sequence/kunci pascamigrasi tetap dan tidak ada seed. Backup SQLite0015
+dipulihkan identik ke salinan baru. Semua arsip, proof, custody dan image lama
+dipertahankan; folder terpisah di workspace ini belum merupakan offsite.
+
+Image lokal: `sha256:fcc69e39928afc614cdd385caab9fcc9d0400888d39e48af565aec383a885438`.
+Digest aplikasi: `f292cbd0e326f33a9cad90ad5315b955b3b733d1534d3784b17bd2777c792767`.
+Gate active/recovery lulus terhadap image dan isi aplikasi tersebut. Ringkasan
+publik: [document-issuers-20261120.json](evidence/document-issuers-20261120.json).
+Bukti privat memakai awalan `data/evidence/document-issuers-`: baseline sebelum
+0014, proof salinan SQLite/PG, rekonsiliasi setelah0015, restart, monitor, serta
+preflight active/recovery. Gate checkout bersih setelah commit disimpan sebagai
+`document-issuers-preflight-active-20261120.json` dan
+`document-issuers-preflight-recovery-20261120.json`; berkas candidate dipertahankan.
+
+Pip/model drift/system/diff checks lulus; tidak ada dependency runtime baru.
+Hasil ini untuk simulasi lokal. VPS/domain, gateway dan router nyata, SMTP,
+custody offsite/retensi/PITR, kapasitas/soak serta audit independen masih tertunda.
+Schema0015 tidak boleh diturunkan otomatis dengan image lama; gunakan pemulihan
+arsip kompatibel ke target baru dan rekonsiliasi pascasnapshot.
