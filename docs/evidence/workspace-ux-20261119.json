@@ -1,0 +1,49 @@
+{
+  "application_sha256": "7b605b7033bb8e40247c098172de2d945826f709a4fc21b4b752f4ee80cf44c2",
+  "branch": "feature/tagihnet-workspace-navigation",
+  "checked_at_wib": "2026-11-20T00:01:04+07:00",
+  "development": {
+    "all_rows_sequences_keys_unchanged": true,
+    "seed_run": false,
+    "single_web_and_three_workers": true
+  },
+  "image_id": "sha256:e68410aa9b2219f928d79949f669bab6bbb088d21eb67a91c1121c83bf785800",
+  "limits": [
+    "local simulation only",
+    "no independent WCAG/security certification",
+    "no new production capacity/soak or gateway/router tests",
+    "remote CI result not claimed"
+  ],
+  "migration_required": false,
+  "production_ready": false,
+  "schema": "0014_local_operations",
+  "scope": "local_simulation",
+  "staging": {
+    "active_gate": "passed",
+    "all_tables_sequences_migration_recorder_unchanged": true,
+    "encrypted_backup_and_source_loss_restore": "passed",
+    "new_authenticated_backup_and_separate_custody": true,
+    "original_keys_preserved": true,
+    "recovery_gate": "passed",
+    "recovery_workers_held": true
+  },
+  "status": "passed",
+  "tests": {
+    "business_browser": "passed",
+    "dark_mode": true,
+    "keyboard_focus": true,
+    "late_response_and_session_expiry": "passed",
+    "new_navigation_preview_tests": 10,
+    "no_javascript_fallback": true,
+    "no_storage_fallback": true,
+    "postgresql": 781,
+    "sqlite": 781,
+    "viewports": [
+      360,
+      768,
+      1366,
+      1920
+    ],
+    "workspace_browser": "passed"
+  }
+}

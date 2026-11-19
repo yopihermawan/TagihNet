@@ -77,6 +77,7 @@ urlpatterns = [
     path("customers/new/", views.customer_form, name="customer_create"),
     path("customers/export/", views.customer_export, name="customer_export"),
     path("customers/<int:pk>/", views.customer_detail, name="customer_detail"),
+    path("customers/<int:pk>/preview/", views.customer_preview, name="customer_preview"),
     path("customers/<int:pk>/edit/", views.customer_form, name="customer_edit"),
     path("customers/<int:pk>/location/", locations.location_edit, {"kind":"customer"}, name="customer_location"),
     path("invoices/", views.invoices, name="invoices"),

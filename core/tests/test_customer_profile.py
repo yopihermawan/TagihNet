@@ -63,7 +63,8 @@ class CustomerProfileTests(TestCase):
         response = self.get()
         self.assertEqual([tab for tab, _ in response.context['tabs']], [tab for tab, _, _ in TABS])
         self.assertContains(response, 'aria-label="Tab pelanggan"')
-        self.assertContains(response, 'aria-current="page"', count=1)
+        tab_html=response.content.decode().split('<nav class="customer-tabs"',1)[1].split('</nav>',1)[0]
+        self.assertEqual(tab_html.count('aria-current="page"'),1)
         self.assertNotContains(response, 'role="tab"')  # Links remain native server navigation.
 
     def test_every_owner_tab_renders_its_actual_content(self):

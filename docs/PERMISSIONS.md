@@ -28,7 +28,7 @@ Sumber enforcement: `core/permissions.py`, `core/views.py:allowed_invoice`, dan 
 
 Tabel di atas adalah preset awal. Owner dapat menetapkan peran kustom pada akun operator; capability efektif menggantikan preset pada setiap endpoint dan menu, termasuk PDF. `manage_access` tidak dapat didelegasikan. Owner/customer/teknisi/sales tidak boleh menerima peran kustom. Izin tulis memerlukan izin baca terkait. Membership dibaca dari database, bukan claim browser. Perubahan akun/role meningkatkan session_version sehingga sesi lama dicabut pada request berikutnya. Pemilik aktif terakhir dilindungi dalam transaksi. Editor membutuhkan MFA terverifikasi dalam 5 menit terakhir. Lihat [AUTHENTICATION](AUTHENTICATION.md).
 
-Preset Teknisi kini tersedia dengan akses hanya pada tiket/PSB yang ditugaskan. Scope wilayah geografis dan role Sales masih belum tersedia. Keuangan/operasional pada checkpoint ini melihat identitas pelanggan satu ISP; minimisasi field lebih lanjut perlu disepakati sebelum produksi. NOC melihat nama pelanggan dalam antrean rekonsiliasi serta snapshot sesi sintetis monitoring ISP sendiri, tanpa nominal/sandi layanan.
+Preset Teknisi kini tersedia dengan akses hanya pada tiket/PSB yang ditugaskan. Scope wilayah geografis belum tersedia; preset Sales kini tersedia dengan cakupan prospek/komisi sendiri. Keuangan/operasional pada checkpoint ini melihat identitas pelanggan satu ISP; minimisasi field lebih lanjut perlu disepakati sebelum produksi. NOC melihat nama pelanggan dalam antrean rekonsiliasi serta snapshot sesi sintetis monitoring ISP sendiri, tanpa nominal/sandi layanan.
 
 Worker tidak menerima tenant dari request pengguna; tiap job menyimpan tenant dan mengambil pelanggan dengan pasangan tenant+ID. Job silang tenant ditolak oleh lookup. Tidak ada cache bisnis bersama atau realtime pada fondasi ini. Database/shell administrator tetap batas kepercayaan; constraint lintas relasi yang lebih ketat dan audit tahan manipulasi perlu ditambahkan sebelum deployment.
 
@@ -123,3 +123,8 @@ Peran kustom memakai dependency izin baca seperti dijelaskan dalam
 pelaku aktif/tenant/versi akses/revisi MFA di transaksi tenant→membership. Tinjauan
 berlaku 15 menit dan faktor maksimal 5 menit; hasil UUID persisten mencegah efek
 ganda. Modul ini tidak mengaktifkan adapter produksi saat SIMULATION=False.
+
+
+## Navigasi dan ringkasan cepat pelanggan
+
+Kelompok/link navigasi dirender dari capability server, termasuk peran kustom. Pencarian dan penyimpanan status grup tidak memberikan izin tambahan. Endpoint GET `/customers/<pk>/preview/` memerlukan `customers` dan tenant saat ini, sama seperti daftar/detail. Capability tersebut sebelumnya sudah memuat piutang agregat; link faktur tetap hanya dengan `invoices`. Portal/teknisi/sales/NOC/kasir tanpa izin pelanggan ditolak, tenant asing404, POST405. Partial HTML di-escape/no-store/noindex, tanpa note pembayaran atau riwayat faktur. Tidak ada perubahan akun, sesi/MFA, consent, ledger atau migrasi dari drawer. Lihat [WORKSPACE-UX](WORKSPACE-UX.md).

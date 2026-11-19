@@ -31,3 +31,8 @@ Tombol **Kembali ke pelanggan** memakai URL daftar terakhir di sessionStorage, t
 Browser operasi terisolasi memeriksa tujuh tab, `aria-current`, scope tiket/pembayaran, penolakan peran lain, perpindahan link dengan JavaScript dinonaktifkan, pemulihan URL lengkap + scroll400px, serta360/768/1366/1920px. Pembacaan workspace tidak mengubah counts pelanggan/faktur/pembayaran/job/audit pada database uji. Tiga bukti fiktif: [pembayaran desktop](evidence/customer-workspace-payments-desktop.png), [tiket desktop](evidence/customer-workspace-tickets-desktop.png), [faktur mobile](evidence/customer-workspace-invoices-mobile.png). Tidak ada faktor MFA di bukti. Browser security/billing/MFA regresi tetap lulus.
 
 Tidak ada perubahan model/migrasi/dependensi/worker/secret/domain jaringan. Skema tetap0009, database demo dan kunci privat tidak diubah oleh tes. System/model-drift/pip/static checks lulus. Restore SQLite yang sudah ada dijalankan browser sebagai regresi. Pengujian12 proses PostgreSQL, PDF14 halaman, encrypted/MFA drill dan scan advisory merujuk checkpoint sebelumnya; tidak diulang untuk perubahan halaman baca ini. CI remote belum diverifikasi. Lihat [TEST-REPORT](TEST-REPORT.md); drawer overlay, koordinat/topologi dan integrasi nyata masih pending.
+
+
+## Ringkasan cepat tanpa meninggalkan daftar
+
+Aksi ringkasan pada daftar membuka drawer privat dengan kontak, paket, status dan piutang agregat yang sama dengan ringkasan penuh. Endpoint tetap memerlukan capability pelanggan dan tenant saat ini. Keyboard/fokus/penutupan, fallback tanpa JavaScript, link detail absolut serta return URL/scroll diperiksa dalam [WORKSPACE-UX](WORKSPACE-UX.md). Tidak ada perubahan kontrak tab atau aturan finansial.

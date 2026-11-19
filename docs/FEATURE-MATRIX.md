@@ -4,13 +4,13 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 
 | Cakupan | Implementasi | Fase / status |
 | --- | --- | --- |
-| Brand, shell, login | Logo SVG orisinal, sidebar berbasis peran, pencarian menu, mobile, dark mode | 1–2 · implemented |
+| Brand, shell, login | Logo SVG orisinal, grup navigasi native dapat dilipat/berizin, pencarian grup tertutup, fokus mobile, dark mode | 1–2 · implemented |
 | Dashboard billing | Pembayaran berdasarkan tanggal transaksi, faktur berdasarkan periode layanan, piutang/tunggakan seluruh periode ISP | 2 · implemented |
 | Monitoring NOC | NAS/snapshot sesi PPPoE contoh, segar/stale/gagal, nol vs unknown, ringkasan bersumber/cakupan; histori dan collector idempoten | 3 · simulated; trafik/polling nyata pending |
 | Pelanggan | Satu paket/layanan, cari/filter/sort/URL/pagination, tambah/ubah/detail, deteksi duplikat, CSV | 2 · implemented |
 | Paket/profil | Katalog tenant, buat/ubah/arsip/aktifkan kembali, tinjauan/MFA/versi/replay/audit; paket arsip dibatasi untuk penugasan baru, pelanggan/PSB/billing lama tetap dilayani | 2 · implemented lokal; jadwal harga/profil router nyata pending |
 | Filter NAS/jatuh tempo | Pemetaan NAS simulasi nullable per pelanggan, tenant/CSRF/audit, filter NAS/unassigned dan overdue/today/next7/unpaid/clear berbasis ledger, piutang/tanggal terawal, query ekspor sama | 3 · implemented lokal; sesi/router nyata pending |
-| Detail pelanggan bertab | Ringkasan/layanan/faktur/pembayaran/tiket/lokasi/riwayat, izin server per tab, pagination, ledger tanpa query per baris, URL + scroll kembali | 3 · implemented lokal; drawer overlay pending; topologi administratif tersedia terpisah |
+| Detail pelanggan bertab | Ringkasan/layanan/faktur/pembayaran/tiket/lokasi/riwayat, izin server per tab, pagination, ledger tanpa query per baris, URL + scroll kembali | 3 · implemented lokal; drawer ringkasan privat/keyboard/mobile/fallback tanpa JS; topologi administratif tersedia terpisah |
 | Multi-tenant | Membership satu ISP per akun; tenant dari login, dua tenant seed, objek/PDF/CSV terbatasi | 2 · implemented |
 | Role dan cakupan | Delapan preset termasuk Teknisi dan Sales; peran kustom tenant, pencabutan sesi, owner terakhir dilindungi. Teknisi dibatasi penugasan, sales prospek/komisi sendiri; scope wilayah geografis belum | 2 · limited |
 | Faktur | Bulanan full month, tanggal akhir bulan, snapshot harga/pajak/diskon, constraint satu pelanggan/periode | 2 · implemented |
@@ -46,7 +46,7 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Profil mandiri | Nama tampilan sendiri, informasi akun, token sesi/snapshot15menit, konflik bersamaan, audit atomik; sandi/MFA/akses dan consent tetap | 4 · implemented lokal; perubahan username/email/avatar pending |
 | Scope wilayah geografis | Penugasan teknisi tersedia; batas wilayah geografis belum tersedia | 4 · pending |
 | Backup/restore | AES-256-GCM streaming SQLite/PG, kunci terpisah, verify, target kosong/no-clobber, restore ledger+MFA | 5 · implemented lokal; offsite/retensi/PITR pending |
-| Backend PostgreSQL | Opsional, role non-superuser lab, 771 tes pada dua backend, migrasi operasional0014 pada salinan/data lokal; 17 skenario lintas proses + pg_dump/pg_restore diuji ulang | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
+| Backend PostgreSQL | Opsional, role non-superuser lab, 781 tes pada dua backend, migrasi operasional0014 pada salinan/data lokal; 17 skenario lintas proses + pg_dump/pg_restore diuji ulang | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
 | Staging lokal | Gunicorn HTTPS/WhiteNoise, PG verify-full, migrator/runtime terpisah, secret file, non-root/read-only, restart worker, bootstrap/MFA dan guard volume | 5 · implemented lokal; simulasi; VPS/domain/kapasitas/offsite pending |
 | Recovery staging | Backup streaming AES-GCM, fresh-project SQL restore, identitas/empty/key/lock guards, sesi baru, MFA tetap, worker hold/review dan rekonsiliasi tabel/sequence | 5 · implemented lokal; offsite/PITR/RPO/RTO pending |
 | Operasi staging | HTTPS/SQL/sertifikat/loop heartbeat/antrean, log transisi privat, watcher lokal dan backup periodik opt-in terautentikasi | 5 · implemented lokal; alert eksternal/systemd/offsite/retensi pending |

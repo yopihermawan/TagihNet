@@ -1,0 +1,3 @@
+<header class="preview-identity"><span class="eyebrow">{{ customer.code }}</span><h3>{{ customer.name }}</h3><p class="muted">{{ customer.area }} · {{ customer.get_service_state_display }} · simulasi</p></header>
+{% include 'customers/summary.html' %}
+<p class="info-note">ISP {{ tenant.name }} · dibaca {{ updated_at|date:'d M Y H:i:s' }} WIB. Ringkasan baca saja; buka detail untuk riwayat dan tindakan yang diizinkan.</p>

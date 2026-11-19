@@ -2,7 +2,7 @@
 
 Target histori awal: backup/SQL recovery staging, staging lokal HTTPS/PostgreSQL TLS, jadwal penagihan bulanan, kuitansi pembayaran, foto pekerjaan privat, laporan penagihan historis, workspace pelanggan bertab, NAS/filter jatuh tempo pelanggan, paket/harga, billing, operasional, pengingat, PSB, monitoring NAS simulasi dan backup terenkripsi TagihNet, Linux cloud, Python 3.12.14, Django 5.2.18, SQLite dan PostgreSQL 16.15 (psycopg 3.3.6), Chromium melalui Playwright 1.62.0. Data seluruhnya fiktif, dua tenant. Test database terpisah dari demo. Tidak ada transaksi gateway atau router nyata.
 
-Checkpoint terbaru adalah [operasional lokal](LOCAL-OPERATIONS.md): **771 tes per backend**, ditambah verifikasi browser, proses PostgreSQL, migrasi dan pemulihan yang dijelaskan pada bagian terakhir. Tabel awal berikut mempertahankan histori checkpoint 15 November.
+Checkpoint terbaru adalah [navigasi/drawer workspace](WORKSPACE-UX.md): **781 tes per backend**, ditambah verifikasi browser, proses PostgreSQL, migrasi dan pemulihan yang dijelaskan pada bagian terakhir. Tabel awal berikut mempertahankan histori checkpoint 15 November.
 
 ## Eksekusi dan bukti historis
 
@@ -440,3 +440,49 @@ baru atau audit keamanan independen. Hasil CI remote belum diperiksa. Image0013
 bukan rollback otomatis bagi schema0014; pemulihan memerlukan target baru dengan
 arsip/image kompatibel dan rekonsiliasi pascasnapshot. Cakupan lanjut tetap pada
 [FEATURE-MATRIX](FEATURE-MATRIX.md), tanpa persentase kesiapan produksi.
+
+
+## Navigasi workspace dan drawer — checkpoint 19 November 2026 WIB
+
+Branch `feature/tagihnet-workspace-navigation`, schema tetap0014. Tidak ada model,
+migrasi, dependency atau aturan bisnis baru. Kelompok menu native/berizin,
+pencarian grup tertutup, preferensi opsional, fokus menu mobile, dan drawer
+pelanggan baca saja kini tersedia. Ringkasan publik dan gambar fiktif:
+[WORKSPACE-UX](WORKSPACE-UX.md), [evidence](evidence/workspace-ux-20261119.json).
+
+781 tes SQLite/781 PostgreSQL lulus, termasuk10 tambahan untuk pemilihan grup/current
+page, scope role/custom role/tenant, parameter spoofing, escaping, cache, GET/POST
+dan preservasi isi model. Assertion lama current-page pada tab pelanggan dibatasi
+ke nav tab karena sidebar kini juga mengumumkan halaman aktif secara aksesibel.
+Browser nyata memakai database/server sementara dan MFA fiktif: persistensi/grup
+pencarian, fokus mobile, dialog Tab/ShiftTab/Escape/backdrop/focus return, respons
+terlambat/error/sesi berakhir, link detail/URL kembali,4 viewport/dark/storage
+terblokir/tanpa JavaScript. Ledger fixture tidak berubah. Perilaku ShiftTab awal
+meninggalkan dialog diperbaiki lewat loop fokus eksplisit; final run lulus.
+Browser enam modul bisnis juga lulus pada shell baru. Gambar diperiksa langsung;
+header/footer dialog tetap terlihat dan kontennya bergulir di dalam panel.
+
+Image final `sha256:e68410aa9b2219f928d79949f669bab6bbb088d21eb67a91c1121c83bf785800`,
+application digest `7b605b7033bb8e40247c098172de2d945826f709a4fc21b4b752f4ee80cf44c2`.
+Source dibekukan saat verifier HTTPS/backup/source-loss dijalankan sampai exit0 dan
+cleanup. Pengujian lama TLS/role/container/password/MFA/CSRF/monitor/backup serta
+seluruh fixture18 tabel bisnis tetap lulus; paket penerima pulih setelah sumber
+fiktif/volume/arsip/key asli dihapus, dengan worker held.
+
+Source dan clone yang dipertahankan diperbarui pada schema sama; hash seluruh
+model, semua sequence, MigrationRecorder serta seluruh secret file cocok sebelum/
+sesudah image switch. Clone tetap web/DB saja, recovery_pendingTrue, backupOFF.
+Default cocok baseline baris/sequence/kunci yang ditangkap pada awal pekerjaan,
+lalu satu web/tiga worker dimulai tanpa seed. Tidak ada akun pengguna yang
+dienroll/reset untuk tes. Backup pra/pasca UI terautentikasi memakai kunci lama;
+waktu sukses dicatat nyata dan pasangan custody baru `workspace-ux-20261119`
+dipisahkan dari arsip. Semua image/arsip/custody lama dipertahankan.
+
+Gate kandidat aktif/recovery lulus/issues kosong. Bukti privat berawalan
+`data/evidence/workspace-ux-`: development-before/after, staging-before,
+staging-recovery-20261115-before, staging-rollout, custody dan kandidat gates.
+Gate setelah commit bersih memakai `workspace-ux-preflight-active-20261119.json`
+dan `workspace-ux-preflight-recovery-20261119.json`, tanpa overwrite bukti lama.
+Check/model drift/pip/diff lulus.17 skenario proses PostgreSQL sebelumnya tetap
+histori; tidak dijalankan ulang untuk perubahan UI ini. Hasil CI remote, load/soak
+baru, audit keamanan/WCAG independen atau deployment produksi tidak diklaim.

@@ -1,0 +1,6 @@
+{% load tagihnet %}<nav aria-label="Menu workspace">
+{% for group in navigation_groups %}<details class="nav-group" data-nav-group="{{ group.key }}" open>
+<summary>{{ group.label }}<span class="nav-chevron" aria-hidden="true">⌄</span></summary>
+<div class="nav-group-links">{% for link in group.links %}<a href="{{ link.url }}" class="nav-link{% if link.selected %} selected{% endif %}"{% if link.selected %} aria-current="page"{% endif %}><span aria-hidden="true">{% icon link.icon %}</span>{{ link.label }}</a>{% endfor %}</div>
+</details>{% endfor %}<p class="nav-search-empty muted" data-nav-search-empty hidden>Menu tidak ditemukan.</p>
+</nav>

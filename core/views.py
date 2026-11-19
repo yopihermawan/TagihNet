@@ -187,6 +187,20 @@ def customer_detail(request, pk):
     return render(request, "core/customer_detail.html", context)
 
 
+@require("customers")
+@require_GET
+def customer_preview(request, pk):
+    item=get_object_or_404(with_financial_summary(Customer.objects.select_related('plan','nas'),request.member.tenant),
+        tenant=request.member.tenant,pk=pk)
+    context,_=profile_context(request.member,item,'summary')
+    context.update(today=timezone.localdate(),updated_at=timezone.now(),profile_size='10',
+        customer_detail_url=reverse_lazy('customer_detail',args=[item.pk]))
+    response=render(request,'customers/preview.html',context)
+    response['Cache-Control']='private, no-store'
+    response['X-Robots-Tag']='noindex, nofollow'
+    return response
+
+
 @require("export")
 @require_GET
 def customer_export(request):

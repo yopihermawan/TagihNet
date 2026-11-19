@@ -216,3 +216,8 @@ RPO/RTO/offsite atau kesiapan integrasi produksi. Batas fitur dan kontrak lengka
 [LOCAL-OPERATIONS](LOCAL-OPERATIONS.md).
 
 Perbaikan akhir modul ini juga menyimpan alasan tindakan beralasan pada audit, memvalidasi ulang panjang teks setelah NFC, menolak bidi/surrogate/control dan tanggal sebelum tahun2000. Uji kegagalan audit memastikan posting+receipt rollback lalu token sama dapat dicoba ulang.
+
+
+## Drawer dan navigasi workspace
+
+Menu disaring capability server sebelum HTML dirender; storage/pencarian hanya preferensi UI. Preview GET numerik terbatasi tenant/capability pelanggan, menolak POST/tenant asing dan mengabaikan pemilihan tab/tenant dari query. Partial HTML escaped/private/no-store/noindex, tanpa note/riwayat transaksi atau kredensial. Client hanya fetch origin/rute tetap, menolak redirect/nonHTML/error, membersihkan konten saat tutup dan menolak respons lama. Dialog/menu mobile mengelola fokus serta inert background; perbaikan ini bukan sertifikasi WCAG.10 tes baru/781 per backend, browser fixture fiktif dan HTTPS/backup/source-loss lulus, data/kunci/schema tetap. [WORKSPACE-UX](WORKSPACE-UX.md).

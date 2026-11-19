@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-local-operations` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-workspace-navigation` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Staging lokal
 
@@ -23,6 +23,7 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 - [Laporan penagihan](docs/BILLING-REPORTS.md): rentang WIB, tanggal pembayaran/reversal terpisah, saldo historis, rekonsiliasi, snapshot baca konsisten dan CSV.
 - Dashboard yang menghitung data dari ledger, disertai definisi metrik, periode, cakupan, serta waktu pembaruan WIB.
 - Cari/filter/sort pelanggan, pagination server-side 10/25/50 yang tersimpan di URL, tambah/ubah/detail, dan ekspor CSV berizin.
+- [Navigasi dan drawer](docs/WORKSPACE-UX.md): grup menu dapat dilipat, pencarian/keyboard/mobile, ringkasan pelanggan privat tanpa meninggalkan filter daftar serta fallback tanpa JavaScript.
 - [Workspace pelanggan](docs/CUSTOMER-WORKSPACE.md): tujuh tab data nyata, ledger/pembayaran/reversal, tiket/audit berizin, pagination dan pemulihan posisi daftar.
 - [Koordinat pelanggan/PSB](docs/LOCATIONS.md): WGS84 manual, scope penugasan teknisi/portal sendiri, konflik form, pemindahan saat aktivasi dan tautan peta tanpa pemuatan eksternal otomatis.
 - [Filter NAS/jatuh tempo](docs/CUSTOMER-FILTERS.md), piutang/tanggal terawal per pelanggan, konsisten dengan ekspor dan pembaruan pembayaran/reversal.
