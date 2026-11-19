@@ -2,6 +2,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
+from io import BytesIO
 from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core import signing
@@ -9,7 +10,9 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import close_old_connections
 from django.test import Client, TestCase, TransactionTestCase
 from django.utils import timezone
+from pypdf import PdfReader
 from core.access import save_member, save_role
+from core.billing import invoice_snapshot, issue_invoice
 from core.models import Customer, Installation, Invoice, Membership, NetworkJob, Plan, Tenant, Ticket, WorkEvent
 from core.network import run_job
 from core.operations import (activate_installation, activation_quote, add_comment, assign_installation, create_installation,
@@ -301,6 +304,118 @@ class InstallationWorkflowTests(TestCase):
         self.assertEqual(NetworkJob.objects.filter(customer=order.customer).count(), 1)
         self.assertEqual(order.invoice.customer_id, order.customer_id)
 
+    def test_proration_calendar_rounding_tax_and_due_date(self):
+        customer = self.customers[0]
+        tenant = self.tenants[0]
+        tenant.due_day = 15
+        for start, days, month_days, subtotal, tax in [
+            (date(2024, 2, 18), 12, 29, 93103, 10241),
+            (date(2025, 2, 1), 28, 28, 225000, 24750),
+            (date(2025, 2, 28), 1, 28, 8036, 884),
+            (date(2025, 12, 31), 1, 31, 7258, 798),
+        ]:
+            with self.subTest(start=start):
+                snapshot = invoice_snapshot(tenant, customer, start.replace(day=1), service_start=start)
+                amounts = snapshot["invoice"]
+                self.assertEqual((amounts["subtotal"], amounts["tax_amount"], amounts["total"]),
+                                 (subtotal, tax, subtotal + tax))
+                self.assertEqual(amounts["due_date"], max(start, start.replace(day=15)).isoformat())
+                self.assertEqual((snapshot["proration"]["days"], snapshot["proration"]["days_in_month"]),
+                                 (days, month_days))
+        customer.plan.price = 42
+        tenant.tax_bp, tenant.due_day = 0, 31
+        result = invoice_snapshot(tenant, customer, date(2025, 2, 1), service_start=date(2025, 2, 28))
+        self.assertEqual(result["invoice"]["total"], 2)  # Exactly Rp1.50 rounds up.
+        self.assertEqual(result["invoice"]["due_date"], "2025-02-28")
+        customer.plan.price = 1
+        result = invoice_snapshot(tenant, customer, date(2025, 2, 1), service_start=date(2025, 2, 28))
+        self.assertEqual(result["invoice"]["total"], 1)
+
+    def test_prorated_quote_posts_reviewed_amount_and_future_invoice_is_full_month(self):
+        order = self.installed()
+        url = f"/operations/installations/{order.pk}/activate/"
+        preview = self.client.get(url, {"period": "2024-02", "service_start": "2024-02-18"})
+        self.assertContains(preview, "12 dari 29 hari")
+        self.assertContains(preview, "Rp103.344")
+        self.assertFalse(Invoice.objects.exists())
+        quote = preview.context["form"].initial["quote"]
+        for _ in range(2):
+            response = self.client.post(url + "?period=2025-01", {
+                "quote": quote, "reviewed": "on", "service_start": "2024-02-29", "subtotal": 1,
+            })
+            self.assertEqual(response.status_code, 302)
+        order.refresh_from_db()
+        invoice = order.invoice
+        self.assertEqual(invoice.period, date(2024, 2, 1))
+        self.assertEqual((invoice.subtotal, invoice.tax_amount, invoice.total), (93103, 10241, 103344))
+        self.assertEqual(invoice.due_date, date(2024, 2, 29))
+        self.assertEqual(invoice.issuer_snapshot.name, self.tenants[0].name)
+        self.assertEqual(order.events.filter(kind="activated").count(), 1)
+        self.assertEqual(NetworkJob.objects.filter(customer=order.customer).count(), 1)
+        line = invoice.lines.get()
+        self.assertIn("Prorata 18/02/2024–29/02/2024 (12/29 hari)", line.description)
+        self.assertIn("Rp225.000/bulan", line.description)
+        self.assertEqual(line.unit_price, 93103)
+        pdf = self.client.get(f"/invoices/{invoice.pk}/pdf/")
+        self.assertEqual(pdf.status_code, 200)
+        text = " ".join(page.extract_text() for page in PdfReader(BytesIO(pdf.content)).pages)
+        self.assertIn("12/29 hari", text)
+        existing, created = issue_invoice(self.tenants[0], order.customer_id, invoice.period, self.owners[0])
+        self.assertEqual(existing.pk, invoice.pk)
+        self.assertFalse(created)
+        following, created = issue_invoice(self.tenants[0], order.customer_id, date(2024, 3, 1), self.owners[0])
+        self.assertTrue(created)
+        self.assertEqual(following.total, 249750)
+        self.assertNotIn("Prorata", following.lines.get().description)
+
+    def test_invalid_proration_selection_has_no_confirmation(self):
+        order = self.installed()
+        url = f"/operations/installations/{order.pk}/activate/"
+        tomorrow = timezone.localdate() + timedelta(days=1)
+        for period, start, error in [
+            ("2024-02", "2024-03-01", "harus berada dalam bulan layanan"),
+            ("2025-02", "2025-02-29", "Masukkan tanggal yang valid"),
+            (tomorrow.strftime("%Y-%m"), tomorrow.isoformat(), "tidak boleh setelah hari ini"),
+        ]:
+            with self.subTest(start=start):
+                response = self.client.get(url, {"period": period, "service_start": start})
+                self.assertContains(response, error)
+                self.assertNotContains(response, 'name="quote"')
+        self.assertFalse(Invoice.objects.exists())
+
+    def test_prorated_price_or_date_changes_need_a_new_review(self):
+        order = self.installed()
+        period, start = date(2024, 2, 1), date(2024, 2, 29)
+        url = f"/operations/installations/{order.pk}/activate/"
+        preview = self.client.get(url, {"period": "2024-02", "service_start": start.isoformat()})
+        quote = preview.context["form"].initial["quote"]
+        payload = signing.loads(quote, salt="tagihnet.psb.activation.v1")
+        forged = signing.dumps({**payload, "service_start": "2024-02-28"}, salt="tagihnet.psb.activation.v1")
+        response = self.client.post(url, {"quote": forged, "reviewed": "on"})
+        self.assertContains(response, "Muat ulang pratinjau aktivasi")
+        self.assertNotContains(response, 'name="quote"')
+        before = activation_quote(order, period, service_start=start)[0]["invoice"]["total"]
+        Plan.objects.filter(pk=order.plan_id).update(price=order.plan.price + 1)
+        order.refresh_from_db()
+        self.assertEqual(activation_quote(order, period, service_start=start)[0]["invoice"]["total"], before)
+        response = self.client.post(url, {"quote": quote, "reviewed": "on"})
+        self.assertContains(response, "Muat ulang pratinjau aktivasi")
+        self.assertNotContains(response, 'name="quote"')
+        self.assertFalse(Invoice.objects.exists())
+
+    def test_prorated_mfa_stepup_keeps_review_selection(self):
+        order = self.installed()
+        url = f"/operations/installations/{order.pk}/activate/"
+        selection = "?period=2024-02&service_start=2024-02-18"
+        quote = self.client.get(url + selection).context["form"].initial["quote"]
+        session = self.client.session
+        session["mfa_verified_at"] = time.time() - 301
+        session.save()
+        response = self.client.post(url, {"quote": quote, "reviewed": "on"})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.client.session["stepup_return"], url + selection)
+        self.assertFalse(Invoice.objects.exists())
+
     def test_activation_retry_keeps_same_records_and_rejects_other_period(self):
         order = self.installed()
         fingerprint = activation_quote(order, PERIOD)[1]
@@ -431,10 +546,14 @@ class OperationConcurrencyTests(TransactionTestCase):
 
     def test_concurrent_activation_creates_customer_invoice_and_job_once(self):
         order = installed_order(self.owners[0], self.tech)
-        fingerprint = activation_quote(order, PERIOD)[1]
-        results = self.parallel(lambda _: activate_installation(self.owners[0], order.pk, PERIOD, fingerprint, time.time(), 1).customer_id)
+        start = date(2024, 4, 12)
+        period = start.replace(day=1)
+        fingerprint = activation_quote(order, period, service_start=start)[1]
+        results = self.parallel(lambda _: activate_installation(self.owners[0], order.pk, period, fingerprint,
+                                                               time.time(), 1, service_start=start).customer_id)
         self.assertEqual(results[0], results[1])
         self.assertEqual(Customer.objects.count(), 3)
         self.assertEqual(Invoice.objects.count(), 1)
+        self.assertEqual(Invoice.objects.get().total, 158175)
         self.assertEqual(NetworkJob.objects.count(), 1)
         self.assertEqual(order.events.filter(kind="activated").count(), 1)

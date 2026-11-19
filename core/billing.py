@@ -1,4 +1,5 @@
 """Money and ledger mutations. All amounts are integer rupiah; no network I/O."""
+import calendar
 import time
 import uuid
 from datetime import date
@@ -45,19 +46,44 @@ def totals(price, discount, tax_bp):
     return net + tax, tax
 
 
-def invoice_snapshot(tenant, customer, period, discount=0):
+def prorated_days(period, service_start):
+    if type(service_start) is not date or service_start.replace(day=1) != period:
+        raise ValidationError("Tanggal awal prorata harus berada dalam bulan layanan yang dipilih.")
+    if service_start > timezone.localdate():
+        raise ValidationError("Tanggal awal prorata tidak boleh setelah hari ini (WIB).")
+    days_in_month = calendar.monthrange(period.year, period.month)[1]
+    return days_in_month - service_start.day + 1, days_in_month
+
+
+def invoice_snapshot(tenant, customer, period, discount=0, *, service_start=None):
     if customer.tenant_id != tenant.pk or customer.plan.tenant_id != tenant.pk:
         raise ValidationError("Paket dan pelanggan harus berada pada ISP yang sama.")
     if period.day != 1:
         raise ValidationError("Periode harus tanggal pertama bulan layanan.")
-    total, tax = totals(customer.plan.price, discount, tenant.tax_bp)
-    return {"schema": 1, "tenant_id": tenant.pk, "customer_id": customer.pk,
+    monthly_price = subtotal = customer.plan.price
+    due_date = month_due(period, tenant.due_day)
+    description = f"{customer.plan.name} · {customer.plan.speed_mbps} Mbps · {period:%m/%Y}"
+    proration = None
+    if service_start is not None:
+        days, days_in_month = prorated_days(period, service_start)
+        end = period.replace(day=days_in_month)
+        # Round the exact fraction half up before tax. Positive invoices have a Rp1 minimum.
+        subtotal = max(1, (2 * monthly_price * days + days_in_month) // (2 * days_in_month))
+        due_date = max(due_date, service_start)
+        rate = f"Rp{monthly_price:,}".replace(",", ".")
+        description += f" · Prorata {service_start:%d/%m/%Y}–{end:%d/%m/%Y} ({days}/{days_in_month} hari) · {rate}/bulan"
+        proration = {"start": service_start.isoformat(), "end": end.isoformat(), "days": days,
+                     "days_in_month": days_in_month, "monthly_price": monthly_price}
+    total, tax = totals(subtotal, discount, tenant.tax_bp)
+    snapshot = {"schema": 1, "tenant_id": tenant.pk, "customer_id": customer.pk,
         "plan_id": customer.plan_id, "service_state": customer.service_state, "period": period.isoformat(),
-        "invoice": {"due_date": month_due(period, tenant.due_day).isoformat(), "customer_name": customer.name,
-            "customer_address": customer.address, "subtotal": customer.plan.price, "discount": discount,
+        "invoice": {"due_date": due_date.isoformat(), "customer_name": customer.name,
+            "customer_address": customer.address, "subtotal": subtotal, "discount": discount,
             "tax_bp": tenant.tax_bp, "tax_amount": tax, "total": total, "footer": tenant.invoice_footer},
-        "line": {"description": f"{customer.plan.name} · {customer.plan.speed_mbps} Mbps · {period:%m/%Y}",
-                 "quantity": 1, "unit_price": customer.plan.price}}
+        "line": {"description": description, "quantity": 1, "unit_price": subtotal}}
+    if proration is not None:
+        snapshot["proration"] = proration
+    return snapshot
 
 
 def write_snapshot_invoice(tenant, customer, period, snapshot, actor, correlation_id=None):

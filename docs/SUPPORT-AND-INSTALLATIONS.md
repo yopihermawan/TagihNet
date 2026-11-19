@@ -50,9 +50,15 @@ Catatan lapangan PSB hanya internal untuk staff berizin/teknisi yang ditugaskan.
 
 ## Aktivasi administrasi
 
-Hanya tersedia saat **Terpasang** dan untuk akun dengan hak aktivasi. Halaman pratinjau memungkinkan memilih bulan layanan awal dan memperlihatkan identitas, paket, harga, pajak, total, jatuh tempo dan footer. Faktur sebulan penuh tanpa prorata. Quote bertanda tangan terikat aktor, tenant, PSB, periode, identitas serta snapshot harga/setelan/versi; berlaku 15 menit.
+Hanya tersedia saat **Terpasang** dan untuk akun dengan hak aktivasi. Pilih **Bulan layanan awal**. Untuk faktur satu bulan penuh, kosongkan **Tanggal awal prorata**. Untuk menagih sebagian bulan, masukkan tanggal dalam bulan tersebut hingga hari ini (WIB), lalu pilih **Tinjau periode**. Pratinjau memperlihatkan rentang dan jumlah hari, tarif bulanan, subtotal, pajak, total dan jatuh tempo.
 
-Konfirmasi perlu checkbox peninjauan dan MFA <=5 menit. Jika MFA kedaluwarsa, verifikasi ulang lalu kembali ke pratinjau; POST tidak diputar ulang otomatis. Jika harga/setelan/PSB berubah, muat ulang dan setujui quote baru. Harga/status lunas/tenant dari POST tidak dipakai.
+Prorata menghitung hari kalender dari tanggal awal hingga akhir bulan, termasuk kedua tanggal. Subtotal adalah tarif bulanan × hari yang ditagih ÷ jumlah hari dalam bulan, dibulatkan setengah ke atas ke rupiah penuh dengan minimum Rp1. Pajak memakai basis poin dan dihitung setelah pembulatan subtotal. Jatuh tempo mengikuti hari jatuh tempo ISP, dibatasi akhir bulan dan paling awal pada tanggal awal prorata.
+
+Contoh pada Februari 2024. Paket Rp225.000 mulai ditagih tanggal 18, selama 12 dari 29 hari. Subtotal Rp93.103 dan pajak 11% Rp10.241 menghasilkan total Rp103.344. Jika hari jatuh tempo ISP tanggal 15, faktur ini jatuh tempo 18 Februari. Faktur menyimpan tanggal, jumlah hari dan tarif bulanan pada rincian layanan yang tampil juga di PDF. Faktur bulan berikutnya memakai tarif satu bulan penuh.
+
+Pratinjau bertanda tangan berlaku 15 menit dan mengikat aktor, ISP, PSB, periode, tanggal prorata, identitas, harga, setelan dan versi PSB.
+
+Konfirmasi perlu checkbox peninjauan dan MFA <=5 menit. Jika MFA kedaluwarsa, verifikasi ulang lalu tinjau kembali dengan bulan dan tanggal prorata yang sama. Jika harga/setelan/PSB berubah, muat ulang dan setujui quote baru. Harga/status lunas/tenant dari POST tidak dipakai.
 
 Satu transaksi atomik membuat **satu Customer**, **satu Invoice awal**, **satu NetworkJob**, serta tautan PSB dan histori. Customer/Invoice memakai relasi one-to-one dari PSB; constraint pelanggan dan faktur bulanan tetap berlaku. Pengiriman ulang atau dua aktivasi bersamaan menghasilkan tautan yang sama, bukan customer/invoice baru. Duplicate telepon/username yang muncul setelah prospek dibuat menghentikan aktivasi; kegagalan invoice me-rollback customer dan job baru.
 
@@ -62,7 +68,7 @@ Status awal customer adalah **Menunggu provisioning**. PSB `Teraktivasi administ
 
 Migrasi `0004` menambah SLA, role teknisi, status layanan pending, Ticket/Installation/WorkEvent tanpa mengubah ledger lama. Backup lokal konsisten dibuat sebelum migrasi. Web perlu restart; tidak ada worker baru khusus tiket/PSB. Provisioning memakai `run_simulation_worker`; `run_billing_worker` tetap untuk batch invoice yang sudah disetujui.
 
-`python manage.py test` kini mencakup **129 tes**, termasuk 34 tes operasional baru: actor/tenant/customer/assignment scope, komentar internal, SLA snapshot, optimistic version/replay, signed quote/expiry, batas aktivasi MFA, rollback/duplicate, concurrency dan router gagal. `python scripts/operations_smoke.py` memakai database/server sementara untuk alur owner → teknisi → portal → PSB → invoice, provisioning simulasi, empat viewport dan restore state operasional. Tidak ada enrollment, tiket, atau PSB uji yang ditambahkan ke database demo pengguna.
+Pengujian prorata mencakup kalender, pembulatan, pajak, jatuh tempo, perubahan tarif, MFA, konfirmasi serentak dan penagihan bulan berikutnya. `python scripts/operations_smoke.py` memakai database/server sementara untuk alur owner → teknisi → portal → PSB → faktur prorata dan PDF. Pengujian juga mencakup provisioning simulasi, empat ukuran layar dan pemulihan data operasional. [Hasil pengujian](TEST-REPORT.md)
 
 Bukti visual: [teknisi menangani tiket](evidence/technician-ticket-desktop.png), [tiket pelanggan mobile](evidence/customer-ticket-mobile.png), [tiket ditutup](evidence/ticket-closed-desktop.png), [persetujuan aktivasi](evidence/psb-activation-preview.png), [PSB teraktivasi](evidence/psb-activated-desktop.png). Semua data fiktif dan tidak merekam QR/secret/kode pemulihan.
 

@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-document-issuers` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-psb-proration` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Staging lokal
 
@@ -38,7 +38,7 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 - Monitoring NAS simulasi: snapshot sesi PPPoE contoh, waktu sumber, status segar/kedaluwarsa/gagal, ringkasan dengan cakupan, dan histori tanpa angka nol palsu.
 - [Foto privat pekerjaan](docs/WORK-PHOTOS.md): JPG/PNG terverifikasi, metadata dihapus, scope penugasan/portal/internal, unduhan berizin dan backup database mencakup binary.
 - Tiket gangguan/portal, prioritas/kategori/SLA snapshot, komentar publik/internal, penugasan dan timeline.
-- PSB prospek → terpasang → aktivasi berizin/MFA, satu pelanggan/faktur awal/provisioning job, dengan status jaringan terpisah.
+- PSB dari prospek hingga aktivasi dengan MFA, opsi prorata untuk faktur pertama, dan status provisioning terpisah. [Panduan aktivasi](docs/SUPPORT-AND-INSTALLATIONS.md#aktivasi-administrasi)
 - Edit identitas/paket PSB sebelum Pengerjaan serta jadwal ulang beralasan, dengan versi dan riwayat sebelum/sesudah.
 - Pengingat billing/SLA opt-in: antrean simulasi, deduplikasi persisten, retry terbatas, serta pemeriksaan ulang kondisi dan izin.
 - Preset Teknisi dengan akses hanya pada pekerjaan yang ditugaskan, tanpa daftar pelanggan atau nominal billing.

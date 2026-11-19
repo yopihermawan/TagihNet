@@ -1,5 +1,6 @@
 """Owner -> technician -> portal workflow on a temporary database/server only."""
 import csv
+from calendar import monthrange
 import io
 import uuid
 from PIL import Image
@@ -22,7 +23,7 @@ evidence.mkdir(parents=True, exist_ok=True)
 password = "Isolated-operations-password-2026!"
 with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
     env = {**os.environ, "TAGIHNET_DB_ENGINE": "sqlite", "TAGIHNET_DATA_DIR": directory, "TAGIHNET_DEMO_PASSWORD": password,
-           "TAGIHNET_DEBUG": "1", "TAGIHNET_SIMULATION": "1"}
+           "TAGIHNET_DEBUG": "1", "TAGIHNET_SIMULATION": "1", "TAGIHNET_SECRET_KEY": "", "TAGIHNET_MFA_KEY": ""}
     for args in [["migrate", "--noinput"], ["seed_demo"]]:
         subprocess.run([sys.executable, "manage.py", *args], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
     with socket.socket() as listener:
@@ -266,10 +267,19 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             assert "Rp" not in field.inner_text("main")
             page.goto(order_url)
             page.get_by_role("link", name="Tinjau aktivasi & faktur").click()
-            now = datetime.now(ZoneInfo("Asia/Jakarta"))
-            year, month = now.year + now.month // 12, now.month % 12 + 1
-            page.get_by_label("Bulan layanan awal").fill(f"{year:04d}-{month:02d}")
+            today = datetime.now(ZoneInfo("Asia/Jakarta")).date()
+            month_days = monthrange(today.year, today.month)[1]
+            days = month_days - today.day + 1
+            expected_total = (2 * 150000 * days + month_days) // (2 * month_days)
+            page.get_by_label("Bulan layanan awal").fill(today.strftime("%Y-%m"))
+            page.get_by_label("Tanggal awal prorata (opsional)").fill(today.isoformat())
             page.get_by_role("button", name="Tinjau periode", exact=True).click()
+            expect(page.get_by_text(f"({days} dari {month_days} hari)", exact=False)).to_be_visible()
+            expect(page.get_by_text(f"Rp{expected_total:,}".replace(",", "."), exact=True).last).to_be_visible()
+            for width in (360, 768, 1366, 1920):
+                page.set_viewport_size({"width": width, "height": 1000})
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            page.set_viewport_size({"width": 1366, "height": 1000})
             quote_url = page.url
             quote = page.locator('input[name="quote"]').get_attribute('value')
             page.screenshot(path=str(evidence / "psb-activation-preview.png"), full_page=True)
@@ -283,8 +293,14 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-operations-") as directory:
             with sqlite3.connect(f"file:{Path(directory) / 'tagihnet.sqlite3'}?mode=ro", uri=True) as db:
                 customer_id = db.execute("SELECT id FROM core_customer WHERE username='psb-browser'").fetchone()[0]
                 assert db.execute("SELECT COUNT(*) FROM core_customer WHERE username='psb-browser'").fetchone()[0] == 1
-                assert db.execute("SELECT COUNT(*),SUM(total) FROM core_invoice WHERE customer_id=?", (customer_id,)).fetchone() == (1, 150000)
+                assert db.execute("SELECT COUNT(*),SUM(total) FROM core_invoice WHERE customer_id=?", (customer_id,)).fetchone() == (1, expected_total)
+                invoice_id, = db.execute("SELECT id FROM core_invoice WHERE customer_id=?", (customer_id,)).fetchone()
                 assert db.execute("SELECT COUNT(*) FROM core_networkjob WHERE customer_id=?", (customer_id,)).fetchone()[0] == 1
+            pdf = owner.request.get(base + f"/invoices/{invoice_id}/pdf/")
+            assert pdf.ok and pdf.headers["content-type"] == "application/pdf"
+            page.goto(base + f"/invoices/{invoice_id}/")
+            expect(page.locator(".invoice-paper").get_by_text(f"({days}/{month_days} hari)", exact=False)).to_be_visible()
+            page.goto(order_url)
             subprocess.run([sys.executable, "manage.py", "run_simulation_worker", "--once"], cwd=root, env=env, check=True, stdout=subprocess.DEVNULL)
             page.reload()
             expect(page.get_by_text("Status layanan: Aktif (simulasi).", exact=False)).to_be_visible()

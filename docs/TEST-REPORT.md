@@ -554,3 +554,13 @@ Hasil ini untuk simulasi lokal. VPS/domain, gateway dan router nyata, SMTP,
 custody offsite/retensi/PITR, kapasitas/soak serta audit independen masih tertunda.
 Schema0015 tidak boleh diturunkan otomatis dengan image lama; gunakan pemulihan
 arsip kompatibel ke target baru dan rekonsiliasi pascasnapshot.
+
+## Prorata faktur pertama PSB — 20 November 2026 WIB
+
+Pratinjau aktivasi PSB menerima tanggal awal opsional dalam bulan layanan hingga hari ini (WIB). Jika tanggal diisi, faktur pertama menagih hari kalender dari tanggal tersebut hingga akhir bulan. Subtotal dibulatkan ke rupiah penuh dengan minimum Rp1, lalu pajak dihitung. Hari jatuh tempo ISP dibatasi akhir bulan dan paling awal pada tanggal awal prorata. Rincian faktur dan PDF menyimpan rentang hari serta tarif bulanan. Pilihan ini berlaku pada aktivasi PSB. Tagihan reguler menggunakan satu bulan penuh. [Aturan dan contoh](SUPPORT-AND-INSTALLATIONS.md#aktivasi-administrasi)
+
+Kedua backend masing-masing lulus **797 tes**. Lima tes tambahan mencakup kalender/pembulatan, faktur dan PDF dari quote yang ditinjau, validasi tanggal, perubahan tarif walau subtotal tetap sama, dan pengembalian pilihan setelah permintaan verifikasi MFA. Tes konkurensi memastikan dua konfirmasi prorata menghasilkan satu pelanggan, faktur, dan job. Browser Chromium menjalankan alur PSB dengan MFA dan faktur prorata, memeriksa empat lebar layar, replay, PDF, provisioning simulasi dan pemulihan data operasional dari database uji.
+
+Schema tetap `0015_document_issuers`. Pemeriksaan model dan konfigurasi Django lulus. Staging lokal dan clone recovery memakai image `sha256:08367178488be8155bf8cfa9050525733c0bd426196fcfcddb3265f22faeae89` dengan digest aplikasi `5750b1710dfc3c781122db78c414ebc986c5f80958f2649036bdf9ff3d88520a`.
+
+Rekonsiliasi membandingkan baris, sequence, catatan migrasi dan kunci sebelum dan sesudah restart. Web dan tiga worker pengembangan sehat. Watcher staging kembali melaporkan sehat dan menggunakan backup schema `0015` yang sudah terautentikasi. Worker clone recovery tetap ditahan. Bukti privat memakai awalan `data/evidence/psb-proration-`.

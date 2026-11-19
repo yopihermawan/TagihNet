@@ -390,17 +390,17 @@ def transition_installation(actor, order_id, status, note, scheduled_for, versio
     return order
 
 
-def activation_quote(order, period):
+def activation_quote(order, period, *, service_start=None):
     customer = Customer(tenant=order.tenant, plan=order.plan, name=order.name, email=order.email,
         phone=order.phone, username=order.username, address=order.address, area=order.area)
-    snapshot = invoice_snapshot(order.tenant, customer, period)
+    snapshot = invoice_snapshot(order.tenant, customer, period, service_start=service_start)
     identity = {field: getattr(order, field) for field in ["name", "email", "phone", "username", "address", "area", "plan_id", "latitude", "longitude"]}
     return snapshot, digest({"snapshot": snapshot, "identity": identity, "version": order.version, "status": order.status})
 
 
 @retry_locked
 @transaction.atomic
-def activate_installation(actor, order_id, period, fingerprint, verified_at, access_version):
+def activate_installation(actor, order_id, period, fingerprint, verified_at, access_version, *, service_start=None):
     member = member_for(actor)
     Tenant.objects.select_for_update(no_key=True).get(pk=member.tenant_id)
     member = member_for(actor)
@@ -413,7 +413,7 @@ def activate_installation(actor, order_id, period, fingerprint, verified_at, acc
         return order
     if order.status != "installed":
         raise ValidationError("Pemasangan harus berstatus Terpasang sebelum aktivasi.")
-    _, current = activation_quote(order, period)
+    snapshot, current = activation_quote(order, period, service_start=service_start)
     if current != fingerprint:
         raise ValidationError("Harga, setelan atau PSB berubah. Muat ulang pratinjau aktivasi.")
     if Customer.objects.filter(tenant=member.tenant).filter(Q(phone=order.phone) | Q(username__iexact=order.username)).exists():
@@ -423,7 +423,7 @@ def activate_installation(actor, order_id, period, fingerprint, verified_at, acc
         area=order.area, service_state="pending", latitude=order.latitude, longitude=order.longitude)
     customer.full_clean()
     customer.save()
-    snapshot = invoice_snapshot(order.tenant, customer, period)
+    snapshot.update(customer_id=customer.pk, service_state=customer.service_state)
     invoice = write_snapshot_invoice(member.tenant, customer, period, snapshot, actor)
     NetworkJob.objects.create(tenant=member.tenant, customer=customer)
     order.customer, order.invoice = customer, invoice

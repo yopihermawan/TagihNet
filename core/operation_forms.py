@@ -1,4 +1,6 @@
 from django import forms
+from django.core.exceptions import ValidationError
+from .billing import prorated_days
 from .models import Customer, Installation, Membership, Plan, Tenant, Ticket
 from .validation import normalize_phone
 from .plan_selection import selectable_plans
@@ -120,6 +122,19 @@ class InstallationTransitionForm(VersionForm):
 class ActivationForm(forms.Form):
     period = forms.DateField(label="Bulan layanan awal", input_formats=["%Y-%m"],
                             widget=forms.DateInput(format="%Y-%m", attrs={"type": "month"}))
+    service_start = forms.DateField(label="Tanggal awal prorata (opsional)", required=False,
+        input_formats=["%Y-%m-%d"], widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+        help_text="Kosongkan untuk tagihan satu bulan penuh. Untuk prorata, pilih tanggal dalam bulan layanan hingga hari ini (WIB).")
+
+    def clean(self):
+        values = super().clean()
+        period, service_start = values.get("period"), values.get("service_start")
+        if period is not None and service_start is not None:
+            try:
+                prorated_days(period, service_start)
+            except ValidationError as error:
+                self.add_error("service_start", error)
+        return values
 
 
 class ActivationConfirmationForm(forms.Form):

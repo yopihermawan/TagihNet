@@ -1,6 +1,7 @@
 import uuid
 from functools import wraps
 from datetime import date
+from urllib.parse import urlencode
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core import signing
@@ -337,7 +338,7 @@ def installation_reschedule(request, pk):
 @require_http_methods(["GET", "POST"])
 def installation_activate(request, pk):
     order = get_object_or_404(visible_installations(member_for(request.user)).select_related("tenant", "plan"), pk=pk)
-    period_form = ActivationForm(request.GET or None, initial={"period": timezone.localdate().replace(day=1)})
+    initial = {"period": timezone.localdate().replace(day=1)}
     form = ActivationConfirmationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         try:
@@ -345,9 +346,16 @@ def installation_activate(request, pk):
             if (payload["order"] != pk or payload["actor"] != request.user.pk or payload["tenant"] != request.member.tenant_id):
                 raise PermissionDenied
             period = date.fromisoformat(payload["period"])
-            if not recent_factor(request, return_to=reverse("installation_activate", args=[pk]) + f"?period={period:%Y-%m}"):
+            service_start = date.fromisoformat(payload["service_start"]) if payload.get("service_start") else None
+            initial = {"period": period, "service_start": service_start}
+            query = {"period": f"{period:%Y-%m}"}
+            if service_start is not None:
+                query["service_start"] = service_start.isoformat()
+            return_to = reverse("installation_activate", args=[pk]) + "?" + urlencode(query)
+            if not recent_factor(request, return_to=return_to):
                 return redirect("account_security")
-            activate_installation(request.user, pk, period, payload["fingerprint"], request.session["mfa_verified_at"], request.session["access_version"])
+            activate_installation(request.user, pk, period, payload["fingerprint"], request.session["mfa_verified_at"],
+                                  request.session["access_version"], service_start=service_start)
         except (signing.BadSignature, KeyError, TypeError, ValueError):
             form.add_error(None, "Pratinjau aktivasi tidak valid atau kedaluwarsa. Muat ulang halaman.")
         except (ValidationError, IntegrityError, OperationalError) as exc:
@@ -355,11 +363,17 @@ def installation_activate(request, pk):
         else:
             messages.success(request, "Aktivasi administrasi selesai. Pelanggan/faktur tersimpan; provisioning masih proses terpisah.")
             return redirect("installation_detail", pk=pk)
-    period = period_form.cleaned_data["period"] if period_form.is_valid() else timezone.localdate().replace(day=1)
-    snapshot, fingerprint = activation_quote(order, period)
-    token = signing.dumps({"order": pk, "actor": request.user.pk, "tenant": request.member.tenant_id,
-        "period": period.isoformat(), "fingerprint": fingerprint}, salt=QUOTE_SALT, compress=True)
-    if request.method != "POST":
+    period_form = ActivationForm(request.GET or None, initial=initial)
+    snapshot = period = None
+    if request.method == "GET" and (not period_form.is_bound or period_form.is_valid()):
+        selection = period_form.cleaned_data if period_form.is_bound else initial
+        period, service_start = selection["period"], selection.get("service_start")
+        snapshot, fingerprint = activation_quote(order, period, service_start=service_start)
+        payload = {"order": pk, "actor": request.user.pk, "tenant": request.member.tenant_id,
+                   "period": period.isoformat(), "fingerprint": fingerprint}
+        if service_start is not None:
+            payload["service_start"] = service_start.isoformat()
+        token = signing.dumps(payload, salt=QUOTE_SALT, compress=True)
         form = ActivationConfirmationForm(initial={"quote": token})
     return render(request, "operations/activation.html", {"order": order, "period_form": period_form,
         "form": form, "snapshot": snapshot, "period": period, "can_activate": order.status == "installed",
