@@ -1,0 +1,14 @@
+{% extends 'core/form.html' %}
+{% block form_details %}
+  {% include 'billing/settings_timeline.html' %}
+  <details class="panel padded billing-timeline">
+    <summary>Perbedaan siklus penagihan</summary>
+    <dl class="definition-list">
+      <dt>Prabayar</dt><dd>Pelanggan membayar sebelum menggunakan layanan.</dd>
+      <dt>Pascabayar</dt><dd>Pelanggan membayar setelah menggunakan layanan.</dd>
+      <dt>Tanggal tetap</dt><dd>TagihNet memakai bulan kalender dan hari jatuh tempo ISP. Hari 29–31 mengikuti akhir bulan bila perlu.</dd>
+      <dt>Perpanjangan</dt><dd>Periode baru dihitung dari tanggal pembayaran atau akhir masa aktif masing-masing pelanggan. Siklus ini masih tertunda.</dd>
+    </dl>
+    <p class="muted">Faktur pertama PSB dapat memakai prorata hingga akhir bulan. Faktur reguler menagih satu bulan penuh.</p>
+  </details>
+{% endblock %}

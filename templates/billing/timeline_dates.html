@@ -1,0 +1,6 @@
+{% if examples.after %}
+  <span class="billing-timeline-date"><small>Sebelum</small> <time datetime="{{ before|date:'Y-m-d' }}">{{ before|date:'d M Y' }}</time></span>
+  <span class="billing-timeline-date"><small>Sesudah</small> <time datetime="{{ after|date:'Y-m-d' }}">{{ after|date:'d M Y' }}</time></span>
+{% else %}
+  <time datetime="{{ before|date:'Y-m-d' }}">{{ before|date:'d M Y' }}</time>
+{% endif %}

@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-psb-proration` dan mencakup seluruh fitur sebelumnya: billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-billing-timeline` dan mencakup billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Staging lokal
 
@@ -29,7 +29,7 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 - [Filter NAS/jatuh tempo](docs/CUSTOMER-FILTERS.md), piutang/tanggal terawal per pelanggan, konsisten dengan ekspor dan pembaruan pembayaran/reversal.
 - Impor CSV pelanggan: template, maksimal 200 baris/128 KiB, validasi/duplikat, laporan CSV aman, konfirmasi MFA atomik dan replay tanpa duplikasi.
 - [Pengelolaan paket](docs/PLANS.md): buat/ubah, arsip/aktifkan kembali dengan tinjauan, MFA dan audit; paket lama tetap melayani pelanggan/PSB dan billing.
-- [Setelan billing](docs/BILLING-SETTINGS.md): tinjauan dampak/pajak/jatuh tempo/identitas penerbit, konfirmasi MFA, konflik form lama dan penyimpanan yang mempertahankan setelan SLA bersamaan.
+- Setelan billing dengan linimasa terbit, pengingat, jatuh tempo dan pemeriksaan isolir simulasi. Pilih bulan contoh dan lihat perbandingan tanggal sebelum konfirmasi MFA. [Panduan setelan billing](docs/BILLING-SETTINGS.md)
 - Satu layanan/paket per pelanggan; faktur bulanan idempoten, snapshot harga/pajak, diskon, pembayaran sebagian, penolakan lebih bayar, dan reversal penuh dengan histori.
 - Faktur massal: pratinjau maksimal 500 pelanggan, MFA konfirmasi, snapshot disetujui, worker resumable, duplikat dilewati, serta pembatalan sisa pekerjaan.
 - [Identitas penerbit historis](docs/DOCUMENT-ISSUERS.md): nama/alamat ISP disimpan terpisah saat faktur diterbitkan dan pembayaran dicatat; cetak ulang konsisten, dokumen lama diberi penjelasan tanpa backfill.

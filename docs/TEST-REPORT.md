@@ -564,3 +564,11 @@ Kedua backend masing-masing lulus **797 tes**. Lima tes tambahan mencakup kalend
 Schema tetap `0015_document_issuers`. Pemeriksaan model dan konfigurasi Django lulus. Staging lokal dan clone recovery memakai image `sha256:08367178488be8155bf8cfa9050525733c0bd426196fcfcddb3265f22faeae89` dengan digest aplikasi `5750b1710dfc3c781122db78c414ebc986c5f80958f2649036bdf9ff3d88520a`.
 
 Rekonsiliasi membandingkan baris, sequence, catatan migrasi dan kunci sebelum dan sesudah restart. Web dan tiga worker pengembangan sehat. Watcher staging kembali melaporkan sehat dan menggunakan backup schema `0015` yang sudah terautentikasi. Worker clone recovery tetap ditahan. Bukti privat memakai awalan `data/evidence/psb-proration-`.
+
+## Linimasa setelan billing — 20 November 2026 WIB
+
+Setelan billing menampilkan contoh terbit, pengingat, jatuh tempo, tenggang dan pemeriksaan isolir untuk bulan pilihan. Tinjauan perubahan memperlihatkan tanggal sebelum dan sesudah menggunakan bulan yang sama. Izin dan persetujuan jadwal/pengingat dievaluasi dengan fungsi yang dipakai worker. Tanggal isolir contoh mengikuti kelayakan faktur bersaldo saat job jaringan diproses. [Aturan linimasa](BILLING-SETTINGS.md#linimasa-tagihan)
+
+SQLite dan PostgreSQL masing-masing lulus **801 tes**, termasuk empat tes tambahan untuk perbandingan tanggal, penerbitan setelah jatuh tempo, penangguhan persetujuan, simulasi nonaktif, tenant dan validasi bulan. Chromium memakai database dan MFA sementara untuk memilih Februari kabisat, melihat tanggal 29 Februari dan 1 Maret, mengonfirmasi setelan, serta memverifikasi ledger, empat ukuran layar dan mode gelap. Pemeriksaan Django dan model lulus pada schema `0015_document_issuers`.
+
+Web pengembangan, tiga worker, staging dan clone recovery sehat setelah pembaruan. Hash baris, sequence, catatan migrasi, dan kunci cocok dengan baseline. Watcher staging melaporkan sehat dengan arsip `0015` yang sudah terautentikasi. Worker clone tetap ditahan. Image staging `sha256:321d79ba043e7d74ea6043eae144ebd21e825a644d8d7c65ac3e28f2c774d7d5` memuat digest aplikasi `c61e277d4523451a6183e7dd86a4c0404229c87659314aa9711d386b1e1e4125`. Bukti privat memakai awalan `data/evidence/billing-timeline-`.

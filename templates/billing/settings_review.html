@@ -14,6 +14,7 @@
     <tr><th>Footer faktur</th><td>{{ proposal.before.invoice_footer|linebreaksbr|default:'—' }}</td><td>{{ proposal.after.invoice_footer|linebreaksbr|default:'—' }}</td></tr></tbody>
   </table></div>
 </section>
+{% include 'billing/settings_timeline.html' %}
 <section class="panel padded form-panel billing-settings-impact">
   <h2>Dampak dan contoh</h2>
   <p>{{ impact.customers }} pelanggan dan {{ impact.invoices }} faktur sudah ada pada ISP ini. Jumlah ini dapat berubah.</p>
@@ -21,14 +22,12 @@
   <p>Jadwal bulanan yang aktif menyiapkan siklus berikutnya dengan setelan terbaru. Hari penerbitan dan persetujuan jadwal tetap; batch yang sudah disetujui tidak dihitung ulang.</p>
   <p><strong>Identitas penerbit disimpan pada dokumen baru.</strong> Nama dan alamat ISP disimpan saat faktur diterbitkan atau pembayaran dicatat, lalu dipakai pada tampilan dan PDF cetak ulang. Dokumen lama tanpa snapshot menampilkan profil ISP terkini beserta penanda riwayat yang belum tersimpan. Profil pada workspace mengikuti setelan terbaru. File yang sudah diunduh tidak berubah.</p>
   <p>Contoh tagihan bulanan penuh {{ period|date:'F Y' }}, sebelum pajak {{ 100000|idr }}, diskon nol. Ini contoh perhitungan; tidak menerbitkan tagihan atau membekukan harga pelanggan.</p>
-  <dl class="definition-list"><dt>Jatuh tempo sebelum → sesudah</dt><dd>{{ examples.before.due|date:'d M Y' }} → {{ examples.after.due|date:'d M Y' }}</dd>
-    <dt>Pajak sebelum → sesudah</dt><dd>{{ examples.before.tax|idr }} → {{ examples.after.tax|idr }}</dd>
+  <dl class="definition-list"><dt>Pajak sebelum → sesudah</dt><dd>{{ examples.before.tax|idr }} → {{ examples.after.tax|idr }}</dd>
     <dt>Total sebelum → sesudah</dt><dd>{{ examples.before.total|idr }} → {{ examples.after.total|idr }}</dd></dl>
-  <p>Tanggal 29–31 mengikuti hari terakhir bulan bila perlu. Perubahan tidak memindahkan pelanggan, mengubah jadwal penerbitan bulanan, mengirim pesan atau menjalankan perintah router. Untuk jadwal penerbitan gunakan menu Jadwal bulanan.</p>
-  <form method="post" action="{% url 'billing_settings_confirm' %}" class="stack-form">
+  <form method="post" action="{% url 'billing_settings_confirm' %}{{ month_query }}" class="stack-form">
     {% csrf_token %}{{ form.non_field_errors }}{{ form.token }}{{ form.token.errors }}
     <div class="field"><label for="{{ form.reviewed.id_for_label }}">{{ form.reviewed }} {{ form.reviewed.label }}</label>{{ form.reviewed.errors }}</div>
-    <button class="button primary">Konfirmasi setelan billing</button><a class="button" href="{% url 'billing_settings' %}">Batal</a>
+    <button class="button primary">Konfirmasi setelan billing</button><a class="button" href="{% url 'billing_settings' %}{{ month_query }}">Batal</a>
   </form>
 </section>
 {% endblock %}

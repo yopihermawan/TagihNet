@@ -8,13 +8,14 @@ from django.contrib.auth import get_user_model
 from django.core import signing
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import close_old_connections, transaction
-from django.test import Client, TestCase, TransactionTestCase
+from django.test import Client, TestCase, TransactionTestCase, override_settings
 
 from core.billing import issue_invoice
 from core.billing_settings import (MAX_TOKEN, SALT, SettingsConflict, confirm_change, form_token,
     read_token, review_change, validate_values, values_for)
 from core.bulk_billing import confirm_batch, create_preview, process_batch
-from core.models import AuditEvent, Invoice, MFADevice, Membership, NetworkJob, Tenant
+from core.models import (AuditEvent, BillingSchedule, Invoice, MFADevice, Membership, NetworkJob,
+                         Reminder, ReminderPolicy, Tenant)
 from core.operations import activate_installation, activation_quote, create_installation, save_sla_settings
 from core.pdf import render_invoice
 from .auth_helpers import verified_login
@@ -153,6 +154,10 @@ class BillingSettingsReviewTests(TestCase):
         from core.models import AccessRole
         role=AccessRole.objects.create(tenant=self.tenant,name='Pengaturan terbatas',capabilities=['settings'])
         Membership.objects.filter(user=self.actor).update(role='ops',access_role=role)
+        page = self.client.get('/settings/billing/')
+        self.assertContains(page, 'Linimasa tagihan')
+        self.assertNotContains(page, 'href="/invoices/schedule/"')
+        self.assertNotContains(page, 'href="/operations/reminders/settings/"')
         self.assertTrue(self.confirm(self.review(tax_bp=0)))
 
     def test_inactive_or_changed_access_revision_is_refused(self):
@@ -233,6 +238,83 @@ class BillingSettingsReviewTests(TestCase):
         self.assertEqual(response.context['examples']['before']['due'],date(2026,2,28))
         self.assertEqual(response.context['examples']['after']['total'],100000)
         self.assertEqual(response.context['examples']['before']['total'],111000)
+
+    def timeline_policies(self, issue_day=10, reminder_days=3):
+        schedule = BillingSchedule.objects.create(tenant=self.tenant, enabled=True, day=issue_day,
+            authorized_by=self.actor, authorization_version=1, mfa_revision=MFADevice.objects.get(user=self.actor).revision)
+        reminders = ReminderPolicy.objects.create(tenant=self.tenant, billing_enabled=True, lead_days=reminder_days,
+            billing_hour=8, authorized_by=self.actor, authorization_version=1)
+        return schedule, reminders
+
+    def test_timeline_review_compares_reminder_due_and_isolation_across_leap_month(self):
+        schedule, reminders = self.timeline_policies()
+        url = '/settings/billing/?period=2024-02'
+        response = self.client.get(url)
+        self.assertContains(response, 'Linimasa tagihan')
+        self.assertContains(response, '08:00 WIB')
+        token = response.context['form'].initial['token']
+        response = self.client.post(url, {**self.values(due_day=20), 'token': token})
+        self.assertEqual(response.context['period'], date(2024, 2, 1))
+        before, after = (response.context['examples'][side] for side in ('before', 'after'))
+        self.assertEqual((before['issue'], before['reminder'], before['due'], before['isolation']),
+                         (date(2024, 2, 10), date(2024, 2, 26), date(2024, 2, 29), date(2024, 3, 1)))
+        self.assertEqual((after['issue'], after['reminder'], after['due'], after['isolation']),
+                         (date(2024, 2, 10), date(2024, 2, 17), date(2024, 2, 20), date(2024, 2, 21)))
+        self.assertContains(response, 'action="/settings/billing/confirm/?period=2024-02"')
+        confirm = self.client.post('/settings/billing/confirm/?period=2024-02',
+            {'token': response.context['form'].initial['token'], 'reviewed': 'on', 'period': '2030-06'})
+        self.assertRedirects(confirm, url)
+        schedule.refresh_from_db()
+        reminders.refresh_from_db()
+        self.assertIsNone(schedule.checked_at)
+        self.assertIsNone(reminders.last_checked_at)
+        self.assertFalse(Invoice.objects.exists())
+        self.assertFalse(Reminder.objects.exists())
+        self.assertFalse(NetworkJob.objects.exists())
+
+    def test_late_issue_clamps_reminder_and_isolation_to_when_invoice_exists(self):
+        self.timeline_policies(issue_day=31, reminder_days=14)
+        token = self.review(due_day=1)
+        response = self.client.post('/settings/billing/confirm/?period=2026-02', {'token': token})
+        example = response.context['examples']['after']
+        self.assertEqual(example['due'], date(2026, 2, 1))
+        self.assertEqual(example['issue'], date(2026, 2, 28))
+        self.assertEqual(example['reminder'], example['issue'])
+        self.assertEqual(example['isolation'], example['issue'])
+        self.assertContains(response, 'mendahului jadwal penerbitan', status_code=400)
+        self.assertContains(response, 'Lewat jatuh tempo saja tidak membuat job.', status_code=400)
+
+    def test_timeline_shows_paused_authorizations_and_disabled_simulation(self):
+        schedule, reminders = self.timeline_policies(reminder_days=0)
+        url = '/settings/billing/?period=2024-02'
+        example = self.client.get(url).context['examples']['before']
+        self.assertEqual(example['reminder'], example['due'])
+        with override_settings(SIMULATION=False):
+            response = self.client.get(url)
+            self.assertContains(response, 'Isolir simulasi tidak tersedia')
+            self.assertIsNone(response.context['examples']['before']['isolation'])
+            self.assertIsNone(response.context['examples']['before']['reminder'])
+        BillingSchedule.objects.filter(pk=schedule.pk).update(mfa_revision=uuid.uuid4())
+        ReminderPolicy.objects.filter(pk=reminders.pk).update(authorization_version=99)
+        response = self.client.get(url)
+        self.assertContains(response, 'Jadwal menunggu persetujuan ulang')
+        self.assertContains(response, 'Pengingat menunggu persetujuan ulang')
+        self.assertEqual(response.context['examples']['before']['issue'], date(2024, 2, 1))
+        self.assertIsNone(response.context['examples']['before']['reminder'])
+
+    def test_timeline_ignores_other_tenants_and_invalid_example_months(self):
+        BillingSchedule.objects.create(tenant=self.tenants[1], enabled=True, day=30)
+        ReminderPolicy.objects.create(tenant=self.tenants[1], billing_enabled=True, billing_hour=4)
+        response = self.client.get('/settings/billing/', {'period': '2023-12', 'tenant': self.tenants[1].pk})
+        self.assertContains(response, 'Jadwal bulanan nonaktif')
+        self.assertContains(response, 'Pengingat billing nonaktif')
+        self.assertEqual(response.context['examples']['before']['isolation'], date(2024, 1, 1))
+        with patch('core.billing_settings_views.timezone.localdate', return_value=date(2026, 2, 15)):
+            for invalid in ('9999-12', '2026-13', '2026-02-28'):
+                response = self.client.get('/settings/billing/', {'period': invalid})
+                self.assertTrue(response.context['month_form'].errors)
+                self.assertEqual(response.context['period'], date(2026, 2, 1))
+                self.assertEqual(response.context['examples']['before']['due'], date(2026, 2, 28))
 
     def test_audit_failure_rolls_back_all_changes(self):
         token=self.review(tax_bp=0,name='Gagal simpan');before=Tenant.objects.values().get(pk=self.tenant.pk)

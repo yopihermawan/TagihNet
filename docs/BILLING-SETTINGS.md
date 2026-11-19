@@ -22,6 +22,19 @@ Fingerprint membandingkan **state saat ini**, bukan rekam versi permanen: peruba
 
 Pajak0 berarti tarif nol, bukan belum diatur; rentang0–10.000bp. Jatuh tempo1–31 mengikuti akhir bulan bila perlu. Nama ISP wajib1–100karakter, alamat wajib1–250, footer opsional0–1.000. Teks dinormalisasi NFC, spasi tepi dibuang, CRLF/CR menjadi LF; baris baru diizinkan untuk alamat/footer, karakter kontrol/format tersembunyi/surrogate ditolak. Markup/URL tetap teks yang di-escape pada renderer, bukan konten aktif.
 
+## Linimasa tagihan
+
+Di **Setelan billing**, pilih **Bulan contoh** lalu **Lihat contoh**. Tinjauan perubahan membandingkan tanggal sebelum dan sesudah berdasarkan bulan yang sama. Bulan contoh dipakai untuk tampilan, sementara setelan yang disetujui tetap berasal dari pratinjau yang ditandatangani.
+
+- **Terbit.** Jadwal aktif dengan persetujuan yang masih berlaku memakai hari jadwal, dibatasi akhir bulan. Saat jadwal nonaktif atau tertahan, contoh mengasumsikan terbit manual pada awal bulan. Tanggal jadwal menunjukkan kapan faktur dapat mulai masuk antrean.
+- **Pengingat.** Jika aktif dan berizin, tanggal paling awal adalah tanggal terbit contoh atau awal jendela pengingat, mana yang lebih akhir. Jam kebijakan mengikuti WIB. Pengingat dapat masuk antrean sekali sehari selama ada sisa tagihan. Status persetujuan tertahan dan skenario gangguan tampil di halaman.
+- **Jatuh tempo dan tenggang.** Tanggal 29–31 dibatasi akhir bulan. Tambahan tenggang saat ini nol hari. Faktur dapat langsung menunggak jika diterbitkan setelah jatuh tempo dan masih bersaldo.
+- **Isolir simulasi.** Untuk faktur contoh yang masih bersaldo, pemeriksaan dapat memperhitungkannya mulai hari setelah jatuh tempo atau tanggal terbit jika terbit lebih lambat. Worker memeriksa semua tunggakan pelanggan saat memproses job jaringan. Lewat jatuh tempo sendiri tidak membuat job.
+
+Contoh dengan jadwal terbit 10 Februari 2024 dan pengingat tiga hari sebelumnya. Perubahan hari jatuh tempo dari 31 ke 20 menggeser jatuh tempo dari 29 Februari ke 20 Februari. Tanggal paling awal pengingat bergeser dari 26 ke 17 Februari. Tanggal faktur dapat diperhitungkan untuk isolir simulasi bergeser dari 1 Maret ke 21 Februari, jika job berjalan dan saldo masih tersisa.
+
+Linimasa merangkum kebijakan ISP saat halaman dimuat. Jadwal terpisah, status worker, persetujuan, saldo dan faktur yang sudah terbit menentukan hasil operasional. Pengguna dengan izin pengelolaan terkait dapat membuka Jadwal bulanan atau Kebijakan pengingat dari linimasa.
+
 ## Transaksi dan kompatibilitas SLA
 
 Konfirmasi mengunci tenant→membership, membaca ulang akun/izin/versi akses/revisi MFA serta membandingkan lima nilai awal. Hanya field yang berubah disimpan bersama audit metadata secara atomik. Audit gagal membatalkan perubahan. Isi nama/alamat/footer/token tidak dicatat dalam audit dan disamarkan pada laporan error produksi. Database sibuk tidak mengubah token menjadi form baru atau menimpa data; pengguna diminta memuat ulang.

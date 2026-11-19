@@ -50,3 +50,51 @@ html:not([data-enhanced]) .menu-search,html:not([data-enhanced]) #theme-toggle,h
 @media(max-width:850px){.nav-open::after{content:'';position:fixed;inset:0;z-index:20;background:#0f172a80}html:not([data-enhanced]) .sidebar{position:static;width:100%;transform:none;padding-bottom:16px}html:not([data-enhanced]) .sidebar-bottom{display:none}}
 
 .customer-drawer{overflow:hidden}.drawer-content{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}.drawer-content[aria-busy="true"]{min-height:0}
+.billing-timeline {
+  margin-top: 24px;
+  max-width: 850px;
+}
+.billing-timeline-picker {
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-block: 20px;
+}
+.billing-timeline-steps {
+  margin-top: 20px;
+}
+.billing-timeline-steps > div {
+  display: grid;
+  grid-template-columns: minmax(124px, 1fr) minmax(0, 3fr);
+  gap: 6px 18px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.billing-timeline-steps dt,
+.billing-timeline-steps time,
+.billing-timeline summary {
+  font-weight: 700;
+}
+.billing-timeline-steps dd {
+  margin: 0;
+}
+.billing-timeline-steps p,
+.billing-timeline-date small {
+  color: var(--muted);
+}
+.billing-timeline-steps p {
+  margin: 4px 0;
+}
+.billing-timeline-date {
+  display: inline-flex;
+  gap: 5px;
+  align-items: baseline;
+  margin-inline-end: 14px;
+}
+.billing-timeline-steps a {
+  text-decoration: underline;
+}
+@media (max-width: 600px) {
+  .billing-timeline-steps > div {
+    grid-template-columns: 1fr;
+  }
+}

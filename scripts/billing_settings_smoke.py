@@ -22,7 +22,8 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
     base=f'http://127.0.0.1:{port}'
     password='Isolated-billing-settings-browser-2026!'
     env={**os.environ,'TAGIHNET_DB_ENGINE':'sqlite','TAGIHNET_DATA_DIR':temporary,
-        'TAGIHNET_DEMO_PASSWORD':password,'TAGIHNET_DEBUG':'1','TAGIHNET_SIMULATION':'1'}
+        'TAGIHNET_DEMO_PASSWORD':password,'TAGIHNET_DEBUG':'1','TAGIHNET_SIMULATION':'1',
+        'TAGIHNET_SECRET_KEY':'','TAGIHNET_MFA_KEY':''}
     for args in (('migrate','--noinput'),('seed_demo',)):
         subprocess.run([sys.executable,'manage.py',*args],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
     database=Path(temporary)/'tagihnet.sqlite3'
@@ -62,6 +63,14 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
             page.get_by_role('link',name='Saya sudah menyimpan kode').click()
             phase='review'
             page.goto(base+'/settings/billing/')
+            page.get_by_label('Bulan contoh').fill('2024-02')
+            page.get_by_role('button',name='Lihat contoh',exact=True).click()
+            settings_url=base+'/settings/billing/?period=2024-02'
+            page.wait_for_url(settings_url)
+            timeline=page.get_by_role('region',name='Linimasa tagihan')
+            expect(timeline.get_by_text('Pengingat billing nonaktif.')).to_be_visible()
+            expect(timeline.locator('time[datetime="2024-02-20"]')).to_be_visible()
+            expect(timeline.locator('time[datetime="2024-02-21"]')).to_be_visible()
             old_form=page.locator('input[name="token"]').input_value()
             page.get_by_label('Nama ISP').fill('Nusantara Net Ditinjau')
             page.get_by_label('Alamat ISP').fill('Jl. Contoh Staging No. 19\nBandung · Data fiktif')
@@ -70,6 +79,9 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
             page.get_by_label('Footer faktur (teks biasa)').fill('Terima kasih.\nTagihNet · Data fiktif.')
             page.get_by_role('button',name='Tinjau perubahan',exact=True).click()
             expect(page.get_by_role('heading',name='Tinjau setelan billing',exact=True)).to_be_visible()
+            expect(timeline.locator('time[datetime="2024-02-20"]')).to_be_visible()
+            expect(timeline.locator('time[datetime="2024-02-29"]')).to_be_visible()
+            expect(timeline.locator('time[datetime="2024-03-01"]')).to_be_visible()
             assert ledger()==before
             with sqlite3.connect(database) as db:
                 assert db.execute('SELECT tax_bp FROM core_tenant WHERE id=?',(tenant_id,)).fetchone()[0]==0
@@ -91,7 +103,7 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
             phase='confirmation'
             page.get_by_role('checkbox').check()
             page.get_by_role('button',name='Konfirmasi setelan billing',exact=True).click()
-            page.wait_for_url(base+'/settings/billing/')
+            page.wait_for_url(settings_url)
             expect(page.get_by_label('Nama ISP')).to_have_value('Nusantara Net Ditinjau')
             expect(page.get_by_label('Pajak dalam basis poin (100 bp = 1%)')).to_have_value('1100')
             assert ledger()==before
@@ -107,7 +119,7 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
             expect(page.locator('.invoice-paper').get_by_text(original_issuer,exact=False)).to_be_visible()
             assert ledger()==before and not failures
             browser.close()
-        print('PASS: isolated real MFA/settings review/checkbox/confirm/stale form+review409, concurrent SLA preserved, unchanged ledger, preserved document issuer, dark mode and4 viewports; no factors saved.',flush=True)
+        print('PASS: isolated real MFA/settings review, leap-month timeline and next-month boundary, checkbox, confirmation, stale form/review409, concurrent SLA, unchanged ledger and issuer, dark mode and four widths.',flush=True)
     except Exception as error:
         raise SystemExit('Billing settings browser failed at '+phase+': '+type(error).__name__+'; no diagnostic/factors printed.') from None
     finally:

@@ -1,6 +1,9 @@
+from datetime import date
+
 from django import forms
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import OperationalError
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -11,8 +14,9 @@ from django.views.decorators.http import require_http_methods, require_POST
 from .billing import totals
 from .billing_settings import (FIELDS, MAX_TOKEN, SettingsConflict, confirm_change, form_token,
     manager, read_token, review_change, values_for)
+from .billing_timeline import calendar_dates, rules_for
 from .forms import BillingSettingsForm
-from .models import Customer, Invoice, month_due
+from .models import Customer, Invoice
 from .permissions import require
 from .security_views import recent_factor
 
@@ -22,16 +26,34 @@ class ConfirmationForm(forms.Form):
     reviewed = forms.BooleanField(label="Saya menyetujui rincian dan dampak perubahan setelan billing serta identitas penerbit.")
 
 
+class ExampleMonthForm(forms.Form):
+    period = forms.DateField(label="Bulan contoh", input_formats=["%Y-%m"],
+        validators=[MinValueValidator(date(2000, 1, 1)), MaxValueValidator(date(2099, 12, 1))],
+        widget=forms.DateInput(format="%Y-%m", attrs={"type": "month", "min": "2000-01", "max": "2099-12"}))
+
+
+def example_month(request):
+    current = timezone.localdate().replace(day=1)
+    data = request.GET if "period" in request.GET else None
+    form = ExampleMonthForm(data, initial={"period": current})
+    valid = form.is_valid()
+    period = form.cleaned_data["period"] if valid else current
+    month_query = f"?period={period:%Y-%m}" if valid else ""
+    return period, form, month_query
+
+
 @sensitive_variables()
 def review_response(request, token, proposal, form=None, status=200):
-    period = timezone.localdate().replace(day=1)
+    period, _, month_query = example_month(request)
+    tenant = request.member.tenant
+    timeline_rules = rules_for(tenant)
     examples = {}
     for label in ("before","after"):
         values = proposal[label]
         total, tax = totals(100000, 0, values["tax_bp"])
-        examples[label] = {"due":month_due(period,values["due_day"]), "tax":tax, "total":total}
-    tenant = request.member.tenant
+        examples[label] = {**calendar_dates(period, values["due_day"], timeline_rules), "tax":tax, "total":total}
     return render(request,"billing/settings_review.html",{"proposal":proposal,"period":period,"examples":examples,
+        "timeline_rules":timeline_rules,"month_query":month_query,
         "impact":{"customers":Customer.objects.filter(tenant=tenant).count(),"invoices":Invoice.objects.filter(tenant=tenant).count()},
         "form":form if form is not None else ConfirmationForm(initial={"token":token})},status=status)
 
@@ -59,10 +81,13 @@ def billing_settings(request):
                 form.add_error(None,error)
             else:
                 return review_response(request,token,proposal)
-    return render(request,"core/form.html",{"form":form,"title":"Setelan billing","back":"/",
-        "submit_label":"Tinjau perubahan","description":"Prabayar bulanan penuh, tanpa prorata. Tinjau perubahan sebelum konfirmasi MFA. "
-            "Pajak 0 bp berarti nol. Nama/alamat penerbit pada tampilan dan cetakan memakai identitas ISP terkini; "
-            "nominal, jatuh tempo dan footer faktur lama mempertahankan snapshot."},status=status)
+    period, month_form, _ = example_month(request)
+    timeline_rules = rules_for(member.tenant)
+    return render(request,"billing/settings.html",{"form":form,"title":"Setelan billing","back":"/",
+        "submit_label":"Tinjau perubahan","description":"Atur identitas penerbit, jatuh tempo, pajak dan footer faktur. "
+            "Pajak 0 bp berarti tarif nol. Tinjau perubahan sebelum konfirmasi MFA.",
+        "period":period,"month_form":month_form,"timeline_rules":timeline_rules,
+        "examples":{"before":calendar_dates(period, initial["due_day"], timeline_rules)}},status=status)
 
 
 @require("settings")
@@ -79,7 +104,9 @@ def billing_settings_confirm(request):
     form = ConfirmationForm(request.POST)
     status = 400
     if form.is_valid():
-        if not recent_factor(request,return_to=reverse("billing_settings")):
+        _, _, month_query = example_month(request)
+        return_to = reverse("billing_settings") + month_query
+        if not recent_factor(request,return_to=return_to):
             return redirect("account_security")
         try:
             changed = confirm_change(request.user,form.cleaned_data["token"],request.session["mfa_verified_at"],
@@ -92,5 +119,5 @@ def billing_settings_confirm(request):
             form.add_error(None,"Setelan belum disimpan. Muat ulang dan tinjau kembali sebelum mencoba lagi."); status = 503
         else:
             messages.success(request,"Setelan billing disimpan. Snapshot tagihan dan batch yang sudah disetujui tetap." if changed else "Setelan billing tidak berubah.")
-            return redirect("billing_settings")
+            return redirect(return_to)
     return review_response(request,token,proposal,form,status=status)

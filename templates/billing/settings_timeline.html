@@ -1,0 +1,57 @@
+<section class="panel padded billing-timeline" aria-labelledby="billing-timeline-title">
+  <h2 id="billing-timeline-title">Linimasa tagihan</h2>
+  <p class="muted">Contoh {{ period|date:'F Y' }} (WIB) berdasarkan kebijakan yang terbaca saat halaman dimuat.</p>
+  {% if month_form %}
+    <form method="get" action="{% url 'billing_settings' %}" class="inline-form billing-timeline-picker">
+      <div class="field">
+        <label for="{{ month_form.period.id_for_label }}">{{ month_form.period.label }}</label>
+        {{ month_form.period }}{{ month_form.period.errors }}
+      </div>
+      <button class="button" type="submit">Lihat contoh</button>
+    </form>
+  {% endif %}
+  <dl class="billing-timeline-steps">
+    <div>
+      <dt>Terbit</dt>
+      <dd>{% include 'billing/timeline_dates.html' with before=examples.before.issue after=examples.after.issue %}
+        <p>{{ timeline_rules.issue_note }}</p>
+        {% if 'manage_billing_schedule' in capabilities %}<a href="{% url 'billing_schedule' %}">Jadwal bulanan</a>{% endif %}
+      </dd>
+    </div>
+    <div>
+      <dt>Pengingat</dt>
+      <dd>{% if examples.before.reminder %}
+          {% include 'billing/timeline_dates.html' with before=examples.before.reminder after=examples.after.reminder %}
+          <p>Mulai paling cepat pukul {{ timeline_rules.reminder_hour }} WIB.
+            {% if timeline_rules.reminder_days %}Jendela pengingat dimulai {{ timeline_rules.reminder_days }} hari sebelum jatuh tempo.{% else %}Jendela pengingat dimulai pada hari jatuh tempo.{% endif %}
+          </p>
+        {% endif %}
+        <p>{{ timeline_rules.reminder_note }}</p>
+        {% if 'reminders' in capabilities %}<a href="{% url 'reminder_settings' %}">Kebijakan pengingat</a>{% endif %}
+      </dd>
+    </div>
+    <div>
+      <dt>Jatuh tempo</dt>
+      <dd>{% include 'billing/timeline_dates.html' with before=examples.before.due after=examples.after.due %}
+        <p>Hari 29–31 mengikuti hari terakhir bulan, termasuk Februari kabisat.</p>
+      </dd>
+    </div>
+    <div>
+      <dt>Tenggang</dt>
+      <dd><strong>0 hari tambahan</strong><p>Faktur bersaldo menunggak mulai sehari setelah jatuh tempo, atau langsung jika terbit lebih lambat.</p></dd>
+    </div>
+    <div>
+      <dt>Isolir simulasi</dt>
+      <dd>{% if examples.before.isolation %}
+          {% include 'billing/timeline_dates.html' with before=examples.before.isolation after=examples.after.isolation %}
+          <p>Tanggal paling awal untuk faktur contoh ini. Worker memeriksa ulang semua tunggakan ketika job jaringan diproses. Lewat jatuh tempo saja tidak membuat job.</p>
+        {% else %}<p>Isolir simulasi tidak tersedia saat mode simulasi dinonaktifkan.</p>{% endif %}
+      </dd>
+    </div>
+  </dl>
+  {% if examples.after.past_due_at_issue %}
+    <p class="info-note">Pada usulan ini, tanggal jatuh tempo mendahului jadwal penerbitan. Faktur dapat langsung menunggak ketika terbit.</p>
+  {% elif examples.before.past_due_at_issue %}
+    <p class="info-note">Pada setelan saat ini, tanggal jatuh tempo mendahului jadwal penerbitan. Faktur dapat langsung menunggak ketika terbit.</p>
+  {% endif %}
+</section>
