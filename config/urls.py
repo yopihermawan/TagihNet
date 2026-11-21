@@ -7,6 +7,7 @@ from core import photo_views as photos
 from core import receipt_views as receipts
 from core import schedule_views as schedules
 from core import billing_settings_views as billing_settings
+from core import isolation_schedule_views as isolation_schedules
 from core import location_views as locations
 from core import views
 from core import security_views as security
@@ -97,6 +98,8 @@ urlpatterns = [
     path("invoices/<int:pk>/pay/", views.payment_create, name="payment_create"),
     path("payments/<int:pk>/reverse/", views.payment_reverse, name="payment_reverse"),
     path("network/", views.network, name="network"),
+    path("network/isolation-schedule/", isolation_schedules.schedule_settings, name="isolation_schedule"),
+    path("network/isolation-schedule/confirm/", isolation_schedules.schedule_confirm, name="isolation_schedule_confirm"),
     path("settings/billing/", billing_settings.billing_settings, name="billing_settings"),
     path("settings/billing/confirm/", billing_settings.billing_settings_confirm, name="billing_settings_confirm"),
     path("audit/", views.audit_log, name="audit"),

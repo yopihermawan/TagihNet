@@ -45,6 +45,20 @@ payment=m.Payment.objects.filter(tenant=tenant).order_by('pk').first()
 m.PaymentFunding.objects.create(tenant=tenant,payment=payment,fund=fund)
 previous=(timezone.localdate().replace(day=1)-timedelta(days=1)).replace(day=1)
 business_action('cash_close',{'period':previous.strftime('%Y-%m')})
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from core.billing import issue_invoice
+from core.isolation import isolation_date
+from core.isolation_schedule import review_change as review_isolation,confirm_change as confirm_isolation,plan_schedule
+scheduled_customer=m.Customer.objects.create(tenant=tenant,plan=active_plan,code='RESTORE-AUTO',
+    name='Pelanggan Isolir Fiktif',username='restore-isolation',phone='081298760099',address='Alamat fiktif',area='Restore')
+scheduled_invoice,_=issue_invoice(tenant,scheduled_customer.pk,period,actor)
+token,_=review_isolation(actor,True,0)
+assert confirm_isolation(actor,token,time.time(),access_version)
+schedule=m.IsolationSchedule.objects.get(tenant=tenant)
+eligible_on=isolation_date(scheduled_invoice.due_date,3)
+assert plan_schedule(schedule.pk,datetime.combine(eligible_on,datetime.min.time(),tzinfo=ZoneInfo('Asia/Jakarta')))>0
+assert m.ScheduledIsolation.objects.filter(invoice=scheduled_invoice,schedule=schedule,job__status='pending').exists()
 assert m.InvoiceIssuerSnapshot.objects.count()==m.Invoice.objects.count()>0
 assert m.PaymentIssuerSnapshot.objects.count()==m.Payment.objects.count()>0
 assert m.TenantIsolationPolicy.objects.get(tenant=tenant).grace_days==3
@@ -89,6 +103,13 @@ assert m.PaymentIssuerSnapshot.objects.count()==m.Payment.objects.count()>0
 assert m.TenantIsolationPolicy.objects.get(tenant=fund.tenant).grace_days==3
 assert m.InvoiceIsolationTerms.objects.count()==m.Invoice.objects.count()>0
 assert not m.InvoiceIsolationTerms.objects.exclude(grace_days=3).exists()
+from core.isolation_schedule import consent_valid
+restored_schedule=m.IsolationSchedule.objects.get(tenant=fund.tenant)
+assert consent_valid(restored_schedule)
+dispatch=m.ScheduledIsolation.objects.get(invoice__customer__username='restore-isolation')
+assert dispatch.schedule_id==restored_schedule.pk and dispatch.schedule_version==restored_schedule.version
+assert dispatch.job.status=='pending' and dispatch.job.attempts==0
 print('PASS: invoice and payment historical issuer rows/timestamps and PDFs restored')
+print('PASS: isolation schedule consent and pending trigger restored')
 print('PASS: business cash/payroll/slip/commission/campaign/encrypted vouchers/topology/closing restored')
 '''

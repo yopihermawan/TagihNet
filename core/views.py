@@ -92,7 +92,7 @@ def dashboard(request):
         **{key:value or 0 for key,value in amounts.items()},**{key:value or 0 for key,value in payments.items()},**customers,
         "overdue_invoices": invoices.exclude(remaining=0).filter(due_date__lt=today).select_related('customer')[:5],
         "recent_payments": Payment.objects.filter(tenant=request.member.tenant).select_related("invoice", "invoice__customer", "reversal")[:5],
-        "open_jobs": NetworkJob.objects.filter(tenant=request.member.tenant).exclude(status="confirmed").count(),
+        "open_jobs": NetworkJob.objects.filter(tenant=request.member.tenant, status__in=["pending", "failed"]).count(),
         "events": AuditEvent.objects.filter(tenant=request.member.tenant)[:4]}
     return render(request, "core/dashboard.html", context)
 
@@ -321,7 +321,8 @@ def payment_reverse(request, pk):
 
 @require("network")
 def network(request):
-    return render(request, "core/network.html", {"jobs": NetworkJob.objects.filter(tenant=request.member.tenant).select_related("customer").order_by("-id")[:30]})
+    return render(request, "core/network.html", {"jobs": NetworkJob.objects.filter(tenant=request.member.tenant)
+        .select_related("customer", "scheduled_isolation").order_by("-id")[:30]})
 
 
 @require("audit")

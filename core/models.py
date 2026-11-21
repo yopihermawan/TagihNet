@@ -325,7 +325,8 @@ class PaymentReversal(models.Model):
 class NetworkJob(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT)
-    status = models.CharField(max_length=16, choices=[("pending", "Menunggu"), ("confirmed", "Terkonfirmasi (simulasi)"), ("failed", "Gagal")], default="pending")
+    status = models.CharField(max_length=16, choices=[("pending", "Menunggu"), ("confirmed", "Terkonfirmasi (simulasi)"),
+        ("failed", "Gagal"), ("skipped", "Dilewati")], default="pending")
     attempts = models.PositiveIntegerField(default=0)
     result = models.CharField(max_length=250, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -580,3 +581,4 @@ from .business_models import (Fund, PaymentFunding, CashMovement, CashCorrection
     HotspotProfile, VoucherBatch, Voucher, NetworkNode, CustomerEndpoint, BusinessAction)
 from .document_models import InvoiceIssuerSnapshot, PaymentIssuerSnapshot
 from .isolation_models import InvoiceIsolationTerms, TenantIsolationPolicy
+from .isolation_schedule_models import IsolationSchedule, ScheduledIsolation

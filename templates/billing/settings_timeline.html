@@ -50,7 +50,8 @@
       <dt>Isolir simulasi</dt>
       <dd>{% if examples.before.isolation %}
           {% include 'billing/timeline_dates.html' with before=examples.before.isolation after=examples.after.isolation %}
-          <p>Tanggal paling awal untuk faktur contoh ini. Worker memeriksa ulang semua tunggakan ketika job jaringan diproses. Lewat jatuh tempo saja tidak membuat job.</p>
+          <p>Tanggal paling awal untuk faktur contoh ini. Bila jadwal isolir aktif dan tanggal tercakup, worker dapat mengantrekan job dan memeriksa kembali saldo sebelum isolir.</p>
+          {% if 'manage_isolation_schedule' in capabilities %}<a href="{% url 'isolation_schedule' %}">Jadwal isolir simulasi</a>{% endif %}
         {% else %}<p>Isolir simulasi tidak tersedia saat mode simulasi dinonaktifkan.</p>{% endif %}
       </dd>
     </div>

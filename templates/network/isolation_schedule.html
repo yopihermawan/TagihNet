@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<a class="back-link" href="{% url 'network' %}">← Rekonsiliasi layanan</a>
+<div class="page-heading"><div>
+  <h1>Jadwal isolir simulasi</h1>
+  {% if approved %}<p class="muted">Aktif sejak {{ schedule.starts_on|date:'d M Y' }} WIB.</p>
+  {% elif schedule.enabled %}<p class="muted">Tertahan. Jadwal memerlukan persetujuan ulang.</p>
+  {% else %}<p class="muted">Jadwal nonaktif.</p>{% endif %}
+</div></div>
+<section class="panel padded form-panel">
+  <p>Worker mengantrekan isolir untuk layanan aktif yang memiliki faktur bersaldo dan mencapai batas tenggang sejak tanggal mulai jadwal.</p>
+  <form method="post" class="stack-form">
+    {% csrf_token %}{{ form.as_p }}
+    <button class="button primary" type="submit">Tinjau jadwal</button>
+  </form>
+</section>
+{% endblock %}

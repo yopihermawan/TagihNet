@@ -120,9 +120,31 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
             phase='existing_invoice'
             page.goto(base+f'/invoices/{invoice_id}/')
             expect(page.locator('.invoice-paper').get_by_text(original_issuer,exact=False)).to_be_visible()
+            phase='isolation_schedule'
+            page.goto(base+'/network/')
+            page.get_by_role('link',name='Jadwal isolir simulasi',exact=True).click()
+            schedule_url=base+'/network/isolation-schedule/'
+            expect(page.get_by_text('Jadwal nonaktif.',exact=True)).to_be_visible()
+            page.get_by_label('Aktifkan jadwal isolir simulasi').check()
+            page.get_by_role('button',name='Tinjau jadwal',exact=True).click()
+            expect(page.get_by_role('heading',name='Tinjau jadwal isolir')).to_be_visible()
+            for width in (360,768,1366,1920):
+                page.set_viewport_size({'width':width,'height':1000})
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            page.get_by_label('Saya telah meninjau cakupan dan dampak jadwal ini.').check()
+            page.get_by_role('button',name='Konfirmasi jadwal',exact=True).click()
+            page.wait_for_url(schedule_url)
+            expect(page.get_by_text('Aktif sejak',exact=False)).to_be_visible()
+            page.get_by_label('Aktifkan jadwal isolir simulasi').uncheck()
+            page.get_by_role('button',name='Tinjau jadwal',exact=True).click()
+            expect(page.get_by_role('heading',name='Nonaktifkan jadwal')).to_be_visible()
+            page.get_by_label('Saya telah meninjau cakupan dan dampak jadwal ini.').check()
+            page.get_by_role('button',name='Konfirmasi jadwal',exact=True).click()
+            page.wait_for_url(schedule_url)
+            expect(page.get_by_text('Jadwal nonaktif.',exact=True)).to_be_visible()
             assert ledger()==before and not failures
             browser.close()
-        print('PASS: isolated real MFA/settings review, grace across leap-month boundary, saved grace, stale form/review409, concurrent SLA, unchanged ledger and issuer, dark mode and four widths.',flush=True)
+        print('PASS: real MFA, billing grace, isolation schedule enable/review/confirm/disable, unchanged ledger, dark mode and four widths.',flush=True)
     except Exception as error:
         raise SystemExit('Billing settings browser failed at '+phase+': '+type(error).__name__+'; no diagnostic/factors printed.') from None
     finally:

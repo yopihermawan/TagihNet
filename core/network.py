@@ -5,8 +5,10 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from .billing import audit, retry_locked
-from .isolation import invoice_grace_days
-from .models import Customer, NetworkJob
+from .invoice_queries import with_balances
+from .isolation import invoice_grace_days, isolation_date
+from .isolation_schedule import consent_valid
+from .models import Customer, Invoice, NetworkJob, ScheduledIsolation, Tenant
 
 class SimulationAdapter:
     def reconcile(self, customer, desired):
@@ -16,19 +18,49 @@ class SimulationAdapter:
             raise ConnectionError("Router simulasi tidak dapat dijangkau")
         return desired
 
+
+def scheduled_skip_reason(dispatch, job, customer, today):
+    schedule = dispatch.schedule
+    if (schedule.tenant_id != job.tenant_id or schedule.version != dispatch.schedule_version
+            or not consent_valid(schedule)):
+        return 'Persetujuan jadwal berubah atau dicabut.'
+    invoice = dispatch.invoice
+    if customer.service_state != 'active' or invoice.tenant_id != job.tenant_id or invoice.customer_id != job.customer_id:
+        return 'Layanan atau faktur tidak lagi sesuai cakupan jadwal.'
+    eligible_date = isolation_date(invoice.due_date, invoice_grace_days(invoice))
+    unpaid = with_balances(Invoice.objects.filter(pk=invoice.pk), job.tenant_id).filter(remaining__gt=0)
+    if not schedule.starts_on <= eligible_date <= today or not unpaid.exists():
+        return 'Faktur pemicu sudah lunas atau tidak memenuhi tanggal isolir.'
+    return ''
+
+
 @retry_locked
 @transaction.atomic
 def run_job(job_id):
+    scheduled_tenant = ScheduledIsolation.objects.filter(job_id=job_id).values_list('job__tenant_id', flat=True).first()
+    if scheduled_tenant is not None:
+        # The same tenant lock serializes approvals, revocation and new payment writes.
+        Tenant.objects.select_for_update(no_key=True).get(pk=scheduled_tenant)
     job = NetworkJob.objects.select_for_update().get(pk=job_id)
-    if job.status == "confirmed" or job.attempts >= 3 or job.run_after > timezone.now():
+    if job.status in {"confirmed", "skipped"} or job.attempts >= 3 or job.run_after > timezone.now():
         return job
     customer = Customer.objects.select_for_update().get(tenant=job.tenant, pk=job.customer_id)
-    # Recheck debt at execution time, never reuse the state when the job was queued.
     today = timezone.localdate()
-    overdue = customer.invoice_set.filter(tenant=job.tenant, due_date__lt=today).select_related('isolation_terms')
-    eligible_debt = any((today - invoice.due_date).days > invoice_grace_days(invoice) and invoice.balance > 0
-                        for invoice in overdue)
-    desired = "isolated" if eligible_debt else "active"
+    if scheduled_tenant is not None:
+        dispatch = ScheduledIsolation.objects.select_related('schedule__authorized_by', 'invoice__isolation_terms').get(job=job)
+        skip_reason = scheduled_skip_reason(dispatch, job, customer, today)
+        if skip_reason:
+            job.status, job.result = 'skipped', skip_reason
+            job.save(update_fields=['status', 'result', 'updated_at'])
+            audit(job.tenant, None, 'network.skipped', customer.pk, skip_reason)
+            return job
+        desired = 'isolated'
+    else:
+        # Payment, reversal and provisioning jobs reconcile all current debt.
+        overdue = customer.invoice_set.filter(tenant=job.tenant, due_date__lt=today).select_related('isolation_terms')
+        eligible_debt = any((today - invoice.due_date).days > invoice_grace_days(invoice) and invoice.balance > 0
+                            for invoice in overdue)
+        desired = 'isolated' if eligible_debt else 'active'
     job.attempts += 1
     try:
         customer.service_state = SimulationAdapter().reconcile(customer, desired)

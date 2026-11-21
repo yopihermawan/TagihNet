@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-isolation-grace` dan mencakup billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-isolation-scheduler` dan mencakup billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Staging lokal
 
@@ -34,6 +34,7 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 - Faktur massal: pratinjau maksimal 500 pelanggan, MFA konfirmasi, snapshot disetujui, worker resumable, duplikat dilewati, serta pembatalan sisa pekerjaan.
 - [Identitas penerbit historis](docs/DOCUMENT-ISSUERS.md): nama/alamat ISP disimpan terpisah saat faktur diterbitkan dan pembayaran dicatat; cetak ulang konsisten, dokumen lama diberi penjelasan tanpa backfill.
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.
+- Jadwal isolir **simulasi** yang bisa diaktifkan melalui tinjauan dan MFA. Worker meninjau kembali saldo dan izin sebelum memproses job. [Panduan jadwal isolir](docs/ISOLATION-SCHEDULER.md)
 - Antrean rekonsiliasi jaringan **simulasi** dengan pengecekan ulang tunggakan, backoff, dan maksimal tiga percobaan. Pembayaran tetap tercatat bila adapter gagal.
 - Monitoring NAS simulasi: snapshot sesi PPPoE contoh, waktu sumber, status segar/kedaluwarsa/gagal, ringkasan dengan cakupan, dan histori tanpa angka nol palsu.
 - [Foto privat pekerjaan](docs/WORK-PHOTOS.md): JPG/PNG terverifikasi, metadata dihapus, scope penugasan/portal/internal, unduhan berizin dan backup database mencakup binary.

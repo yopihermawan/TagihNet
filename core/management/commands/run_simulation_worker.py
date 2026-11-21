@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.core.management import call_command
 from django.utils import timezone
 from core.models import NetworkJob
+from core.isolation_schedule import plan_schedules
 from core.network import run_job
 from core.worker_heartbeat import heartbeat
 
@@ -20,8 +21,11 @@ class Command(BaseCommand):
             while True:
                 heartbeat('network','busy')
                 failed=False
+                queued = plan_schedules()
+                if queued:
+                    self.stdout.write(f"isolation_jobs_queued={queued}")
                 jobs = list(NetworkJob.objects.filter(status__in=["pending", "failed"], attempts__lt=3,
-                            run_after__lte=timezone.now()).values_list("id", flat=True)[:100])
+                            run_after__lte=timezone.now()).order_by('run_after', 'pk').values_list("id", flat=True)[:100])
                 for job_id in jobs:
                     heartbeat('network','busy')
                     job = run_job(job_id)

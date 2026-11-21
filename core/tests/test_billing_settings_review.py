@@ -282,7 +282,7 @@ class BillingSettingsReviewTests(TestCase):
         self.assertEqual(example['reminder'], example['issue'])
         self.assertEqual(example['isolation'], example['issue'])
         self.assertContains(response, 'mendahului jadwal penerbitan', status_code=400)
-        self.assertContains(response, 'Lewat jatuh tempo saja tidak membuat job.', status_code=400)
+        self.assertContains(response, 'Bila jadwal isolir aktif dan tanggal tercakup', status_code=400)
 
     def test_timeline_shows_paused_authorizations_and_disabled_simulation(self):
         schedule, reminders = self.timeline_policies(reminder_days=0)

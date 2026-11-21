@@ -15,6 +15,7 @@ CAPABILITIES = {
 }
 CAPABILITIES["owner"].update({"cash", "manage_cash", "team", "manage_team", "payroll", "manage_payroll", "sales", "manage_sales", "hotspot", "manage_hotspot", "topology", "manage_topology"})
 CAPABILITIES["noc"].add("topology")
+CAPABILITIES["owner"].add("manage_isolation_schedule")
 
 CAPABILITY_LABELS = {
     "cash": "Lihat kas dan tutup buku", "manage_cash": "Catat kas, dana dan tutup buku",
@@ -24,6 +25,7 @@ CAPABILITY_LABELS = {
     "hotspot": "Lihat voucher simulasi", "manage_hotspot": "Kelola dan cetak voucher simulasi",
     "topology": "Lihat topologi administratif", "manage_topology": "Kelola ODC, ODP dan port pelanggan",
     "manage_billing_schedule": "Atur penerbitan faktur terjadwal",
+    "manage_isolation_schedule": "Atur jadwal isolir simulasi",
     "billing_reports": "Lihat laporan penagihan", "export_billing_reports": "Ekspor laporan penagihan",
     "manage_plans": "Buat/ubah paket dan harga bulanan",
     "dashboard": "Lihat dashboard billing", "customers": "Lihat pelanggan",
