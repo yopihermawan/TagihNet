@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-one-command-preflight` dan mencakup billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-staging-reconnect` dan mencakup billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Staging lokal
 
@@ -47,6 +47,7 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 - Backup CLI terenkripsi dengan kunci terpisah, autentikasi arsip, penolakan target berisi data, serta restore drill ledger dan MFA.
 - Inventaris backup staging untuk membaca umur, ukuran, keaslian, dan pasangan pemulihan. [Panduan inventaris](docs/RECOVERY-HANDOFF.md#inventaris-backup-staging)
 - Pemeriksaan rilis staging dengan opsi menyiapkan pasangan pemulihan untuk backup terpantau dalam satu perintah. [Runbook rilis](docs/RELEASE-RUNBOOK.md#jalankan-gate-aktif)
+- Sambungan ulang proyek staging dari container dan image yang tersimpan, dengan hold worker pada clone. [Panduan sambungan ulang](docs/STAGING-OPERATIONS.md#sambungkan-ulang-staging-yang-tersimpan)
 - Pemeriksaan kapasitas staging dan target backup, dengan ambang ruang yang dapat dipilih per pemanggilan. [Panduan penyimpanan](docs/STAGING-OPERATIONS.md#kapasitas-penyimpanan)
 - Jejak audit per ISP dengan filter tanggal, pelaku, aksi, target, dan ID korelasi. Detail batch dan job menautkan catatan terkait. [Panduan audit](docs/OPERATIONS.md#jejak-audit)
 - Mode terang/gelap, navigasi mobile dan fallback peta eksternal.

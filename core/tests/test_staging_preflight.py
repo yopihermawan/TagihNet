@@ -14,6 +14,7 @@ from django.test import SimpleTestCase
 from core.backup_archive import encrypt_stream,generate_key,read_key
 from scripts import staging_ops as ops
 from scripts import staging_preflight as pre
+from scripts import staging_reconnect as reconnect
 from scripts.recovery_package import export_package
 from scripts.staging_lab import compose,pin_image,operation_lock
 
@@ -80,6 +81,47 @@ class StagingPreflightTests(SimpleTestCase):
 
     def prepare(self, roots):
         return pre.check(self.directory, self.image, None, None, now=self.now, custody_roots=roots)
+
+    def retained(self, stopped=()):
+        services = {name: self.object(name) for name in ('db', *pre.APP_SERVICES, 'migrate')}
+        for index, (name, service) in enumerate(services.items(), 1):
+            service['Id'] = f'{index:064x}'
+            is_stopped = name in stopped or name == 'migrate'
+            service['State'].update(Running=not is_stopped, Status='exited' if is_stopped else 'running', ExitCode=0)
+            if is_stopped:
+                service['HostConfig']['PortBindings'] = service['NetworkSettings']['Ports']
+                service['NetworkSettings']['Ports'] = None
+        return services
+
+    @contextmanager
+    def reconnect_inspection(self, services, watcher=True):
+        events = []
+        watcher_state = {'pid': 42} if watcher else None
+
+        def docker(*args, **kwargs):
+            if args[:2] == ('inspect', '--format'):
+                events.append(('db_healthy',))
+                return SimpleNamespace(stdout=json.dumps({'Running': True, 'Health': {'Status': 'healthy'}}))
+            if args[0] == 'inspect':
+                return SimpleNamespace(stdout=json.dumps(list(services.values())))
+            if args[0] == 'start':
+                events.append(args)
+                return SimpleNamespace(stdout='')
+            raise AssertionError(f'Unexpected Docker action: {args[0]}')
+
+        def start_watcher(directory):
+            nonlocal watcher_state
+            events.append(('watcher',))
+            watcher_state = {'pid': 43}
+
+        with (patch.object(reconnect, 'require_image'), patch.object(reconnect, 'require_data_volume'),
+              patch.object(reconnect, 'compose', return_value=SimpleNamespace(stdout='\n'.join(s['Id'] for s in services.values()))),
+              patch.object(reconnect, 'docker', side_effect=docker),
+              patch.object(reconnect, 'wait_ready', side_effect=lambda *a, **kw: events.append(('https_ready',))),
+              patch.object(ops, 'check', return_value={'status': 'ok', 'issues': []}),
+              patch.object(ops, 'watcher', side_effect=lambda directory: watcher_state),
+              patch.object(ops, 'start', side_effect=start_watcher)):
+            yield events
 
     def codes(self,result):return {issue['code'] for issue in result['issues']}
 
@@ -310,6 +352,81 @@ class StagingPreflightTests(SimpleTestCase):
         self.assertEqual(report['status'], 'passed')
         self.assertEqual(report['evidence']['custody_preparation'], 'created')
         self.assertEqual(json.loads(stdout.getvalue())['custody_preparation'], 'created')
+
+    def test_reconnect_starts_existing_ids_in_readiness_order(self):
+        names = ('db', *pre.APP_SERVICES)
+        services = self.retained(stopped=names)
+        before = (self.directory / 'manifest.json').read_bytes()
+        with self.reconnect_inspection(services, watcher=False) as events:
+            result = reconnect.reconnect(self.directory)
+        self.assertEqual(events, [('start', services['db']['Id']), ('db_healthy',),
+                                  ('start', services['web']['Id']), ('https_ready',),
+                                  ('start', *(services[name]['Id'] for name in ops.WORKERS)), ('watcher',)])
+        self.assertEqual(result['services_started'], list(names))
+        self.assertTrue(result['watcher_running'])
+        self.assertEqual((self.directory / 'manifest.json').read_bytes(), before)
+
+    def test_reconnect_existing_running_project_preserves_services_and_watcher(self):
+        with self.reconnect_inspection(self.retained()) as events:
+            result = reconnect.reconnect(self.directory)
+        self.assertEqual(events, [('db_healthy',), ('https_ready',)])
+        self.assertEqual(result['services_started'], [])
+        self.assertTrue(result['watcher_running'])
+
+    def test_reconnect_of_held_project_starts_only_database_and_web(self):
+        self.save_state(recovery_pending=True)
+        services = self.retained(stopped=('db', *pre.APP_SERVICES))
+        with self.reconnect_inspection(services, watcher=False) as events:
+            with self.assertRaises(reconnect.ReconnectRefused):
+                reconnect.reconnect(self.directory)
+            self.assertEqual(events, [])
+            result = reconnect.reconnect(self.directory, mode='recovery')
+        self.assertEqual(events, [('start', services['db']['Id']), ('db_healthy',),
+                                  ('start', services['web']['Id']), ('https_ready',)])
+        self.assertTrue(result['workers_held'])
+        self.assertFalse(result['watcher_running'])
+
+    def test_reconnect_rejects_held_project_with_running_workers_or_watcher(self):
+        self.save_state(recovery_pending=True)
+        cases = [(self.retained(), False), (self.retained(stopped=ops.WORKERS), True)]
+        for services, watcher in cases:
+            with self.reconnect_inspection(services, watcher) as events, self.assertRaises(reconnect.ReconnectRefused):
+                reconnect.reconnect(self.directory, mode='recovery')
+            self.assertEqual(events, [])
+
+    def test_reconnect_refuses_missing_or_misconfigured_existing_service(self):
+        services = self.retained(stopped=('web',))
+        missing = {name: item for name, item in services.items() if name != 'billing-worker'}
+        exposed = copy.deepcopy(services)
+        exposed['web']['HostConfig']['PortBindings']['8443/tcp'][0]['HostIp'] = '0.0.0.0'
+        never_run = copy.deepcopy(services)
+        never_run['web']['State']['Status'] = 'created'
+        for case in (missing, exposed, never_run):
+            with self.reconnect_inspection(case) as events, self.assertRaises(reconnect.ReconnectRefused):
+                reconnect.reconnect(self.directory)
+            self.assertEqual(events, [])
+
+    def test_reconnect_rejects_unfinished_migration_and_missing_volume_before_start(self):
+        services = self.retained(stopped=('db',))
+        with self.reconnect_inspection(services) as events:
+            with patch.object(reconnect, 'require_data_volume', side_effect=RuntimeError), self.assertRaises(RuntimeError):
+                reconnect.reconnect(self.directory)
+            services['migrate']['State']['ExitCode'] = 1
+            with self.assertRaises(reconnect.ReconnectRefused):
+                reconnect.reconnect(self.directory)
+        self.assertEqual(events, [])
+
+    def test_reconnect_requires_operation_lock_before_inspecting_docker(self):
+        with operation_lock(self.directory), patch.object(reconnect, 'compose') as compose, self.assertRaises(RuntimeError):
+            reconnect.reconnect(self.directory)
+        compose.assert_not_called()
+
+    def test_reconnect_cannot_start_workers_or_watcher_after_https_failure(self):
+        services = self.retained(stopped=pre.APP_SERVICES)
+        with (self.reconnect_inspection(services, watcher=False) as events,
+              patch.object(reconnect, 'wait_ready', side_effect=RuntimeError), self.assertRaises(RuntimeError)):
+            reconnect.reconnect(self.directory)
+        self.assertEqual(events, [('db_healthy',), ('start', services['web']['Id'])])
 
     def test_failed_restore_never_contacts_docker(self):
         self.save_state(restore_state='failed')

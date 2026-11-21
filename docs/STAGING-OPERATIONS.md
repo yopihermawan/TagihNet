@@ -61,9 +61,22 @@ Konfigurasi, laporan, metadata backup dan watcher berada di `ops/*.json` pada di
 
 Start idempoten jika PID/starttime/argv/token/proyek cocok. Stop hanya mengirim SIGTERM ke watcher itu; backup aktif diselesaikan dahulu, tanpa forced kill. Stop tetap dapat diminta saat backup memegang lock. Lock nonblocking mencegah dua putaran backup bersamaan; configure/once bisa ditolak saat putaran lain aktif, ulangi setelah selesai. Disable menghentikan backup berikutnya; stop menghentikan pemantauan juga. Arsip/data/konfigurasi dipertahankan.
 
-Daemon lokal terlepas dari sesi shell ini belum memakai systemd/cron atau HA. Proses tidak dijamin bertahan setelah mesin/snapshot cloud berpindah. Setelah restart, periksa Docker/direktori asli lalu `up` dan `start` sekali; missing volume harus dipulihkan secara eksplisit. Jangan prepare/bootstrap ulang data yang dipertahankan. `watch`/`--watch-token` dipakai internal oleh start.
+Daemon lokal terlepas dari sesi shell ini belum memakai systemd/cron atau HA. Proses tidak dijamin bertahan setelah mesin/snapshot cloud berpindah. `watch`/`--watch-token` dipakai internal oleh start.
 
 Tidak ada alert email/Slack/webhook, autoheal, offsite, PITR atau SLA/RPO/RTO produksi. Monitor satu host dapat mati bersama host. VPS/domain, integrasi nyata, beban, retensi, pengawasan eksternal dan restore dari media terpisah masih pending.
+
+## Sambungkan ulang staging yang tersimpan
+
+Gunakan perintah ini setelah Docker tersedia kembali dan proyek telah memiliki container serta volume yang tersimpan.
+
+```bash
+.venv/bin/python scripts/staging_reconnect.py --directory data/staging
+.venv/bin/python scripts/staging_reconnect.py --directory data/staging-recovery-20261115 --mode recovery
+```
+
+Perintah memeriksa manifest proyek, image yang dipin, volume PostgreSQL, konfigurasi container, dan hasil migrasi terakhir untuk image tersebut. Container yang berhenti dinyalakan berdasarkan ID tersimpan. Urutannya dimulai dari database sehat, dilanjutkan HTTPS, lalu worker untuk staging utama. Watcher staging utama dipakai ulang atau dimulai setelah layanan siap. Mode `recovery` hanya menyambungkan database dan web dari clone yang menahan worker.
+
+JSON `services_started` menunjukkan layanan yang dinyalakan. Daftar kosong berarti semua layanan terpilih sudah berjalan. Status `warning` menyertakan kondisi operasional yang perlu ditinjau, seperti antrean tertunda. Kegagalan identitas, konfigurasi, atau kesiapan menghasilkan exit 1. Gunakan diagnosis sesuai kondisi sumber. Untuk proyek yang kehilangan container atau volume, prosedur `up` dan pemulihan terpisah tersedia dalam [panduan staging](STAGING.md) dan [panduan pemulihan](STAGING-RECOVERY.md).
 
 ## Validasi
 

@@ -176,17 +176,21 @@ def up(directory,capture=False,timeout=120):
         return _up(directory,capture,timeout)
 
 
+def require_data_volume(project):
+    volume = docker('volume', 'inspect', project + '_postgres-data', capture=True, check=False)
+    if volume.returncode:
+        raise RuntimeError('Volume staging lama tidak tersedia; pulihkan backup, jangan membuat database pengganti diam-diam.')
+    info = json.loads(volume.stdout)[0]
+    if info.get('Labels', {}).get('com.docker.compose.project') != project:
+        raise RuntimeError('Identitas volume tidak sesuai staging ini.')
+
+
 def _up(directory,capture=False,timeout=120):
     data=manifest(directory)
     if data.get("restore_state") in {"preparing","failed"}:
         raise RuntimeError("Restore target belum berhasil; jangan menjalankan aplikasi/worker pada target ini.")
     if data.get("initialized"):
-        volume=docker("volume","inspect",data["project"]+"_postgres-data",capture=True,check=False)
-        if volume.returncode:
-            raise RuntimeError("Volume staging lama tidak tersedia; pulihkan backup, jangan membuat database pengganti diam-diam.")
-        info=json.loads(volume.stdout)[0]
-        if info.get("Labels",{}).get("com.docker.compose.project")!=data["project"]:
-            raise RuntimeError("Identitas volume tidak sesuai staging ini.")
+        require_data_volume(data['project'])
     services=["web"] if data.get("recovery_pending") else []
     compose(directory,"up","--detach","--no-build",*services,capture=capture)
     wait_ready(directory,timeout=timeout)

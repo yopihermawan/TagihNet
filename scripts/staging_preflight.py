@@ -116,7 +116,7 @@ def probe(directory,service,pins):
     return data
 
 
-def container_issues(name,obj,state,image_id):
+def container_issues(name,obj,state,image_id,*,allow_stopped=False):
     issues=[]
     def require(condition,code):
         if not condition:issues.append(code)
@@ -131,7 +131,8 @@ def container_issues(name,obj,state,image_id):
     require(type(host.get('PidsLimit')) is int and 0<host['PidsLimit']<=128,'pid_limit')
     logs=host.get('LogConfig',{})
     require(logs.get('Type')=='json-file' and logs.get('Config',{}).get('max-size')=='10m' and logs.get('Config',{}).get('max-file')=='3','log_limits')
-    ports={port:bindings for port,bindings in obj.get('NetworkSettings',{}).get('Ports',{}).items() if bindings}
+    bindings = host.get('PortBindings') if allow_stopped and running is False else obj.get('NetworkSettings',{}).get('Ports')
+    ports={port:values for port,values in (bindings or {}).items() if values}
     if name=='web':require(ports=={'8443/tcp':[{'HostIp':'127.0.0.1','HostPort':str(state['port'])}]},'published_ports')
     else:require(not ports,'published_ports')
     if name=='db':
@@ -149,7 +150,7 @@ def container_issues(name,obj,state,image_id):
     for destination,(volume,writable) in expected.items():
         mount=actual.get(destination,{})
         require(mount.get('Type')=='volume' and mount.get('Name')==state['project']+'_'+volume and mount.get('RW') is writable,'volume_identity')
-    require(running is True,'service_stopped')
+    require(running is True or (allow_stopped and running is False and obj['State'].get('Status') == 'exited'), 'service_stopped')
     return sorted(set(issues))
 
 

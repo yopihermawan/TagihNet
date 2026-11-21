@@ -640,3 +640,9 @@ Dua pemanggilan CLI pada staging utama memakai ulang `network-recovery-0018`. Is
 ## Pemeriksaan rilis dengan opsi penyiapan paket
 
 SQLite dan PostgreSQL masing-masing lulus **871 tes**. Tujuh tes baru mencakup pembuatan dan pemakaian ulang pasangan melalui pemeriksaan aktif, penyiapan yang dilewati saat antrean belum selesai, kegagalan penyiapan, pergantian metadata dan penggantian file arsip saat verifikasi, penolakan argumen atau lokasi output yang tidak tepat, serta laporan gabungan privat. [Runbook rilis](RELEASE-RUNBOOK.md#jalankan-gate-aktif)
+
+## Sambungan ulang staging yang tersimpan
+
+SQLite dan PostgreSQL masing-masing lulus **879 tes**. Delapan tes baru memeriksa urutan database → HTTPS → worker, pemakaian ulang layanan aktif, hold clone, penolakan konfigurasi atau layanan yang hilang, guard volume dan rekam migrasi, lock operasi, serta kegagalan kesiapan HTTPS sebelum worker dinyalakan.
+
+Pada 22 November WIB, CLI dijalankan pada staging utama dan clone yang sudah aktif. Pemeriksaan mencocokkan identitas container dan watcher, manifest, kebijakan, dan metadata backup. Mode aktif ditolak pada clone yang ditahan. Urutan penyalaan container yang berhenti diuji dengan fixture. Bukti privat tersimpan di `data/evidence/staging-reconnect-20261122.json`. [Panduan sambungan ulang](STAGING-OPERATIONS.md#sambungkan-ulang-staging-yang-tersimpan)
