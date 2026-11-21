@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<a class="back-link" href="{% url 'network_job_detail' job.pk %}">← Kembali ke job #{{ job.pk }}</a>
+<div class="page-heading"><div><h1>Tinjau pemulihan job</h1><p class="muted">Konfirmasi memerlukan MFA dalam 5 menit terakhir.</p></div></div>
+<section class="panel padded form-panel">
+  <dl class="definition-list">
+    <dt>Job gagal</dt><dd>#{{ job.pk }} · {{ job.customer.name }}</dd>
+    <dt>Hasil terakhir</dt><dd>{{ job.result|default:'Gagal setelah tiga percobaan.' }}</dd>
+    <dt>Alasan pemulihan</dt><dd class="work-text">{{ reason }}</dd>
+  </dl>
+  <p>Konfirmasi membuat satu job simulasi baru. Worker memeriksa izin dan kondisi pelanggan sebelum eksekusi. Job gagal tetap tercatat dalam riwayat.</p>
+  <form method="post" action="{% url 'network_retry_confirm' job.pk %}" class="stack-form">
+    {% csrf_token %}{{ form.as_p }}<button class="button primary" type="submit">Konfirmasi dan antrekan</button>
+  </form>
+</section>
+{% endblock %}

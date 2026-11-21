@@ -1,0 +1,1 @@
+<span class="pill {% if job.status == 'confirmed' %}teal{% elif job.status == 'skipped' %}neutral{% elif job.status == 'failed' %}overdue{% else %}amber{% endif %}">{{ job.get_status_display }}</span>

@@ -1,1 +1,37 @@
-{% extends 'base.html' %}{% block content %}<div class="page-heading"><div><span class="eyebrow">JARINGAN</span><h1>Rekonsiliasi layanan</h1><p class="muted">Status perintah ditampilkan terpisah dari status layanan.</p></div><div class="heading-actions">{% if "manage_isolation_schedule" in capabilities %}<a class="button" href="{% url 'isolation_schedule' %}">Jadwal isolir simulasi</a>{% endif %}<a class="button" href="{% url 'monitoring_list' %}">Monitoring simulasi</a><a class="button" href="/network/">↻ Muat ulang</a></div></div><div class="notice"><strong>Adapter simulasi aktif</strong><p>Monitoring sesi contoh tersedia terpisah. Polling router dan trafik nyata belum tersedia; tidak ada keberhasilan perangkat nyata yang diasumsikan. Jalankan worker lokal untuk memproses antrean simulasi.</p></div><section class="panel"><div class="panel-heading"><h2>Pekerjaan jaringan terbaru</h2><span class="pill neutral">Maksimal 3 percobaan / job</span></div><div class="table-scroll" tabindex="0" role="region" aria-label="Pekerjaan jaringan"><table><thead><tr><th>Pelanggan</th><th>Status perintah</th><th>Percobaan</th><th>Hasil / diperbarui</th></tr></thead><tbody>{% for job in jobs %}<tr><td>{{ job.customer.name }}{% if job.scheduled_isolation %}<small>Jadwal isolir · {{ job.scheduled_isolation.eligible_on|date:"d M Y" }}</small>{% endif %}</td><td><span class="pill {% if job.status == 'confirmed' %}teal{% elif job.status == 'skipped' %}neutral{% elif job.status == 'failed' %}overdue{% else %}amber{% endif %}">{{ job.get_status_display }}</span></td><td>{{ job.attempts }} / 3</td><td>{{ job.result|default:'Menunggu worker' }}<small>{{ job.updated_at|date:'d M Y H:i' }} WIB</small></td></tr>{% empty %}<tr><td colspan="4" class="empty">Belum ada pekerjaan. Pembayaran baru akan menjadwalkan rekonsiliasi.</td></tr>{% endfor %}</tbody></table></div></section>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-heading">
+  <div><span class="eyebrow">JARINGAN</span><h1>Rekonsiliasi layanan</h1><p class="muted">Pantau status job dan kondisi layanan simulasi.</p></div>
+  <div class="heading-actions">
+    {% if 'manage_isolation_schedule' in capabilities %}<a class="button" href="{% url 'isolation_schedule' %}">Jadwal isolir simulasi</a>{% endif %}
+    <a class="button" href="{% url 'monitoring_list' %}">Monitoring simulasi</a>
+  </div>
+</div>
+<section class="panel">
+  <div class="panel-heading"><h2>Antrean jaringan</h2></div>
+  <form method="get" class="filter-bar" aria-label="Filter antrean jaringan">
+    <div class="field search-field"><label for="network-search">Cari pelanggan, kode, atau ID job</label><input id="network-search" name="q" value="{{ search }}" maxlength="80"></div>
+    <div class="field"><label for="network-status">Status job</label><select id="network-status" name="status">
+      {% for value, label in choices %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select></div>
+    <button class="button primary" type="submit">Terapkan</button><a class="button" href="{% url 'network' %}">Reset</a>
+  </form>
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Pekerjaan jaringan">
+    <table>
+      <thead><tr><th>Job / pelanggan</th><th>Status perintah</th><th>Percobaan</th><th>Diperbarui</th></tr></thead>
+      <tbody>
+      {% for job in page %}
+        <tr>
+          <td><a href="{% url 'network_job_detail' job.pk %}"><strong>#{{ job.pk }} · {{ job.customer.name }}</strong></a>
+            <small>{% if job.retry_request %}Pemulihan #{{ job.retry_request.failed_job_id }}{% elif job.scheduled_isolation %}Jadwal isolir{% else %}Rekonsiliasi{% endif %} · {{ job.customer.code }}</small></td>
+          <td>{% include 'network/job_status.html' %}{% if job.retry_replacement %}<small>Job pemulihan #{{ job.retry_replacement.job_id }}</small>{% endif %}</td>
+          <td>{{ job.attempts }} / 3</td>
+          <td>{{ job.updated_at|date:'d M Y H:i' }} WIB</td>
+        </tr>
+      {% empty %}<tr><td colspan="4" class="empty">Tidak ada job yang cocok dengan filter ini.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include 'core/pagination.html' %}
+</section>
+{% endblock %}

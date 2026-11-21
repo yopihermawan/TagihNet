@@ -59,6 +59,14 @@ schedule=m.IsolationSchedule.objects.get(tenant=tenant)
 eligible_on=isolation_date(scheduled_invoice.due_date,3)
 assert plan_schedule(schedule.pk,datetime.combine(eligible_on,datetime.min.time(),tzinfo=ZoneInfo('Asia/Jakarta')))>0
 assert m.ScheduledIsolation.objects.filter(invoice=scheduled_invoice,schedule=schedule,job__status='pending').exists()
+from core.network_recovery import review_retry,confirm_retry
+retry_customer=m.Customer.objects.create(tenant=tenant,plan=active_plan,code='RESTORE-RETRY',
+    name='Pelanggan Pemulihan Fiktif',username='restore-retry',phone='081298760098',address='Alamat fiktif',area='Restore')
+failed_job=m.NetworkJob.objects.create(tenant=tenant,customer=retry_customer,status='failed',attempts=3,
+    result='Router simulasi tidak dapat dijangkau.')
+token=review_retry(actor,failed_job.pk,'Perangkat simulasi sudah diperiksa untuk restore.')
+replacement,created=confirm_retry(actor,failed_job.pk,token,time.time(),access_version)
+assert created and replacement.status=='pending'
 assert m.InvoiceIssuerSnapshot.objects.count()==m.Invoice.objects.count()>0
 assert m.PaymentIssuerSnapshot.objects.count()==m.Payment.objects.count()>0
 assert m.TenantIsolationPolicy.objects.get(tenant=tenant).grace_days==3
@@ -109,7 +117,12 @@ assert consent_valid(restored_schedule)
 dispatch=m.ScheduledIsolation.objects.get(invoice__customer__username='restore-isolation')
 assert dispatch.schedule_id==restored_schedule.pk and dispatch.schedule_version==restored_schedule.version
 assert dispatch.job.status=='pending' and dispatch.job.attempts==0
+from core.network_recovery import retry_authorized
+retry=m.NetworkJobRetry.objects.select_related('job','failed_job','requested_by').get(job__customer__username='restore-retry')
+assert retry.failed_job.status=='failed' and retry.failed_job.attempts==3
+assert retry.job.status=='pending' and retry.job.attempts==0 and retry_authorized(retry,retry.job)
 print('PASS: invoice and payment historical issuer rows/timestamps and PDFs restored')
 print('PASS: isolation schedule consent and pending trigger restored')
+print('PASS: network recovery approval and original failure restored')
 print('PASS: business cash/payroll/slip/commission/campaign/encrypted vouchers/topology/closing restored')
 '''

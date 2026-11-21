@@ -143,8 +143,41 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
             page.wait_for_url(schedule_url)
             expect(page.get_by_text('Jadwal nonaktif.',exact=True)).to_be_visible()
             assert ledger()==before and not failures
+            phase='network_job_recovery'
+            fixture = '''
+from core.models import Customer,NetworkJob,Tenant
+tenant=Tenant.objects.get(pk=TENANT_ID)
+customer=Customer.objects.filter(tenant=tenant).order_by('pk').first()
+NetworkJob.objects.create(tenant=tenant,customer=customer,status='failed',attempts=3,result='Router simulasi tidak dapat dijangkau.')
+'''.replace('TENANT_ID',repr(tenant_id))
+            subprocess.run([sys.executable,'manage.py','shell','-c',fixture],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
+            with sqlite3.connect(database) as db:
+                original = db.execute("SELECT MAX(id) FROM core_networkjob WHERE tenant_id=? AND status='failed'",(tenant_id,)).fetchone()[0]
+            page.goto(base+'/network/')
+            page.get_by_label('Status job').select_option('exhausted')
+            page.get_by_role('button',name='Terapkan',exact=True).click()
+            page.locator(f'a[href="/network/jobs/{original}/"]').click()
+            expect(page.get_by_text('Router simulasi tidak dapat dijangkau.',exact=True)).to_be_visible()
+            page.get_by_label('Alasan pemulihan').fill('Perangkat simulasi sudah diperiksa oleh operator.')
+            page.get_by_role('button',name='Tinjau pemulihan',exact=True).click()
+            expect(page.get_by_role('heading',name='Tinjau pemulihan job')).to_be_visible()
+            for width in (360,768,1366,1920):
+                page.set_viewport_size({'width':width,'height':1000})
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            review_token=page.locator('input[name="token"]').input_value()
+            csrf=page.locator('input[name="csrfmiddlewaretoken"]').first.input_value()
+            page.get_by_label('Saya telah meninjau job dan alasan pemulihan.').check()
+            page.get_by_role('button',name='Konfirmasi dan antrekan',exact=True).click()
+            expect(page.get_by_text('Job pemulihan diantrekan.',exact=True)).to_be_visible()
+            replay=context.request.post(base+f'/network/jobs/{original}/retry/confirm/',
+                form={'token':review_token,'reviewed':'on','csrfmiddlewaretoken':csrf},headers=headers)
+            assert replay.ok and replay.url==page.url
+            with sqlite3.connect(database) as db:
+                assert db.execute('SELECT status,attempts FROM core_networkjob WHERE id=?',(original,)).fetchone()==('failed',3)
+                assert db.execute('SELECT COUNT(*) FROM core_networkjobretry WHERE failed_job_id=?',(original,)).fetchone()==(1,)
+            assert {key:value for key,value in ledger().items() if key!='core_networkjob'}=={key:value for key,value in before.items() if key!='core_networkjob'}
             browser.close()
-        print('PASS: real MFA, billing grace, isolation schedule enable/review/confirm/disable, unchanged ledger, dark mode and four widths.',flush=True)
+        print('PASS: real MFA, billing grace, isolation schedule, network job filter/review/confirm/replay, ledger unchanged, dark mode and four widths.',flush=True)
     except Exception as error:
         raise SystemExit('Billing settings browser failed at '+phase+': '+type(error).__name__+'; no diagnostic/factors printed.') from None
     finally:

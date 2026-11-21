@@ -131,8 +131,9 @@ def candidate_customers(schedule, today):
     pending = NetworkJob.objects.filter(tenant_id=schedule.tenant_id, customer_id=OuterRef('pk'),
         status__in=['pending', 'failed'], attempts__lt=3)
     exhausted = NetworkJob.objects.filter(tenant_id=schedule.tenant_id, customer_id=OuterRef('pk'),
-        status='failed', attempts__gte=3, scheduled_isolation__schedule=schedule,
-        scheduled_isolation__schedule_version=schedule.version)
+        status='failed', attempts__gte=3, retry_replacement__isnull=True).filter(
+            Q(scheduled_isolation__schedule=schedule, scheduled_isolation__schedule_version=schedule.version)
+            | Q(retry_request__trigger__schedule=schedule, retry_request__trigger__schedule_version=schedule.version))
     invoices = eligible_invoices(schedule, today).filter(customer_id=OuterRef('pk')).order_by('due_date', 'pk')
     return Customer.objects.filter(tenant_id=schedule.tenant_id, service_state='active').filter(
         ~Exists(pending), ~Exists(exhausted)).annotate(trigger_id=Subquery(invoices.values('pk')[:1])).filter(trigger_id__isnull=False)

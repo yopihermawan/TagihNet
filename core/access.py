@@ -30,6 +30,7 @@ def save_role(actor, name, rights, role_id=None, correlation_id=None):
         "activate_installations": {"installations", "edit_customers", "issue", "invoices", "customers"},
         "reminders": {"tickets", "invoices", "customers"}, "manage_monitoring": {"network"},
         "manage_isolation_schedule": {"network"},
+        "manage_network_retries": {"network"},
         "import_customers": {"edit_customers", "customers"},
         "manage_cash": {"cash"}, "manage_team": {"team"},
         "manage_payroll": {"payroll", "team", "cash"},

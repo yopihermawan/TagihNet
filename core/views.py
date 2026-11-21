@@ -20,6 +20,7 @@ from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, w
 from .customer_profile import invoice_rows, profile_context
 from .invoice_queries import with_balances
 from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment, Tenant
+from .network_recovery import attention_jobs, scoped_jobs
 from .plan_selection import assignment_plan
 from .locations import display as location_display
 from .pdf import render_invoice
@@ -92,7 +93,7 @@ def dashboard(request):
         **{key:value or 0 for key,value in amounts.items()},**{key:value or 0 for key,value in payments.items()},**customers,
         "overdue_invoices": invoices.exclude(remaining=0).filter(due_date__lt=today).select_related('customer')[:5],
         "recent_payments": Payment.objects.filter(tenant=request.member.tenant).select_related("invoice", "invoice__customer", "reversal")[:5],
-        "open_jobs": NetworkJob.objects.filter(tenant=request.member.tenant, status__in=["pending", "failed"]).count(),
+        "open_jobs": attention_jobs(request.member.tenant_id).count(),
         "events": AuditEvent.objects.filter(tenant=request.member.tenant)[:4]}
     return render(request, "core/dashboard.html", context)
 
@@ -320,9 +321,26 @@ def payment_reverse(request, pk):
 
 
 @require("network")
+@require_GET
 def network(request):
-    return render(request, "core/network.html", {"jobs": NetworkJob.objects.filter(tenant=request.member.tenant)
-        .select_related("customer", "scheduled_isolation").order_by("-id")[:30]})
+    choices = [('', 'Semua status'), *NetworkJob._meta.get_field('status').choices,
+               ('exhausted', 'Gagal · tiga percobaan habis')]
+    status = request.GET.get('status', '')
+    search = request.GET.get('q', '').strip()[:80]
+    jobs = scoped_jobs(request.member.tenant_id)
+    if status == 'exhausted':
+        jobs = jobs.filter(status='failed', attempts__gte=3)
+    elif status and status in dict(choices):
+        jobs = jobs.filter(status=status)
+    if search:
+        condition = Q(customer__name__icontains=search) | Q(customer__code__icontains=search)
+        number = search.removeprefix('#')
+        if number.isascii() and number.isdecimal() and len(number) <= 18:
+            condition |= Q(pk=int(number))
+        jobs = jobs.filter(condition)
+    jobs = jobs.select_related('customer', 'scheduled_isolation', 'retry_request', 'retry_replacement').order_by('-pk')
+    return render(request, 'core/network.html', {'page': paginate(request, jobs), 'choices': choices,
+        'status': status, 'search': search})
 
 
 @require("audit")

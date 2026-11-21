@@ -33,7 +33,8 @@ SET LOCAL lock_timeout = '5s';
 SELECT json_build_object(
 'network_due',(SELECT count(*) FROM core_networkjob WHERE status IN ('pending','failed') AND attempts<3 AND run_after<=CURRENT_TIMESTAMP),
 'network_age',(SELECT coalesce(max(extract(epoch FROM CURRENT_TIMESTAMP-run_after)),0) FROM core_networkjob WHERE status IN ('pending','failed') AND attempts<3 AND run_after<=CURRENT_TIMESTAMP),
-'network_failed',(SELECT count(*) FROM core_networkjob WHERE status='failed' AND attempts>=3),
+'network_failed',(SELECT count(*) FROM core_networkjob n WHERE n.status='failed' AND n.attempts>=3 AND NOT EXISTS (
+  SELECT 1 FROM core_networkjob later WHERE later.tenant_id=n.tenant_id AND later.customer_id=n.customer_id AND later.id>n.id)),
 'billing_due',(SELECT count(*) FROM core_billingbatch WHERE status IN ('queued','processing')),
 'billing_age',(SELECT greatest(0,coalesce(max(extract(epoch FROM CURRENT_TIMESTAMP-coalesce(confirmed_at,created_at))),0)) FROM core_billingbatch WHERE status IN ('queued','processing')),
 'reminder_due',(SELECT count(*) FROM core_reminder WHERE status IN ('pending','failed') AND attempts<3 AND next_attempt_at<=CURRENT_TIMESTAMP),

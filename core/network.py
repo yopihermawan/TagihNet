@@ -8,7 +8,8 @@ from .billing import audit, retry_locked
 from .invoice_queries import with_balances
 from .isolation import invoice_grace_days, isolation_date
 from .isolation_schedule import consent_valid
-from .models import Customer, Invoice, NetworkJob, ScheduledIsolation, Tenant
+from .models import Customer, Invoice, NetworkJob, NetworkJobRetry, ScheduledIsolation, Tenant
+from .network_recovery import retry_authorized
 
 class SimulationAdapter:
     def reconcile(self, customer, desired):
@@ -34,26 +35,36 @@ def scheduled_skip_reason(dispatch, job, customer, today):
     return ''
 
 
+def skip_job(job, reason):
+    job.status, job.result = 'skipped', reason
+    job.save(update_fields=['status', 'result', 'updated_at'])
+    audit(job.tenant, None, 'network.skipped', job.customer_id, reason)
+    return job
+
+
 @retry_locked
 @transaction.atomic
 def run_job(job_id):
-    scheduled_tenant = ScheduledIsolation.objects.filter(job_id=job_id).values_list('job__tenant_id', flat=True).first()
-    if scheduled_tenant is not None:
+    tenant_id, trigger_id, retry_id = NetworkJob.objects.values_list(
+        'tenant_id', 'scheduled_isolation__pk', 'retry_request__pk').get(pk=job_id)
+    if trigger_id is not None or retry_id is not None:
         # The same tenant lock serializes approvals, revocation and new payment writes.
-        Tenant.objects.select_for_update(no_key=True).get(pk=scheduled_tenant)
+        Tenant.objects.select_for_update(no_key=True).get(pk=tenant_id)
     job = NetworkJob.objects.select_for_update().get(pk=job_id)
     if job.status in {"confirmed", "skipped"} or job.attempts >= 3 or job.run_after > timezone.now():
         return job
     customer = Customer.objects.select_for_update().get(tenant=job.tenant, pk=job.customer_id)
     today = timezone.localdate()
-    if scheduled_tenant is not None:
-        dispatch = ScheduledIsolation.objects.select_related('schedule__authorized_by', 'invoice__isolation_terms').get(job=job)
+    if retry_id is not None:
+        retry = NetworkJobRetry.objects.select_related('requested_by').get(pk=retry_id, job=job)
+        if not retry_authorized(retry, job):
+            return skip_job(job, 'Persetujuan pemulihan berubah atau dicabut.')
+        trigger_id = retry.trigger_id
+    if trigger_id is not None:
+        dispatch = ScheduledIsolation.objects.select_related('schedule__authorized_by', 'invoice__isolation_terms').get(pk=trigger_id)
         skip_reason = scheduled_skip_reason(dispatch, job, customer, today)
         if skip_reason:
-            job.status, job.result = 'skipped', skip_reason
-            job.save(update_fields=['status', 'result', 'updated_at'])
-            audit(job.tenant, None, 'network.skipped', customer.pk, skip_reason)
-            return job
+            return skip_job(job, skip_reason)
         desired = 'isolated'
     else:
         # Payment, reversal and provisioning jobs reconcile all current debt.
@@ -69,7 +80,7 @@ def run_job(job_id):
         job.result = f"Simulasi terkonfirmasi: {customer.get_service_state_display()}. Tidak ada router nyata diubah."
     except (ConnectionError, ValidationError):
         job.status = "failed"
-        job.result = "Adapter gagal; pembayaran tetap tercatat. Retry maksimal 3 kali."
+        job.result = "Router simulasi tidak dapat dijangkau." if not customer.router_available else "Adapter simulasi tidak tersedia."
         job.run_after = timezone.now() + timedelta(seconds=30 * 2 ** (job.attempts - 1))
     job.save()
     audit(job.tenant, None, "network." + job.status, customer.pk, job.result)
