@@ -604,3 +604,11 @@ SQLite dan PostgreSQL masing-masing lulus **829 tes**. Sebelas tes baru mencakup
 Schema `0018_network_recovery` menambah satu tabel, satu content type, empat permission dan satu migration recorder. Arsip `0017` dipulihkan dan diuji migrasinya pada salinan SQLite maupun PostgreSQL. Database pengembangan diperbarui setelah bukti salinan lulus, lalu salinan backup `0018` dipulihkan identik.
 
 Staging utama dan clone recovery memakai image `sha256:6dd6682ac1c15188b8905745a6f50534d2dfd8570ed12e451903762511013acc` dan digest `78515d202c8049e82e0fd05a03e99f430f252b0d35f30410eb5019717bddf6fd`. Rekonsiliasi mencocokkan data lama dan kunci, dengan tabel pemulihan baru kosong. Worker clone tetap ditahan. Pembuatan backup baru sempat tertunda karena ruang habis saat proyek uji aktif. Setelah proyek tersebut dibersihkan, backup `TagihNet-post-network-recovery-0018.tnbk` terautentikasi, paket recovery diekspor, dan watcher kembali sehat. Bukti privat memakai awalan `data/evidence/network-recovery-`.
+
+## Skenario router simulasi
+
+Detail job menampilkan ketersediaan router simulasi. Operator berizin dapat mengubah skenario dengan alasan, tinjauan dan MFA. Tujuh tes mencakup batas ISP, akses kustom, CSRF, MFA, tinjauan usang setelah status dikembalikan, rollback audit, dan eksekusi tiga percobaan gagal yang diikuti pemulihan sukses. Suite SQLite dan PostgreSQL masing-masing lulus **836 tes**. Pemeriksaan migrasi mengonfirmasi skema tetap `0018_network_recovery`.
+
+Chromium memakai login dan MFA dengan data demo untuk memperbaiki skenario, menguji pengiriman ulang, lalu mengantrekan pemulihan. Seluruh baris ledger cocok dengan baseline. Tinjauan lulus pemeriksaan lebar 360, 768, 1366, dan 1920 piksel. [Panduan pemulihan job](NETWORK-RECOVERY.md)
+
+Pengembangan, staging utama, dan clone pemulihan diperbarui dengan skema yang sama. Rekonsiliasi mencocokkan semua baris, sequence, riwayat migrasi, dan kunci. Watcher staging aktif dan worker clone tetap ditahan. Bukti privat memakai awalan `data/evidence/router-simulation-`.

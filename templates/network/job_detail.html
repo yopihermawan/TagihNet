@@ -8,6 +8,7 @@
     <dl class="definition-list">
       <dt>Status perintah</dt><dd>{% include 'network/job_status.html' %}</dd>
       <dt>Layanan saat ini</dt><dd>{{ job.customer.get_service_state_display }} · simulasi</dd>
+      <dt>Router simulasi</dt><dd>{{ job.customer.router_available|yesno:'Dapat dijangkau,Tidak dapat dijangkau' }}</dd>
       <dt>Percobaan</dt><dd>{{ job.attempts }} / 3</dd>
       <dt>Hasil terakhir</dt><dd>{{ job.result|default:'Menunggu worker.' }}</dd>
       <dt>Diperbarui</dt><dd>{{ job.updated_at|date:'d M Y H:i' }} WIB</dd>
@@ -23,6 +24,7 @@
         <dt>Job pemulihan</dt><dd><a href="{% url 'network_job_detail' job.retry_replacement.job_id %}">#{{ job.retry_replacement.job_id }}</a></dd>
       {% endif %}
     </dl>
+    {% if can_edit_simulation %}<a class="button secondary" href="{% url 'network_router_scenario' job.pk %}">Ubah skenario router simulasi</a>{% endif %}
   </section>
   {% if can_retry or blocked or form.errors %}
     <section class="panel padded">
@@ -30,7 +32,6 @@
       {% if blocked %}<p class="info-note">{{ blocked }}</p>{% endif %}
       {% if can_retry %}
         <p>Periksa penyebab kegagalan sebelum membuat job pemulihan.</p>
-        {% if not job.customer.router_available %}<p class="info-note">Router simulasi pelanggan masih ditandai tidak dapat dijangkau.</p>{% endif %}
         <form method="post" action="{% url 'network_retry_review' job.pk %}" class="stack-form">
           {% csrf_token %}{{ form.as_p }}<button class="button primary" type="submit">Tinjau pemulihan</button>
         </form>

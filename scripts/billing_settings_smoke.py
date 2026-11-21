@@ -148,6 +148,9 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
 from core.models import Customer,NetworkJob,Tenant
 tenant=Tenant.objects.get(pk=TENANT_ID)
 customer=Customer.objects.filter(tenant=tenant).order_by('pk').first()
+assert customer.router_available
+customer.router_available=False
+customer.save(update_fields=['router_available'])
 NetworkJob.objects.create(tenant=tenant,customer=customer,status='failed',attempts=3,result='Router simulasi tidak dapat dijangkau.')
 '''.replace('TENANT_ID',repr(tenant_id))
             subprocess.run([sys.executable,'manage.py','shell','-c',fixture],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
@@ -158,6 +161,28 @@ NetworkJob.objects.create(tenant=tenant,customer=customer,status='failed',attemp
             page.get_by_role('button',name='Terapkan',exact=True).click()
             page.locator(f'a[href="/network/jobs/{original}/"]').click()
             expect(page.get_by_text('Router simulasi tidak dapat dijangkau.',exact=True)).to_be_visible()
+            expect(page.get_by_text('Tidak dapat dijangkau',exact=True)).to_be_visible()
+            phase='router_simulation'
+            jobs_before=ledger()['core_networkjob']
+            page.get_by_role('link',name='Ubah skenario router simulasi').click()
+            page.get_by_label('Kondisi router simulasi').select_option('1')
+            page.get_by_label('Alasan perubahan').fill('Konektivitas router simulasi sudah diperiksa.')
+            page.get_by_role('button',name='Tinjau skenario',exact=True).click()
+            expect(page.get_by_role('heading',name='Tinjau skenario router simulasi')).to_be_visible()
+            for width in (360,768,1366,1920):
+                page.set_viewport_size({'width':width,'height':1000})
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            scenario_token=page.locator('input[name="token"]').input_value()
+            scenario_csrf=page.locator('input[name="csrfmiddlewaretoken"]').first.input_value()
+            page.get_by_label('Saya telah meninjau perubahan skenario router.').check()
+            page.get_by_role('button',name='Simpan skenario',exact=True).click()
+            expect(page.get_by_text('Skenario router simulasi disimpan.',exact=True)).to_be_visible()
+            expect(page.get_by_text('Dapat dijangkau',exact=True)).to_be_visible()
+            assert ledger()['core_networkjob']==jobs_before
+            replay=context.request.post(base+f'/network/jobs/{original}/router-simulation/confirm/',
+                form={'token':scenario_token,'reviewed':'on','csrfmiddlewaretoken':scenario_csrf},headers=headers)
+            assert replay.status==409
+            phase='network_job_recovery'
             page.get_by_label('Alasan pemulihan').fill('Perangkat simulasi sudah diperiksa oleh operator.')
             page.get_by_role('button',name='Tinjau pemulihan',exact=True).click()
             expect(page.get_by_role('heading',name='Tinjau pemulihan job')).to_be_visible()
@@ -175,9 +200,10 @@ NetworkJob.objects.create(tenant=tenant,customer=customer,status='failed',attemp
             with sqlite3.connect(database) as db:
                 assert db.execute('SELECT status,attempts FROM core_networkjob WHERE id=?',(original,)).fetchone()==('failed',3)
                 assert db.execute('SELECT COUNT(*) FROM core_networkjobretry WHERE failed_job_id=?',(original,)).fetchone()==(1,)
+                assert db.execute("SELECT COUNT(*) FROM core_auditevent WHERE action='network.router_simulation_changed'").fetchone()==(1,)
             assert {key:value for key,value in ledger().items() if key!='core_networkjob'}=={key:value for key,value in before.items() if key!='core_networkjob'}
             browser.close()
-        print('PASS: real MFA, billing grace, isolation schedule, network job filter/review/confirm/replay, ledger unchanged, dark mode and four widths.',flush=True)
+        print('PASS: real MFA, billing grace, isolation schedule, reviewed router repair and job recovery, replay protection, ledger unchanged, dark mode and four widths.',flush=True)
     except Exception as error:
         raise SystemExit('Billing settings browser failed at '+phase+': '+type(error).__name__+'; no diagnostic/factors printed.') from None
     finally:

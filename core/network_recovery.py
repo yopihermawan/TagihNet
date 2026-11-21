@@ -59,7 +59,7 @@ def blocked_reason(job, customer=None):
 
 def clean_reason(reason):
     if not isinstance(reason, str):
-        raise ValidationError('Isi alasan pemulihan yang valid.')
+        raise ValidationError('Isi alasan yang valid.')
     reason = reason.strip()
     if not 10 <= len(reason) <= 160 or not reason.isprintable():
         raise ValidationError('Alasan harus 10–160 karakter teks satu baris.')

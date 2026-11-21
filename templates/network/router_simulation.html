@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<a class="back-link" href="{% url 'network_job_detail' job.pk %}">← Kembali ke job #{{ job.pk }}</a>
+<div class="page-heading"><div><h1>Ubah skenario router simulasi</h1><p class="muted">{{ job.customer.name }} · {{ job.customer.code }}</p></div></div>
+<section class="panel padded form-panel">
+  <dl class="definition-list">
+    <dt>Kondisi saat ini</dt><dd>{{ job.customer.router_available|yesno:'Dapat dijangkau,Tidak dapat dijangkau' }}</dd>
+  </dl>
+  <p>Worker memakai skenario ini saat menjalankan job pelanggan. Untuk job yang sudah gagal tiga kali, ajukan pemulihan dari halaman detail job.</p>
+  <form method="post" class="stack-form">
+    {% csrf_token %}{{ form.as_p }}<button class="button primary" type="submit">Tinjau skenario</button>
+  </form>
+</section>
+{% endblock %}

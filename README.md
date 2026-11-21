@@ -35,7 +35,7 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 - [Identitas penerbit historis](docs/DOCUMENT-ISSUERS.md): nama/alamat ISP disimpan terpisah saat faktur diterbitkan dan pembayaran dicatat; cetak ulang konsisten, dokumen lama diberi penjelasan tanpa backfill.
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.
 - Jadwal isolir **simulasi** yang bisa diaktifkan melalui tinjauan dan MFA. Worker meninjau kembali saldo dan izin sebelum memproses job. [Panduan jadwal isolir](docs/ISOLATION-SCHEDULER.md)
-- Antrean rekonsiliasi jaringan **simulasi** dengan filter status, detail job, dan pemulihan job gagal lewat tinjauan MFA. [Panduan pemulihan](docs/NETWORK-RECOVERY.md) Pembayaran tetap tercatat bila adapter gagal.
+- Antrean rekonsiliasi jaringan **simulasi** dengan filter status, skenario router per pelanggan, dan pemulihan job gagal lewat tinjauan MFA. Pembayaran tetap tercatat bila adapter gagal. [Panduan pemulihan](docs/NETWORK-RECOVERY.md)
 - Monitoring NAS simulasi: snapshot sesi PPPoE contoh, waktu sumber, status segar/kedaluwarsa/gagal, ringkasan dengan cakupan, dan histori tanpa angka nol palsu.
 - [Foto privat pekerjaan](docs/WORK-PHOTOS.md): JPG/PNG terverifikasi, metadata dihapus, scope penugasan/portal/internal, unduhan berizin dan backup database mencakup binary.
 - Tiket gangguan/portal, prioritas/kategori/SLA snapshot, komentar publik/internal, penugasan dan timeline.

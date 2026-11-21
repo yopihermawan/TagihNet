@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<a class="back-link" href="{% url 'network_router_scenario' job.pk %}">← Kembali ke skenario router</a>
+<div class="page-heading"><div><h1>Tinjau skenario router simulasi</h1><p class="muted">Konfirmasi memerlukan MFA dalam 5 menit terakhir.</p></div></div>
+<section class="panel padded form-panel">
+  <dl class="definition-list">
+    <dt>Pelanggan</dt><dd>{{ job.customer.name }} · {{ job.customer.code }}</dd>
+    <dt>Sebelum</dt><dd>{{ before }}</dd>
+    <dt>Sesudah</dt><dd>{{ after }}</dd>
+    <dt>Alasan perubahan</dt><dd class="work-text">{{ reason }}</dd>
+  </dl>
+  <form method="post" action="{% url 'network_router_scenario_confirm' job.pk %}" class="stack-form">
+    {% csrf_token %}{{ form.as_p }}<button class="button primary" type="submit">Simpan skenario</button>
+  </form>
+</section>
+{% endblock %}

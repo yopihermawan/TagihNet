@@ -61,6 +61,8 @@ Edit identitas/paket dan jadwal ulang PSB menggunakan `installations`, bukan `fi
 
 `network` memberi akses list/detail/history dan POST pengambilan snapshot yang dibatasi interval. Owner/NOC memilikinya secara bawaan. NOC tidak boleh membuat/mengubah konfigurasi. `manage_monitoring` tersedia untuk Owner atau role kustom dengan prasyarat `network`; penyimpanan memerlukan MFA <=5 menit dan versi sesi/form yang berlaku. Semua lookup perangkat/snapshot mengambil tenant dari membership, bukan POST.
 
+`manage_router_simulation` memberi izin mengubah ketersediaan router simulasi pelanggan dari detail job. `manage_network_retries` memberi izin mengantrekan pemulihan job. Owner memiliki kedua izin secara bawaan. Owner dapat mendelegasikan masing-masing izin kepada peran kustom dengan akses `network`. Kedua tindakan memerlukan tinjauan, MFA dalam lima menit terakhir, dan audit. [Panduan pemulihan](NETWORK-RECOVERY.md)
+
 Worker memeriksa persetujuan konfigurasi terhadap akun aktif, ISP, capability dan session_version. Perubahan izin menahan pengambilan; ringkasan langsung mengecualikan snapshotnya sebelum worker berjalan. Simpan ulang konfigurasi dengan MFA memulai versi baru. Teknisi/pelanggan/preset finansial tidak mendapat akses monitoring secara bawaan. Tidak ada secret router atau endpoint target jaringan yang dapat dimasukkan.
 
 ## Backend database
