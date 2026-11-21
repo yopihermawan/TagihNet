@@ -45,6 +45,12 @@ SQLite memiliki retry transaksi untuk konflik lock lokal; itu bukan pengganti lo
 
 `GET /health/` menjalankan `SELECT 1` dan hanya mengembalikan status/mode. Audit memuat ID korelasi, actor, tenant, action, target dan detail terpilih tanpa password/cookie. Log worker hanya ID/status/attempts. Retensi audit/attempts/email lokal harus dikonfigurasi; log append-only via aplikasi belum tahan perubahan administrator database.
 
+## Jejak audit
+
+Buka **Pengaturan & akun → Jejak audit** untuk menelusuri aktivitas ISP. Peran Owner dan operator yang memperoleh izin `audit` dapat membaca hasil. Tanggal awal dan akhir bersifat inklusif dalam WIB. Gabungkan filter untuk mempersempit hasil. Gunakan kelompok seperti `network` atau aksi lengkap seperti `network.router_simulation_changed`. Username, target, dan ID korelasi dicocokkan sebagai nilai utuh.
+
+Klik **Jejak audit router** pada detail job untuk menemukan perubahan skenario pelanggan. Klik **Jejak audit batch** pada detail faktur massal untuk melihat rangkaian pratinjau, persetujuan dan penerbitan. Pilih ID korelasi pada baris audit untuk menelusuri rangkaian yang sama, atau tempel ID dari header `X-Correlation-ID` jika tersedia.
+
 ## Secret, TLS, dan deployment berikutnya
 
 - Tetapkan `TAGIHNET_DEBUG=0`, secret key acak minimal 50 karakter, TAGIHNET_MFA_KEY Fernet terpisah, host yang eksplisit, SMTP/TLS, dan cookie Secure. Settings tanpa secret ditolak saat DEBUG off. `check --deploy` harus dijalankan pada konfigurasi target HTTPS.

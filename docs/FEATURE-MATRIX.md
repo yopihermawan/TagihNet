@@ -40,14 +40,14 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Marketing/promo | Kampanye bertanggal dan publikasi opt-in, paket aktif/harga katalog terkini, halaman publik UUID/telepon manual | 4 · implemented lokal; otomasi marketing/kanal pesan pending |
 | Topologi ODC/ODP | Inventaris induk/kapasitas/lokasi, port unik per pelanggan, pemindahan/pencabutan, baca NOC tanpa finansial | 4 · implemented lokal; verifikasi lapangan/OLT provisioning pending |
 | Impor/ekspor pelanggan | CSV UTF-8 <=200 baris/128 KiB, preview privat/MFA/atomic create-only, laporan formula-safe; ekspor <=10.000 baris | 4 · implemented lokal; lampiran/binary import pending |
-| Audit | Pelaku/tenant/target/aksi/detail/correlation ID; read-only via aplikasi | 2 · implemented; WORM/retensi pending |
+| Audit | Filter tanggal WIB, username, aksi/kelompok aksi, target dan ID korelasi per ISP. Tautan dari batch faktur dan job router simulasi | 2 · implemented lokal; WORM/retensi pending |
 | Auth | CSRF, hashing PBKDF2 Django, rate limit DB, reset sekali pakai, idle/absolute expiry | 2 · implemented |
 | MFA dan editor role | TOTP wajib operator, QR lokal, secret Fernet, recovery sekali pakai, step-up, editor akun/peran owner | 2 · implemented lokal |
 | Keamanan akun mandiri | Ubah sandi dengan sandi lama/MFA/CSRF/rate limit, pemeriksaan sesi dalam transaksi, pencabutan sesi dan audit | 4 · implemented lokal |
 | Profil mandiri | Nama tampilan sendiri, informasi akun, token sesi/snapshot15menit, konflik bersamaan, audit atomik; sandi/MFA/akses dan consent tetap | 4 · implemented lokal; perubahan username/email/avatar pending |
 | Scope wilayah geografis | Penugasan teknisi tersedia; batas wilayah geografis belum tersedia | 4 · pending |
 | Backup/restore | AES-256-GCM streaming SQLite/PG, kunci terpisah, verify, target kosong/no-clobber, restore ledger+MFA | 5 · implemented lokal; offsite/retensi/PITR pending |
-| Backend PostgreSQL | Role non-superuser lab, 836 tes per backend. Migrasi pemulihan job `0018` diuji dari backup `0017` sebelum diterapkan ke staging lokal | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
+| Backend PostgreSQL | Role non-superuser lab, 843 tes per backend. Migrasi pemulihan job `0018` diuji dari backup `0017` sebelum diterapkan ke staging lokal | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
 | Staging lokal | Gunicorn HTTPS/WhiteNoise, PG verify-full, migrator/runtime terpisah, secret file, non-root/read-only, restart worker, bootstrap/MFA dan guard volume | 5 · implemented lokal; simulasi; VPS/domain/kapasitas/offsite pending |
 | Recovery staging | Backup streaming AES-GCM, fresh-project SQL restore, identitas/empty/key/lock guards, sesi baru, MFA tetap, worker hold/review dan rekonsiliasi tabel/sequence | 5 · implemented lokal; offsite/PITR/RPO/RTO pending |
 | Operasi staging | HTTPS/SQL/sertifikat/loop heartbeat/antrean, log transisi privat, watcher lokal dan backup periodik opt-in terautentikasi | 5 · implemented lokal; alert eksternal/systemd/offsite/retensi pending |

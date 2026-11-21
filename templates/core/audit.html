@@ -1,1 +1,39 @@
-{% extends 'base.html' %}{% block content %}<div class="page-heading"><div><span class="eyebrow">PENGATURAN</span><h1>Jejak audit</h1><p class="muted">Riwayat tindakan pada ISP Anda. Tidak tersedia pengubahan atau penghapusan melalui aplikasi.</p></div></div><section class="panel"><div class="table-scroll" tabindex="0" role="region" aria-label="Jejak audit"><table><thead><tr><th>Waktu (WIB)</th><th>Pelaku</th><th>Aksi / target</th><th>Keterangan</th></tr></thead><tbody>{% for event in page %}<tr><td>{{ event.created_at|date:'d M Y H:i:s' }}</td><td>{{ event.actor.username|default:'Worker sistem' }}</td><td><strong>{{ event.action }}</strong><small>Target: {{ event.target }}</small></td><td>{{ event.detail }}<small class="correlation">{{ event.correlation_id }}</small></td></tr>{% empty %}<tr><td colspan="4" class="empty">Belum ada aktivitas.</td></tr>{% endfor %}</tbody></table></div>{% include 'core/pagination.html' %}</section>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-heading"><div><h1>Jejak audit</h1><p class="muted">Riwayat tindakan pada ISP Anda.</p></div></div>
+<section class="panel">
+  <form method="get" class="filter-bar audit-filters" aria-label="Filter jejak audit">
+    {% if page.paginator.per_page %}<input type="hidden" name="size" value="{{ page.paginator.per_page }}">{% endif %}
+    {% for field in form %}
+      <div class="field">
+        {{ field.label_tag }}{{ field }}{{ field.errors }}
+      </div>
+    {% endfor %}
+    <div class="audit-filter-actions">
+      <button class="button primary" type="submit">Terapkan filter</button>
+      <a class="button" href="{% url 'audit' %}">Reset</a>
+    </div>
+  </form>
+  {% if not form.errors %}
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Hasil jejak audit">
+      <table>
+        <thead><tr><th scope="col">Waktu (WIB)</th><th scope="col">Pelaku</th><th scope="col">Aksi dan target</th><th scope="col">Keterangan</th><th scope="col">ID korelasi</th></tr></thead>
+        <tbody>
+          {% for event in page %}
+            <tr>
+              <td><time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:'d M Y H:i:s' }}</time></td>
+              <td>{{ event.actor.username|default:'Worker sistem' }}</td>
+              <td><strong>{{ event.action }}</strong><small>Target {{ event.target }}</small></td>
+              <td>{{ event.detail|default:'—' }}</td>
+              <td><a class="audit-correlation" href="{% url 'audit' %}?correlation_id={{ event.correlation_id }}" aria-label="Lihat rangkaian audit {{ event.correlation_id }}">{{ event.correlation_id }}</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5" class="empty">{% if form.has_changed %}Tidak ada aktivitas yang cocok dengan filter ini.{% else %}Belum ada aktivitas.{% endif %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'core/pagination.html' %}
+  {% endif %}
+</section>
+{% endblock %}

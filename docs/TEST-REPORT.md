@@ -612,3 +612,9 @@ Detail job menampilkan ketersediaan router simulasi. Operator berizin dapat meng
 Chromium memakai login dan MFA dengan data demo untuk memperbaiki skenario, menguji pengiriman ulang, lalu mengantrekan pemulihan. Seluruh baris ledger cocok dengan baseline. Tinjauan lulus pemeriksaan lebar 360, 768, 1366, dan 1920 piksel. [Panduan pemulihan job](NETWORK-RECOVERY.md)
 
 Pengembangan, staging utama, dan clone pemulihan diperbarui dengan skema yang sama. Rekonsiliasi mencocokkan semua baris, sequence, riwayat migrasi, dan kunci. Watcher staging aktif dan worker clone tetap ditahan. Bukti privat memakai awalan `data/evidence/router-simulation-`.
+
+## Pencarian jejak audit
+
+SQLite dan PostgreSQL masing-masing lulus **843 tes**. Tujuh tes baru mencakup batas ISP meski ID korelasi sama, peran kustom `audit`, rentang WIB hingga mikrodetik, kombinasi filter, filter tidak valid, urutan halaman, dan tautan dari job serta batch. Pemeriksaan migrasi mengonfirmasi skema tetap `0018_network_recovery`.
+
+Chromium menjalankan alur MFA, perubahan skenario router, dan pembukaan catatan audit dari detail job. Filter ID korelasi, kondisi kosong, pesan validasi, dan tata letak pada 360, 768, 1366, serta 1920 piksel lulus. Data ledger demo cocok sebelum dan sesudah. [Panduan audit](OPERATIONS.md#jejak-audit)

@@ -25,6 +25,7 @@
       {% endif %}
     </dl>
     {% if can_edit_simulation %}<a class="button secondary" href="{% url 'network_router_scenario' job.pk %}">Ubah skenario router simulasi</a>{% endif %}
+    {% if 'audit' in capabilities %}<a class="button" href="{% url 'audit' %}?action=network.router_simulation_changed&amp;target={{ job.customer_id|urlencode }}">Jejak audit router</a>{% endif %}
   </section>
   {% if can_retry or blocked or form.errors %}
     <section class="panel padded">

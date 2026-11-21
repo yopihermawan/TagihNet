@@ -343,11 +343,6 @@ def network(request):
         'status': status, 'search': search})
 
 
-@require("audit")
-def audit_log(request):
-    return render(request, "core/audit.html", {"page": paginate(request, AuditEvent.objects.filter(tenant=request.member.tenant).select_related("actor"))})
-
-
 @require("portal")
 def portal(request):
     return render(request, "core/portal.html", {"customer": request.member.customer,

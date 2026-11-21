@@ -1,5 +1,6 @@
 from django.contrib.auth import views as auth
 from django.urls import path
+from core import audit_views as audits
 from core import customer_import_views as customer_import
 from core import plan_views as plans
 from core import report_views as reports
@@ -108,7 +109,7 @@ urlpatterns = [
     path("network/isolation-schedule/confirm/", isolation_schedules.schedule_confirm, name="isolation_schedule_confirm"),
     path("settings/billing/", billing_settings.billing_settings, name="billing_settings"),
     path("settings/billing/confirm/", billing_settings.billing_settings_confirm, name="billing_settings_confirm"),
-    path("audit/", views.audit_log, name="audit"),
+    path("audit/", audits.audit_log, name="audit"),
     path("portal/", views.portal, name="portal"),
     path("operations/tickets/", operations.ticket_list, name="ticket_list"),
     path("operations/tickets/new/", operations.ticket_create, name="ticket_create"),

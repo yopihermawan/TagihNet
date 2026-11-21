@@ -4,7 +4,7 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-network-recovery` dan mencakup billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-audit-search` dan mencakup billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Staging lokal
 
@@ -45,7 +45,8 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 - Preset Teknisi dengan akses hanya pada pekerjaan yang ditugaskan, tanpa daftar pelanggan atau nominal billing.
 - [Kas, payroll, sales, voucher dan topologi](docs/LOCAL-OPERATIONS.md): alur lokal dengan tinjauan/MFA, idempotensi, koreksi historis, slip sendiri, prospek menjadi PSB, kampanye opt-in, voucher terenkripsi/PDF privat dan port ODP berkapasitas.
 - Backup CLI terenkripsi dengan kunci terpisah, autentikasi arsip, penolakan target berisi data, serta restore drill ledger dan MFA.
-- Mode terang/gelap, navigasi mobile, fallback peta eksternal, dan jejak audit.
+- Jejak audit per ISP dengan filter tanggal, pelaku, aksi, target, dan ID korelasi. Detail batch dan job menautkan catatan terkait. [Panduan audit](docs/OPERATIONS.md#jejak-audit)
+- Mode terang/gelap, navigasi mobile dan fallback peta eksternal.
 
 [FEATURE-MATRIX](docs/FEATURE-MATRIX.md) merinci fungsi yang selesai, terbatas, dan belum dibuat. [Modul operasional lokal](docs/LOCAL-OPERATIONS.md) kini mencakup kas/dana/pengeluaran/tutup buku, tim/payroll/slip sendiri, sales/prospek/komisi/kampanye, voucher hotspot simulasi dan topologi ODC/ODP/port pelanggan. Gateway pembayaran, MikroTik/RADIUS nyata, scope wilayah geografis, kanal notifikasi nyata dan migrasi produksi tetap belum tersedia.
 

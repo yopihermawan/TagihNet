@@ -182,7 +182,29 @@ NetworkJob.objects.create(tenant=tenant,customer=customer,status='failed',attemp
             replay=context.request.post(base+f'/network/jobs/{original}/router-simulation/confirm/',
                 form={'token':scenario_token,'reviewed':'on','csrfmiddlewaretoken':scenario_csrf},headers=headers)
             assert replay.status==409
+            phase='audit_search'
+            page.get_by_role('link',name='Jejak audit router',exact=True).click()
+            expect(page.get_by_role('heading',name='Jejak audit')).to_be_visible()
+            expect(page.get_by_label('Aksi atau kelompok aksi')).to_have_value('network.router_simulation_changed')
+            expect(page.get_by_text('Konektivitas router simulasi sudah diperiksa.',exact=False)).to_be_visible()
+            for width in (360,768,1366,1920):
+                page.set_viewport_size({'width':width,'height':1000})
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            trace=page.get_by_role('link',name='Lihat rangkaian audit',exact=False)
+            expect(trace).to_have_count(1)
+            correlation=trace.text_content()
+            trace.click()
+            expect(page.get_by_label('ID korelasi')).to_have_value(correlation)
+            page.get_by_label('Username pelaku').fill('tidak-ada')
+            page.get_by_role('button',name='Terapkan filter').click()
+            expect(page.get_by_text('Tidak ada aktivitas yang cocok dengan filter ini.')).to_be_visible()
+            page.get_by_label('ID korelasi').fill('tidak-valid')
+            with page.expect_navigation() as invalid:
+                page.get_by_role('button',name='Terapkan filter').click()
+            assert invalid.value.status==400
+            expect(page.locator('#id_correlation_id_error')).to_be_visible()
             phase='network_job_recovery'
+            page.goto(base+f'/network/jobs/{original}/')
             page.get_by_label('Alasan pemulihan').fill('Perangkat simulasi sudah diperiksa oleh operator.')
             page.get_by_role('button',name='Tinjau pemulihan',exact=True).click()
             expect(page.get_by_role('heading',name='Tinjau pemulihan job')).to_be_visible()
@@ -203,7 +225,7 @@ NetworkJob.objects.create(tenant=tenant,customer=customer,status='failed',attemp
                 assert db.execute("SELECT COUNT(*) FROM core_auditevent WHERE action='network.router_simulation_changed'").fetchone()==(1,)
             assert {key:value for key,value in ledger().items() if key!='core_networkjob'}=={key:value for key,value in before.items() if key!='core_networkjob'}
             browser.close()
-        print('PASS: real MFA, billing grace, isolation schedule, reviewed router repair and job recovery, replay protection, ledger unchanged, dark mode and four widths.',flush=True)
+        print('PASS: real MFA, billing settings, isolation schedule, router repair, audit filters and trace, job recovery, ledger, dark mode and four widths.',flush=True)
     except Exception as error:
         raise SystemExit('Billing settings browser failed at '+phase+': '+type(error).__name__+'; no diagnostic/factors printed.') from None
     finally:
