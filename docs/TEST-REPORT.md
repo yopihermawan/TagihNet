@@ -646,3 +646,9 @@ SQLite dan PostgreSQL masing-masing lulus **871 tes**. Tujuh tes baru mencakup p
 SQLite dan PostgreSQL masing-masing lulus **879 tes**. Delapan tes baru memeriksa urutan database → HTTPS → worker, pemakaian ulang layanan aktif, hold clone, penolakan konfigurasi atau layanan yang hilang, guard volume dan rekam migrasi, lock operasi, serta kegagalan kesiapan HTTPS sebelum worker dinyalakan.
 
 Pada 22 November WIB, CLI dijalankan pada staging utama dan clone yang sudah aktif. Pemeriksaan mencocokkan identitas container dan watcher, manifest, kebijakan, dan metadata backup. Mode aktif ditolak pada clone yang ditahan. Urutan penyalaan container yang berhenti diuji dengan fixture. Bukti privat tersimpan di `data/evidence/staging-reconnect-20261122.json`. [Panduan sambungan ulang](STAGING-OPERATIONS.md#sambungkan-ulang-staging-yang-tersimpan)
+
+## Penyerahan rilis lokal ke main
+
+SQLite dan PostgreSQL masing-masing lulus **879 tes**. Uji PostgreSQL dua proses mengonfirmasi 17 skenario dengan hasil transaksi dan antrean konsisten, lalu menjalankan restore `pg_dump` dan restore terenkripsi ke target kosong. Restore SQLite terenkripsi mengonfirmasi isi database serta login MFA ulang pada fixture.
+
+Sepuluh skenario Chromium lulus pada database dan akun fiktif, termasuk alur utama login MFA → pelanggan → faktur → pembayaran → reversal → logout. Build aset statis, faktur multipage, dan kuitansi A4 dikonfirmasi ulang. Metadata PyPI untuk 16 versi runtime terkunci tidak menampilkan advisory aktif saat diperiksa. Log dan hasil privat dikelompokkan di `data/evidence/local-release-20261122/`. [Status per kriteria penerimaan](RELEASE-STATUS.md)

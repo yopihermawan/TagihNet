@@ -74,12 +74,14 @@ jobs:
       - run: python -m pip install -r requirements-dev.txt
       - run: python -m playwright install --with-deps chromium
       - run: python scripts/security_smoke.py
+      - run: python scripts/password_smoke.py
       - run: python scripts/operations_smoke.py
       - run: python scripts/plan_archive_smoke.py
       - run: python scripts/billing_settings_smoke.py
       - run: python scripts/location_smoke.py
       - run: python scripts/local_business_smoke.py
       - run: python scripts/workspace_ux_smoke.py
+      - run: python scripts/document_issuer_smoke.py
       - run: python scripts/verify_receipt.py
   staging:
     runs-on: ubuntu-latest

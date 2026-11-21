@@ -4,7 +4,9 @@
 
 ![Dashboard TagihNet](docs/evidence/dashboard-desktop.png)
 
-TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Checkpoint terkini berada di `feature/tagihnet-staging-reconnect` dan mencakup billing, MFA/izin, operasional, monitoring simulasi, impor, laporan serta backup terenkripsi. Rincian hasil dan pekerjaan tersisa ada di [matriks fitur](docs/FEATURE-MATRIX.md). Cakupan brief belum seluruhnya selesai dan aplikasi belum siap produksi. Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
+Cabang `main` memuat checkpoint TagihNet untuk staging lokal simulasi. Cakupannya meliputi billing, MFA dan izin, operasional, monitoring simulasi, impor, laporan, serta backup terenkripsi. Hasil pengujian dan prasyarat produksi tercatat pada laporan rilis. [Status rilis](docs/RELEASE-STATUS.md) · [Matriks fitur](docs/FEATURE-MATRIX.md)
+
+TagihNet dibangun dari [brief pengguna](docs/PRODUCT-BRIEF.md). Tidak dilakukan audit backend, pengambilan aset, atau perubahan pada KelolaNet.
 
 ## Staging lokal
 
