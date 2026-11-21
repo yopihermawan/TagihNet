@@ -618,3 +618,9 @@ Pengembangan, staging utama, dan clone pemulihan diperbarui dengan skema yang sa
 SQLite dan PostgreSQL masing-masing lulus **843 tes**. Tujuh tes baru mencakup batas ISP meski ID korelasi sama, peran kustom `audit`, rentang WIB hingga mikrodetik, kombinasi filter, filter tidak valid, urutan halaman, dan tautan dari job serta batch. Pemeriksaan migrasi mengonfirmasi skema tetap `0018_network_recovery`.
 
 Chromium menjalankan alur MFA, perubahan skenario router, dan pembukaan catatan audit dari detail job. Filter ID korelasi, kondisi kosong, pesan validasi, dan tata letak pada 360, 768, 1366, serta 1920 piksel lulus. Data ledger demo cocok sebelum dan sesudah. [Panduan audit](OPERATIONS.md#jejak-audit)
+
+## Kapasitas penyimpanan staging
+
+SQLite dan PostgreSQL masing-masing lulus **849 tes**. Enam tes baru mencakup ruang yang tersedia bagi proses non-root, ambang per filesystem, inode habis, counter tidak valid, tujuan backup yang belum ada, dan pembatasan probe saat pemulihan gagal.
+
+Pada 22 November 2026 WIB, staging utama dan clone pemulihan melaporkan sekitar 1,29 GiB ruang bebas. Perintah baca-saja lulus tanpa ambang dan menghasilkan peringatan dengan ambang uji 2 GiB pada staging utama. Watcher memuat metrik melalui restart proses watcher saja. Pemeriksaan mencocokkan image, ID container, kebijakan, dan metadata backup sebelum dan sesudah. Worker clone terverifikasi dalam status ditahan. Bukti privat tersimpan di `data/evidence/staging-storage-capacity-20261122.json`. [Panduan kapasitas](STAGING-OPERATIONS.md#kapasitas-penyimpanan)

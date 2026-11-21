@@ -15,6 +15,9 @@ from core.worker_heartbeat import heartbeat
 from scripts import staging_ops as ops
 
 
+STORAGE_STATS = '/ 4096 4000 500 800 200\n/var/lib/postgresql/data 4096 1000 200 400 80\n'
+
+
 class StagingOperationsTests(SimpleTestCase):
     def setUp(self):
         temporary=tempfile.TemporaryDirectory(prefix='tagihnet-ops-unit-')
@@ -48,6 +51,7 @@ class StagingOperationsTests(SimpleTestCase):
             role=ops.WORKERS[args[2]]
             return SimpleNamespace(stdout=json.dumps((beats or {}).get(role,self.beat(role=role))))
         def docker(*args,**kwargs):
+            if args[0]=='exec' and args[4]=='stat':return SimpleNamespace(stdout=STORAGE_STATS)
             return SimpleNamespace(stdout=json.dumps(objects if args[0]=='inspect' else metrics))
         certificate=SimpleNamespace(not_valid_after_utc=datetime.fromtimestamp(self.now+30*86400,timezone.utc),not_valid_before_utc=datetime.fromtimestamp(self.now-60,timezone.utc))
         for name in ('https.crt','postgres.crt','ca.crt'):
@@ -101,7 +105,73 @@ class StagingOperationsTests(SimpleTestCase):
         with self.checks():report=ops.check(self.root,now=self.now)
         self.assertEqual(report['status'],'ok')
         self.assertEqual(report['metrics']['billing_due'],0)
+        self.assertEqual(report['storage']['filesystems']['postgres_volume']['available_bytes'],819200)
         self.assertIn('BEGIN TRANSACTION READ ONLY',ops.METRICS_SQL)
+
+    def test_filesystem_counts_space_available_to_unprivileged_processes(self):
+        counters = SimpleNamespace(f_frsize=4096, f_blocks=1000, f_bfree=200, f_bavail=91,
+                                   f_files=100, f_ffree=30, f_favail=19)
+        with patch.object(ops.os, 'statvfs', return_value=counters):
+            self.assertEqual(ops.host_filesystem(self.root), {
+                'total_bytes': 4096000, 'available_bytes': 372736, 'total_inodes': 100, 'available_inodes': 19,
+            })
+        self.assertIsNone(ops.filesystem_capacity(4096, 1000, 91, 0, 0)['available_inodes'])
+
+    def test_capacity_threshold_compares_each_filesystem_without_writing(self):
+        capacity = ops.filesystem_capacity(4096, 4000, 500, 800, 200)
+        with (patch.object(ops, 'host_filesystem', return_value=capacity),
+              patch.object(ops, 'database_container', return_value='db'),
+              patch.object(ops, 'docker', return_value=SimpleNamespace(stdout=STORAGE_STATS)) as docker):
+            report = ops.storage(self.root, min_free_mib=1)
+            self.assertEqual(ops.storage(self.root)['status'], 'ok')
+        self.assertEqual(report['status'], 'warning')
+        self.assertEqual(report['minimum_free_bytes'], 1048576)
+        self.assertEqual(report['issues'], [{'code': 'filesystem_below_minimum', 'severity': 'warning',
+                                             'component': 'postgres_volume'}])
+        self.assertNotIn('backup_destination', report['filesystems'])
+        self.assertEqual(docker.call_args.args[:5], ('exec', '--user', '999:999', 'db', 'stat'))
+        self.assertFalse((self.root/'ops').exists())
+
+    def test_known_inode_exhaustion_is_critical_without_byte_threshold(self):
+        capacity = ops.filesystem_capacity(4096, 4000, 500, 800, 0)
+        with patch.object(ops, 'host_filesystem', return_value=capacity):
+            report = ops.storage_snapshot(self.root, ops.policy(self.root), None)
+        self.assertEqual(report['status'], 'critical')
+        self.assertIn({'code': 'filesystem_exhausted', 'severity': 'critical', 'component': 'staging_directory'},
+                      report['issues'])
+
+    def test_malformed_storage_samples_are_unknown_and_discard_diagnostics(self):
+        invalid = ('/ 4096 4000 500 800 200\n', STORAGE_STATS + 'private text',
+                   STORAGE_STATS.replace('400 80', '400 -80'), STORAGE_STATS + STORAGE_STATS)
+        for output in invalid:
+            with self.subTest(output=output), patch.object(ops, 'docker', return_value=SimpleNamespace(stdout=output)):
+                self.assertEqual(ops.database_filesystems('db'), {'container_root': None, 'postgres_volume': None})
+        with patch.object(ops, 'docker', side_effect=OSError('private text')):
+            report = ops.storage_snapshot(self.root, ops.policy(self.root), 'db')
+        self.assertEqual(report['status'], 'unknown')
+        self.assertNotIn('private text', json.dumps(report))
+
+    def test_backup_measurement_requires_the_configured_destination_to_exist(self):
+        config = self.enable()
+        backup_directory = Path(config['backup_directory'])
+        with patch.object(ops, 'docker', return_value=SimpleNamespace(stdout=STORAGE_STATS)):
+            before = ops.storage_snapshot(self.root, config, 'db')
+            self.assertIsNone(before['filesystems']['backup_destination'])
+            self.assertFalse(backup_directory.exists())
+            backup_directory.mkdir(parents=True)
+            after = ops.storage_snapshot(self.root, config, 'db')
+        self.assertEqual(after['status'], 'ok')
+        self.assertGreater(after['filesystems']['backup_destination']['total_bytes'], 0)
+
+    def test_storage_reports_host_capacity_without_contacting_blocked_restore(self):
+        self.save_state(restore_state='failed')
+        with patch.object(ops, 'database_container') as container, patch.object(ops, 'docker') as docker:
+            report = ops.storage(self.root)
+        container.assert_not_called()
+        docker.assert_not_called()
+        self.assertEqual(report['status'], 'unknown')
+        self.assertIsNone(report['filesystems']['postgres_volume'])
+        self.assertIsNotNone(report['filesystems']['checkout'])
 
     def test_running_worker_without_progress_is_critical(self):
         with self.checks(beats={'billing':self.beat(updated_at=self.now-121)}):report=ops.check(self.root,now=self.now)

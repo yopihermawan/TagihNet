@@ -122,6 +122,84 @@ def heartbeat_problem(value,role,now,max_age):
     return None
 
 
+def filesystem_capacity(block_size, blocks, available_blocks, inodes, available_inodes):
+    if block_size <= 0 or blocks <= 0 or not 0 <= available_blocks <= blocks or not 0 <= available_inodes <= inodes:
+        raise ValueError('Invalid filesystem counters')
+    return {
+        'total_bytes': block_size * blocks,
+        'available_bytes': block_size * available_blocks,
+        'total_inodes': inodes or None,
+        'available_inodes': available_inodes if inodes else None,
+    }
+
+
+def host_filesystem(path):
+    try:
+        if path.is_dir():
+            info = os.statvfs(path)
+            return filesystem_capacity(info.f_frsize or info.f_bsize, info.f_blocks, info.f_bavail,
+                                       info.f_files, info.f_favail)
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def database_filesystems(container):
+    paths = {'/': 'container_root', '/var/lib/postgresql/data': 'postgres_volume'}
+    if container:
+        try:
+            output = docker('exec', '--user', '999:999', container, 'stat', '--file-system',
+                            '--format=%n %S %b %a %c %d', *paths, capture=True, timeout=10).stdout
+            samples = {}
+            for line in output.splitlines():
+                path, *counters = line.split()
+                if paths[path] in samples:
+                    raise ValueError('Duplicate filesystem sample')
+                samples[paths[path]] = filesystem_capacity(*map(int, counters))
+            if len(samples) == len(paths):
+                return samples
+        except (OSError, subprocess.SubprocessError, TypeError, ValueError, KeyError):
+            pass
+    return dict.fromkeys(paths.values())
+
+
+def storage_snapshot(directory, config, container, min_free_mib=None):
+    minimum = min_free_mib * 1024**2 if min_free_mib is not None else None
+    filesystems = {'checkout': host_filesystem(ROOT), 'staging_directory': host_filesystem(directory)}
+    if config['backup_enabled']:
+        filesystems['backup_destination'] = host_filesystem(Path(config['backup_directory']))
+    filesystems.update(database_filesystems(container))
+    issues = []
+    for component, sample in filesystems.items():
+        if sample is None:
+            code, severity = 'filesystem_unavailable', 'unknown'
+        elif sample['available_bytes'] == 0 or sample['available_inodes'] == 0:
+            code, severity = 'filesystem_exhausted', 'critical'
+        elif minimum is not None and sample['available_bytes'] < minimum:
+            code, severity = 'filesystem_below_minimum', 'warning'
+        else:
+            continue
+        issues.append({'code': code, 'severity': severity, 'component': component})
+    status = max((item['severity'] for item in issues), key=LEVELS.get, default='ok')
+    return {'status': status, 'filesystems': filesystems, 'minimum_free_bytes': minimum, 'issues': issues}
+
+
+def storage(directory, min_free_mib=None):
+    if min_free_mib is not None and (type(min_free_mib) is not int or min_free_mib < 1):
+        raise ValueError('Minimum ruang kosong harus bilangan bulat positif dalam MiB.')
+    directory = Path(directory).resolve()
+    state = manifest(directory)
+    config = policy(directory)
+    container = None
+    if state.get('restore_state') not in {'preparing', 'failed'}:
+        try:
+            container = database_container(directory)
+        except Exception:
+            pass
+    return {'version': 1, 'project': state['project'], 'checked_at': time.time(),
+            **storage_snapshot(directory, config, container, min_free_mib)}
+
+
 def check(directory,config=None,now=None):
     directory=Path(directory).resolve();state=manifest(directory);config=config or policy(directory)
     now=time.time() if now is None else now
@@ -178,6 +256,7 @@ def check(directory,config=None,now=None):
             if remaining<=0 or cert.not_valid_before_utc.timestamp()>now:issue('certificate_expired','critical',name)
             elif remaining<7*86400:issue('certificate_expiring','warning',name)
         except Exception:issue('certificate_unknown','unknown',name)
+    container = None
     try:
         container=database_container(directory)
         result=docker('exec','--user','999:999',container,'psql','--username','tagihnet_runtime','--dbname','tagihnet_staging',
@@ -192,6 +271,7 @@ def check(directory,config=None,now=None):
             if metrics['network_failed'] or metrics['reminder_failed']:issue('jobs_failed','warning','queue')
             if metrics['blocked']:issue('jobs_blocked','warning','queue')
     except Exception:issue('metrics_unavailable','unknown','database')
+    report['storage'] = storage_snapshot(directory, config, container)
     report['status']=max((item['severity'] for item in issues),key=LEVELS.get,default='ok')
     return report
 
@@ -320,7 +400,7 @@ def status(directory,now=None):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=['configure','once','start','stop','status','watch'])
+    parser.add_argument('action',choices=['configure','once','start','stop','status','storage','watch'])
     parser.add_argument('--directory',type=Path,default=ROOT/'data/staging')
     parser.add_argument('--enable-backup',action='store_true')
     parser.add_argument('--disable-backup',action='store_true')
@@ -329,8 +409,11 @@ def main():
     parser.add_argument('--backup-directory',type=Path)
     parser.add_argument('--check-interval',type=int)
     parser.add_argument('--heartbeat-max-age',type=int)
+    parser.add_argument('--min-free-mib',type=int,help='Ruang kosong minimum per filesystem untuk pemeriksaan storage.')
     parser.add_argument('--watch-token',default='',help=argparse.SUPPRESS)
     args=parser.parse_args();directory=args.directory.resolve()
+    if args.min_free_mib is not None and args.action != 'storage':
+        parser.error('--min-free-mib hanya untuk pemeriksaan storage.')
     try:
         if args.action=='configure':
             if args.enable_backup and args.disable_backup:raise ValueError('Pilih satu status backup.')
@@ -346,6 +429,10 @@ def main():
             result=tick(directory);print(json.dumps(result,sort_keys=True));return 0 if result['status']=='ok' else 1
         elif args.action=='status':
             result=status(directory);print(json.dumps(result,sort_keys=True));return 0 if result['status']=='ok' else 1
+        elif args.action == 'storage':
+            result = storage(directory, args.min_free_mib)
+            print(json.dumps(result, sort_keys=True))
+            return 0 if result['status'] == 'ok' else 1
         elif args.action=='start':print('Watcher lokal aktif; pid='+str(start(directory)['pid']))
         elif args.action=='stop':print('Stop diminta; job aktif diselesaikan dahulu.' if stop(directory) else 'Watcher milik staging ini tidak aktif.')
         elif args.action=='watch':watch(directory,args.watch_token)

@@ -13,9 +13,22 @@ Checkpoint 15 November 2026 WIB. Jalankan dari root checkout dengan `.venv/bin/p
 
 Pemeriksaan mencakup container web/database, health Docker, HTTPS dengan CA/hostname lokal terverifikasi, tanggal sertifikat dan kemajuan loop ketiga worker. Heartbeat JSON privat berada di tmpfs masing-masing container, diperbarui awal/akhir putaran dan sebelum pekerjaan. Gagal menulis heartbeat tidak membatalkan transaksi billing; monitor melaporkan heartbeat tidak tersedia/kedaluwarsa. PID hidup saja tidak cukup. Default usia heartbeat120detik; pekerjaan sah yang sangat lama dapat memicu alarm dan perlu diperiksa sebelum menaikkan ambang.
 
-Statistik dibaca melalui transaksi PostgreSQL READ ONLY sebagai `tagihnet_runtime`: jumlah/umur pekerjaan jatuh tempo, batch antre/processing, retry habis dan blocked. Umur >900detik memberi warning. Kegagalan jaringan yang dihitung adalah job terakhir pelanggan yang gagal setelah tiga percobaan. Job sebelumnya tetap tersedia pada riwayat. Ini agregat seluruh proyek staging, bukan izin portal per ISP. Tidak mencakup kapasitas, persentil latensi, jadwal yang belum menghasilkan batch, atau rekonsiliasi finansial. Query gagal menghasilkan `metrics: null`/`unknown`, bukan nol. Keparahan: ok, warning, unknown, critical.
+Statistik antrean dibaca melalui transaksi PostgreSQL READ ONLY sebagai `tagihnet_runtime`: jumlah/umur pekerjaan jatuh tempo, batch antre/processing, retry habis dan blocked. Umur >900detik memberi warning. Kegagalan jaringan yang dihitung adalah job terakhir pelanggan yang gagal setelah tiga percobaan. Job sebelumnya tetap tersedia pada riwayat. Ini agregat seluruh proyek staging, bukan izin portal per ISP. Query gagal menghasilkan `metrics: null`/`unknown`, bukan nol. Keparahan: ok, warning, unknown, critical.
 
 Recovery_pending menampilkan worker `held` dan menahan alarm backlog; worker yang ternyata berjalan tetap critical. Monitor tidak menyalakan/resume worker, mengubah job, mengirim notifikasi atau memperbaiki layanan. Restore preparing/failed diblokir. Gunakan direktori/CA/port yang sesuai untuk source dan clone.
+
+## Kapasitas penyimpanan
+
+Bagian `storage` pada laporan watcher mencatat byte dan inode yang tersedia pada checkout, direktori staging, filesystem root container database, serta volume PostgreSQL. Jika backup otomatis aktif, laporan juga mengukur direktori tujuan. Setiap angka berlaku untuk filesystem tempat komponen berada. Beberapa komponen dapat berbagi filesystem, sehingga penjumlahannya akan menghitung ruang yang sama berulang kali.
+
+Perintah `storage` mengambil sampel baru secara baca-saja. Pemeriksaan di bawah memakai 2 GiB sebagai contoh ambang untuk pekerjaan yang akan dijalankan.
+
+```bash
+.venv/bin/python scripts/staging_ops.py storage --directory data/staging
+.venv/bin/python scripts/staging_ops.py storage --directory data/staging --min-free-mib 2048
+```
+
+Gunakan ambang sesuai kebutuhan build, backup, atau pemulihan. Argumen ini hanya berlaku pada pemanggilan tersebut. Exit 0 berarti semua filesystem terukur dan lolos pemeriksaan. Exit 1 menghasilkan `warning` jika ruang di bawah ambang, `critical` jika byte atau inode habis, atau `unknown` jika pengukuran tidak lengkap. Folder tujuan backup yang belum tersedia dilaporkan `unknown`. Bagian penyimpanan memiliki status tersendiri. Jadwal backup dan pemeriksaan kesehatan layanan tetap mengikuti konfigurasi operasi.
 
 ## Backup opt-in
 
