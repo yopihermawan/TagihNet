@@ -237,12 +237,13 @@ def check(directory,image_id,package,keys,mode='active',now=None):
         try:
             policy=ops.policy(directory);job=ops.read_json(directory/'ops/backup.json',{})
             timestamp=job.get('last_success_at')
-            if (not policy['backup_enabled'] or job.get('failed') or type(timestamp) not in (int,float)
-                or not math.isfinite(timestamp) or not -5<=now-timestamp<=policy['backup_interval']+3600):raise ValueError('Backup not current')
+            if (not policy['backup_enabled'] or job.get('failed')
+                or not ops.backup_time_current(timestamp,now,policy['backup_interval'])):raise ValueError('Backup not current')
             archive=Path(job['last_archive'])
             details=archive_details(archive,read_key(Path(policy['backup_key_file'])))
-            age=(time.time() if clock is None else clock)-datetime.fromisoformat(details['created_at']).timestamp()
-            if not -5<=age<=policy['backup_interval']+3600:raise ValueError('Archive timestamp not current')
+            created_at=datetime.fromisoformat(details['created_at']).timestamp()
+            if not ops.backup_time_current(created_at,time.time() if clock is None else clock,policy['backup_interval']):
+                raise ValueError('Archive timestamp not current')
             backup_digest=details['archive_sha256']
             result['evidence']['backup_at']=timestamp
         except Exception:issue('backup_unverified','backup')

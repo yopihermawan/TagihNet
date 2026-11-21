@@ -28,12 +28,12 @@ Pin hanya menyimpan `image_id` pada manifest di bawah operation lock, setelah me
 
 Staging aktif harus mempunyai backup berkala yang enabled, percobaan terakhir tidak gagal, metadata sukses masih dalam interval+1jam, dan timestamp **arsip terautentikasi** juga cukup baru. File harus reguler privat; seluruh GCM dibaca ulang. Paket pemulihan yang dipilih harus memuat ciphertext yang sama dengan backup terakhir tersebut dan key MFA yang sesuai source.
 
-Pada instance ini paket baru yang cocok dengan backup terpantau berada di:
+Checkpoint lokasi 19 November memakai pasangan berikut:
 
 - `data/recovery-handoff/archives/locations-20261119`
 - `data/recovery-handoff/keys/locations-20261119`
 
-Paket `staging-20261115`, `release-20261115`, `self-password-20261116`, `profile-20261118` dan `plan-archive-20261118` sebelumnya tetap valid dan dipertahankan; arsipnya berbeda sehingga tidak memenuhi gate aktif terhadap backup terpantau saat ini. Untuk backup berikutnya, export dari `last_archive`/key konfigurasi operasi ke **dua nama tujuan baru**, mengikuti RECOVERY-HANDOFF. Jangan mengubah metadata backup untuk membuat paket lama terlihat cocok. Folder/key tetap privat dan terpisah; ini masih satu workspace, bukan offsite.
+Paket `staging-20261115`, `release-20261115`, `self-password-20261116`, `profile-20261118` dan `plan-archive-20261118` tetap tercatat sebagai pasangan historis. Untuk pemeriksaan aktif, jalankan `staging_backup_custody.py` dan gunakan `package_dir` serta `keys_dir` yang dikembalikan. Perintah memverifikasi kecocokan dengan backup terpantau sebelum memakai ulang atau menyiapkan pasangan. [Panduan paket backup terpantau](RECOVERY-HANDOFF.md#paket-untuk-backup-terpantau)
 
 ## Jalankan gate aktif
 

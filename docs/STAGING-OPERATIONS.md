@@ -47,6 +47,8 @@ Nama arsip memakai UTC + suffix acak, snapshot pg_dump konsisten, AES-GCM dan pu
 
 Inventaris offline memberi tanggal arsip terautentikasi, ukuran logis dan kecocokan paket pemulihan. [Panduan inventaris](RECOVERY-HANDOFF.md#inventaris-backup-staging)
 
+Sesudah backup terpantau berganti, perintah `staging_backup_custody.py` bisa memakai ulang pasangan yang cocok atau menyiapkan pasangan baru. Hasilnya memberi kedua direktori untuk pemeriksaan rilis. [Panduan paket backup terpantau](RECOVERY-HANDOFF.md#paket-untuk-backup-terpantau)
+
 Konfigurasi, laporan, metadata backup dan watcher berada di `ops/*.json` pada direktori staging yang diabaikan Git. File baru0600, direktori baru0700. Laporan hanya timestamp/status/jumlah agregat/path arsip, tanpa nama pelanggan/nominal/password/isi key. `ops/events.jsonl` berisi transisi raised/resolved tanpa body exception. Rotasi sesudah256KiB menyimpan3 file lama. Arsip backup **tidak dihapus otomatis**; pantau ruang disk dan tentukan retensi terpisah. Key dan arsip satu workspace belum memenuhi custody/offsite produksi.
 
 ## Watcher dan restart

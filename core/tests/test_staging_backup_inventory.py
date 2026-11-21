@@ -10,8 +10,8 @@ from unittest.mock import patch
 from cryptography.fernet import Fernet
 from django.test import SimpleTestCase
 
-from core.backup_archive import encrypt_stream, generate_key, read_key
-from scripts import recovery_package, staging_backup_inventory as inventory, staging_ops as ops
+from core.backup_archive import ArchiveError, encrypt_stream, generate_key, read_key
+from scripts import recovery_package, staging_backup_custody as custody, staging_backup_inventory as inventory, staging_ops as ops
 
 
 class BackupInventoryTests(SimpleTestCase):
@@ -21,7 +21,8 @@ class BackupInventoryTests(SimpleTestCase):
         self.root = Path(temporary.name)
         self.stage = self.root / 'stage'
         self.stage.mkdir()
-        ops.write_json(self.stage / 'manifest.json', {'project': 'tagihnet-stage-0123456789', 'directory': str(self.stage)})
+        self.state = {'project': 'tagihnet-stage-0123456789', 'directory': str(self.stage), 'initialized': True}
+        ops.write_json(self.stage / 'manifest.json', self.state)
         self.secret = self.stage / 'secrets'
         self.secret.mkdir(mode=0o700)
         self.keyfile = self.secret / 'backup-key.json'
@@ -54,6 +55,11 @@ class BackupInventoryTests(SimpleTestCase):
     def inspect(self, custody=False):
         roots = (self.packages, self.keys) if custody else (None, None)
         return inventory.inventory(self.stage, self.output, *roots, now=self.checked_at)
+
+    def ensure(self, now=None):
+        with patch.object(recovery_package, 'exporter_commit', return_value='a' * 40):
+            return custody.ensure_pair(self.stage, self.packages, self.keys,
+                                       now=self.checked_at.timestamp() if now is None else now)
 
     def test_read_only_inventory_authenticates_age_and_matches_ciphertext(self):
         self.export()
@@ -136,3 +142,102 @@ class BackupInventoryTests(SimpleTestCase):
             inventory.inventory(self.stage, self.folder / 'unsafe.json')
         with self.assertRaises(ValueError):
             inventory.inventory(self.stage, self.output, self.packages)
+
+    def test_prepare_reuses_exact_existing_pair_without_exporting(self):
+        self.export()
+        with patch.object(recovery_package, 'export_package') as export:
+            result = self.ensure()
+        export.assert_not_called()
+        self.assertEqual(result['status'], 'reused')
+        self.assertEqual(result['package_dir'], str(self.packages / 'current'))
+        self.assertEqual(result['keys_dir'], str(self.keys / 'current'))
+        self.assertEqual(ops.read_json(self.job_file), self.job)
+
+    def test_prepare_follows_a_new_watcher_backup_then_reuses_the_new_pair(self):
+        self.export('older')
+        scheduled = self.checked_at.timestamp() + self.config['backup_interval']
+
+        def dump(directory, target, key):
+            with patch('core.backup_archive.datetime') as clock:
+                clock.now.return_value = datetime.fromtimestamp(scheduled, timezone.utc)
+                encrypt_stream(io.BytesIO(b'PGDMPnew snapshot'), target, key, 'postgresql')
+
+        with (patch.object(ops, 'backup', side_effect=dump),
+              patch.object(ops, 'check', return_value={'checked_at': scheduled, 'issues': []})):
+            ops.tick(self.stage, now=scheduled)
+
+        recorded = ops.read_json(self.job_file)
+        first = self.ensure(now=scheduled)
+        second = self.ensure(now=scheduled)
+        self.assertEqual(first['status'], 'created')
+        self.assertEqual(second, {**first, 'status': 'reused'})
+        expected = recovery_package.archive_details(Path(recorded['last_archive']), self.key)
+        copied = recovery_package.verify_package(first['package_dir'], first['keys_dir'])
+        self.assertEqual(copied['archive_sha256'], expected['archive_sha256'])
+        self.assertEqual(first['archive'], Path(recorded['last_archive']).name)
+        self.assertEqual(ops.read_json(self.job_file), recorded)
+        self.assertEqual(len(list(self.packages.iterdir())), 2)
+
+    def test_prepare_refuses_unmanaged_or_inactive_sources_before_export(self):
+        changed = ({'recovery_pending': True}, {'restore_state': 'failed'}, {'initialized': False})
+        with patch.object(recovery_package, 'export_package') as export:
+            for update in changed:
+                with self.subTest(update=update), self.assertRaises(ArchiveError):
+                    ops.write_json(self.stage / 'manifest.json', {**self.state, **update})
+                    self.ensure()
+            ops.write_json(self.stage / 'manifest.json', self.state)
+            outside = self.root / 'external.tnbk'
+            self.latest.rename(outside)
+            ops.write_json(self.job_file, {**self.job, 'last_archive': str(outside)})
+            with self.assertRaises(ArchiveError):
+                self.ensure()
+        export.assert_not_called()
+
+    def test_prepare_uses_authenticated_archive_time_as_well_as_job_metadata(self):
+        now = self.checked_at.timestamp() + self.config['backup_interval']
+        ops.write_json(self.job_file, {**self.job, 'last_success_at': now})
+        with self.assertRaisesMessage(ArchiveError, 'Tanggal arsip terautentikasi'):
+            self.ensure(now=now)
+        self.assertFalse(list(self.packages.iterdir()))
+
+    def test_partial_export_is_preserved_and_next_attempt_creates_a_complete_pair(self):
+        with patch.object(recovery_package, 'copy_archive', side_effect=OSError('fixture interrupted copy')):
+            with self.assertRaises(OSError):
+                self.ensure()
+        partial = next(self.packages.iterdir())
+        self.assertFalse((partial / 'manifest.json').exists())
+        created = self.ensure()
+        self.assertEqual(created['status'], 'created')
+        self.assertNotEqual(Path(created['package_dir']), partial)
+        self.assertEqual(list(partial.iterdir()), [])
+        self.assertEqual(self.ensure()['status'], 'reused')
+
+    def test_digest_match_with_tampered_ciphertext_is_not_reused(self):
+        self.export()
+        old_copy = self.packages / 'current' / 'archive.tnbk'
+        damaged = bytearray(old_copy.read_bytes())
+        damaged[-1] ^= 1
+        old_copy.write_bytes(damaged)
+        created = self.ensure()
+        self.assertEqual(created['status'], 'created')
+        self.assertEqual(old_copy.read_bytes(), bytes(damaged))
+
+    def test_new_backup_published_during_copy_is_not_reported_as_current(self):
+        export = recovery_package.export_package
+
+        def rotate_job(*args):
+            copied = export(*args)
+            ops.write_json(self.job_file, {**self.job, 'last_archive': str(self.folder / 'next.tnbk')})
+            return copied
+
+        with patch.object(recovery_package, 'export_package', side_effect=rotate_job):
+            with self.assertRaisesMessage(ArchiveError, 'Backup aktif berubah'):
+                self.ensure()
+        result = next(self.packages.iterdir())
+        recovery_package.verify_package(result, self.keys / result.name)
+
+    def test_prepare_lock_serializes_calls_for_the_same_source(self):
+        with ops.ops_lock(self.stage, '.custody.lock'), patch.object(recovery_package, 'export_package') as export:
+            with self.assertRaises(RuntimeError):
+                self.ensure()
+        export.assert_not_called()

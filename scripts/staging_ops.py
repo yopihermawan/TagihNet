@@ -110,6 +110,10 @@ def configure(directory,**changes):
     return config
 
 
+def backup_time_current(timestamp, now, interval):
+    return type(timestamp) in (int, float) and now - interval - 3600 <= timestamp <= now + 5
+
+
 def heartbeat_problem(value,role,now,max_age):
     if (not isinstance(value,dict) or set(value)!={'version','role','state','updated_at','pid'}
         or type(value['version']) is not int or value['version']!=1 or value['role']!=role
@@ -322,7 +326,7 @@ def tick(directory,now=None):
         report['backup']={'enabled':config['backup_enabled'],'last_success_at':job.get('last_success_at'),'last_archive':job.get('last_archive')}
         if config['backup_enabled'] and not blocked:
             if job.get('failed'):report['issues'].append({'code':'backup_failed','severity':'critical','component':'backup'})
-            elif not job.get('last_success_at') or not -5<=now-job['last_success_at']<=config['backup_interval']+3600:
+            elif not backup_time_current(job.get('last_success_at'), now, config['backup_interval']):
                 report['issues'].append({'code':'backup_overdue','severity':'warning','component':'backup'})
             elif not Path(job['last_archive']).is_file():
                 report['issues'].append({'code':'backup_missing','severity':'critical','component':'backup'})

@@ -32,6 +32,18 @@ Manifest diautentikasi sebelum mempercayai hash/metadata. Hash arsip/pasangan MF
 
 `verify` bekerja offline tanpa Docker/database/sumber staging. Kunci salah, metadata diubah, arsip ditukar, kunci MFA tertukar, atau paket tidak lengkap menghasilkan exit1. CLI hanya mencetak hasil/jenis error generik, tanpa body exception/faktor. Tidak ada proses web/worker yang dimulai oleh verify.
 
+## Paket untuk backup terpantau
+
+Jalankan dari host staging utama setelah backup berhasil. Siapkan dua direktori induk privat yang terpisah untuk paket dan kunci.
+
+```bash
+.venv/bin/python scripts/staging_backup_custody.py --directory data/staging --package-root data/recovery-handoff/archives --keys-root data/recovery-handoff/keys
+```
+
+Perintah memeriksa backup aktif berdasarkan konfigurasi watcher, waktu arsip terautentikasi dan kunci MFA staging. Hasil `reused` memakai pasangan terverifikasi yang sudah cocok. Hasil `created` berarti paket dan kunci diterbitkan dengan nama baru. Gunakan nilai `package_dir` dan `keys_dir` dari JSON sebagai argumen pemeriksaan rilis staging.
+
+Lock lokal membatasi penyiapan paket ke satu proses per staging. Jika proses lain memegang lock, panggilan dapat diulang setelah proses itu selesai. Watcher dapat membuat backup saat penyalinan berlangsung. Jika backup aktif berganti di tengah proses, perintah memberi kegagalan agar pemeriksaan berikutnya memilih arsip terbaru. Ekspor parsial tetap berada di nama lamanya dan dapat diperiksa melalui inventaris. Pasangan yang dihasilkan merupakan salinan pemulihan lokal. [Prosedur pemeriksaan rilis](RELEASE-RUNBOOK.md)
+
 ## Inventaris backup staging
 
 Jalankan dari host staging untuk memeriksa arsip `.tnbk` pada direktori backup yang dikonfigurasi. Opsional, berikan dua direktori induk berisi pasangan paket dan custody dengan nama folder anak yang sama.

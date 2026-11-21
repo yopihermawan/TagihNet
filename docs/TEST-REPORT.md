@@ -630,3 +630,9 @@ Pada 22 November 2026 WIB, staging utama dan clone pemulihan melaporkan sekitar 
 SQLite dan PostgreSQL masing-masing lulus **856 tes**. Tujuh tes baru mencakup umur dari header terautentikasi, pasangan ciphertext dan MFA, arsip rusak dan symlink, metadata yang berpindah atau berubah saat diperiksa, penggantian inode antara autentikasi dan hashing, serta publikasi laporan privat tanpa overwrite.
 
 Inventaris 22 November 2026 WIB memverifikasi **13 arsip** dengan ukuran logis total 3.022.438 byte dan **12 pasangan pemulihan**. Sepuluh arsip dari direktori terpantau memiliki pasangan yang cocok, termasuk backup tercatat terakhir `TagihNet-post-network-recovery-0018.tnbk` yang dibuat 21 November pukul 20.06 WIB. Pemeriksaan ulang mencocokkan isi dan izin 63 file input, termasuk metadata operasi. Bukti privat tersimpan di `data/evidence/backup-inventory-20261122.json`. [Panduan inventaris](RECOVERY-HANDOFF.md#inventaris-backup-staging)
+
+## Penyiapan pasangan untuk backup terpantau
+
+SQLite dan PostgreSQL masing-masing lulus **864 tes**. Delapan tes baru mencakup pemakaian ulang, pergantian backup oleh watcher pada fixture, sumber nonaktif atau di luar direktori, umur arsip terautentikasi, kembali dari ekspor parsial, salinan rusak, pergantian pointer selama penyalinan, dan lock penyiapan.
+
+Dua pemanggilan CLI pada staging utama memakai ulang `network-recovery-0018`. Isi serta izin 66 file input cocok sebelum dan sesudah. Uji terisolasi membuat satu pasangan untuk backup baru, lalu memakai ulang pasangan itu. Bukti privat tersimpan di `data/evidence/backup-custody-20261122.json`. [Panduan penyiapan paket](RECOVERY-HANDOFF.md#paket-untuk-backup-terpantau)
