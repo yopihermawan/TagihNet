@@ -4,7 +4,7 @@ import io
 import json
 import tempfile
 import time
-from contextlib import ExitStack,contextmanager,redirect_stderr
+from contextlib import ExitStack,contextmanager,redirect_stderr,redirect_stdout
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -28,7 +28,7 @@ class StagingPreflightTests(SimpleTestCase):
         self.keyfile=secret/'backup-key.json';generate_key(self.keyfile);self.key=read_key(self.keyfile)
         (secret/'mfa-key').write_bytes(Fernet.generate_key());(secret/'mfa-key').chmod(0o600)
         self.archive=self.directory/'backups/latest.tnbk';encrypt_stream(io.BytesIO(b'PGDMPfixture'),self.archive,self.key,'postgresql')
-        ops.configure(self.directory,backup_enabled=True)
+        ops.configure(self.directory,backup_enabled=True,backup_directory=str(self.archive.parent))
         ops.write_json(self.directory/'ops/backup.json',{'last_success_at':self.now,'last_archive':str(self.archive),'failed':False})
         self.package=self.root/'package';self.keys=self.root/'keys'
         with patch('scripts.recovery_package.exporter_commit',return_value='a'*40):export_package(self.archive,self.keyfile,secret/'mfa-key',self.package,self.keys)
@@ -71,6 +71,15 @@ class StagingPreflightTests(SimpleTestCase):
 
     def check(self,mode='active'):
         return pre.check(self.directory,self.image,self.package,self.keys,mode,now=self.now)
+
+    def custody_roots(self):
+        roots = (self.root / 'prepared-packages', self.root / 'prepared-keys')
+        for root in roots:
+            root.mkdir(mode=0o700)
+        return roots
+
+    def prepare(self, roots):
+        return pre.check(self.directory, self.image, None, None, now=self.now, custody_roots=roots)
 
     def codes(self,result):return {issue['code'] for issue in result['issues']}
 
@@ -137,7 +146,9 @@ class StagingPreflightTests(SimpleTestCase):
 
     def test_active_pass_still_is_not_production_ready(self):
         before=(self.directory/'ops/backup.json').read_bytes()
-        with self.inspection():result=self.check()
+        with self.inspection(), patch.object(pre, 'ensure_pair') as prepare:
+            result=self.check()
+        prepare.assert_not_called()
         self.assertEqual(result['status'],'passed');self.assertFalse(result['production_ready'])
         self.assertEqual((self.directory/'ops/backup.json').read_bytes(),before)
 
@@ -206,6 +217,99 @@ class StagingPreflightTests(SimpleTestCase):
         (self.package/'manifest.json').unlink()
         with self.inspection():result=self.check()
         self.assertIn('recovery_package_unverified',self.codes(result))
+
+    def test_prepares_a_verified_pair_and_reuses_it_on_repeated_active_checks(self):
+        roots = self.custody_roots()
+        backup_record = self.directory / 'ops/backup.json'
+        before = backup_record.read_bytes()
+        with self.inspection():
+            first = self.prepare(roots)
+            second = self.prepare(roots)
+        self.assertEqual([first['status'], second['status']], ['passed', 'passed'])
+        self.assertEqual(first['evidence']['custody_preparation'], 'created')
+        self.assertEqual(second['evidence']['custody_preparation'], 'reused')
+        self.assertEqual(first['evidence']['recovery_package_id'], second['evidence']['recovery_package_id'])
+        self.assertEqual(len(list(roots[0].iterdir())), 1)
+        self.assertEqual(backup_record.read_bytes(), before)
+
+    def test_custody_preparation_is_skipped_if_active_checks_fail(self):
+        roots = self.custody_roots()
+        health = {'status': 'ok', 'metrics': {'network_due': 2, 'billing_due': 0, 'reminder_due': 0}}
+        with self.inspection(health=health), patch.object(pre, 'ensure_pair') as prepare:
+            result = self.prepare(roots)
+        prepare.assert_not_called()
+        self.assertEqual(result['status'], 'failed')
+        self.assertEqual(self.codes(result), {'work_not_drained'})
+        self.assertEqual(result['evidence']['custody_preparation'], 'skipped')
+
+    def test_custody_preparation_failure_is_a_release_issue_without_diagnostics(self):
+        roots = self.custody_roots()
+        with self.inspection(), patch.object(pre, 'ensure_pair', side_effect=OSError('private fixture')):
+            result = self.prepare(roots)
+        self.assertEqual(result['status'], 'failed')
+        self.assertEqual(self.codes(result), {'custody_preparation_failed'})
+        self.assertEqual(result['evidence']['custody_preparation'], 'failed')
+        self.assertNotIn('private fixture', json.dumps(result))
+
+    def test_active_gate_refuses_backup_metadata_changes_during_package_verification(self):
+        verify = pre.verify_package
+
+        def rotate(package, keys):
+            metadata = verify(package, keys)
+            record = self.directory / 'ops/backup.json'
+            ops.write_json(record, {**ops.read_json(record), 'last_archive': str(self.archive.with_name('later.tnbk'))})
+            return metadata
+
+        with self.inspection(), patch.object(pre, 'verify_package', side_effect=rotate):
+            result = self.check()
+        self.assertEqual(result['status'], 'failed')
+        self.assertEqual(self.codes(result), {'backup_state_changed'})
+
+    def test_active_gate_refuses_archive_replacement_during_package_verification(self):
+        verify = pre.verify_package
+
+        def replace(package, keys):
+            metadata = verify(package, keys)
+            replacement = self.archive.with_name('copy.tnbk')
+            replacement.write_bytes(self.archive.read_bytes())
+            replacement.chmod(0o600)
+            replacement.replace(self.archive)
+            return metadata
+
+        with self.inspection(), patch.object(pre, 'verify_package', side_effect=replace):
+            result = self.check()
+        self.assertEqual(result['status'], 'failed')
+        self.assertEqual(self.codes(result), {'backup_state_changed'})
+
+    def test_custody_cli_rejects_ambiguous_inputs_and_reports_inside_custody(self):
+        roots = self.custody_roots()
+        output = self.root / 'report.json'
+        prepare_args = ['--prepare-custody', *map(str, roots)]
+        explicit = ['--package-dir', str(self.package), '--keys-dir', str(self.keys)]
+        for flags, destination in ((prepare_args + explicit, output), (prepare_args + ['--mode', 'recovery'], output),
+                                   (['--package-dir', str(self.package)], output),
+                                   (prepare_args, roots[1] / 'unsafe.json'), (explicit, self.package / 'unsafe.json')):
+            with self.subTest(flags=flags, destination=destination):
+                argv = ['preflight', '--image-id', self.image, '--output', str(destination), *flags]
+                with (patch.object(pre.sys, 'argv', argv), patch.object(pre, 'check') as check,
+                      redirect_stderr(io.StringIO()), self.assertRaises(SystemExit)):
+                    pre.main()
+                check.assert_not_called()
+                self.assertFalse(destination.exists())
+
+    def test_custody_cli_writes_the_combined_private_release_report(self):
+        roots = self.custody_roots()
+        output = self.root / 'combined.json'
+        stdout = io.StringIO()
+        argv = ['preflight', '--directory', str(self.directory), '--image-id', self.image,
+                '--prepare-custody', *map(str, roots), '--output', str(output)]
+        with self.inspection(), patch.object(pre.sys, 'argv', argv), redirect_stdout(stdout):
+            self.assertEqual(pre.main(), 0)
+        self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+        report = json.loads(output.read_text())
+        self.assertEqual(report['status'], 'passed')
+        self.assertEqual(report['evidence']['custody_preparation'], 'created')
+        self.assertEqual(json.loads(stdout.getvalue())['custody_preparation'], 'created')
 
     def test_failed_restore_never_contacts_docker(self):
         self.save_state(restore_state='failed')

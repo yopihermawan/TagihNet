@@ -636,3 +636,7 @@ Inventaris 22 November 2026 WIB memverifikasi **13 arsip** dengan ukuran logis t
 SQLite dan PostgreSQL masing-masing lulus **864 tes**. Delapan tes baru mencakup pemakaian ulang, pergantian backup oleh watcher pada fixture, sumber nonaktif atau di luar direktori, umur arsip terautentikasi, kembali dari ekspor parsial, salinan rusak, pergantian pointer selama penyalinan, dan lock penyiapan.
 
 Dua pemanggilan CLI pada staging utama memakai ulang `network-recovery-0018`. Isi serta izin 66 file input cocok sebelum dan sesudah. Uji terisolasi membuat satu pasangan untuk backup baru, lalu memakai ulang pasangan itu. Bukti privat tersimpan di `data/evidence/backup-custody-20261122.json`. [Panduan penyiapan paket](RECOVERY-HANDOFF.md#paket-untuk-backup-terpantau)
+
+## Pemeriksaan rilis dengan opsi penyiapan paket
+
+SQLite dan PostgreSQL masing-masing lulus **871 tes**. Tujuh tes baru mencakup pembuatan dan pemakaian ulang pasangan melalui pemeriksaan aktif, penyiapan yang dilewati saat antrean belum selesai, kegagalan penyiapan, pergantian metadata dan penggantian file arsip saat verifikasi, penolakan argumen atau lokasi output yang tidak tepat, serta laporan gabungan privat. [Runbook rilis](RELEASE-RUNBOOK.md#jalankan-gate-aktif)

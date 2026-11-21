@@ -1,4 +1,4 @@
-"""Read-only release evidence for the local simulation profile; never deploys or enables production."""
+"""Local staging release evidence with optional preparation of a verified recovery pair."""
 import argparse
 import hashlib
 import inspect
@@ -17,7 +17,8 @@ sys.path.insert(0,str(ROOT))
 from core.backup_archive import atomic_output,read_key
 from scripts.staging_lab import PG_IMAGE,compose,docker,manifest
 from scripts import staging_ops as ops
-from scripts.recovery_package import archive_details,verify_package,mfa_key
+from scripts.recovery_package import archive_details,file_identity,verify_package,mfa_key
+from scripts.staging_backup_custody import ensure_pair
 
 APP_SERVICES=('web','network-worker','billing-worker','reminder-worker')
 ROOT_FILES=('manage.py','requirements.txt','requirements-postgres.txt','requirements-staging.txt')
@@ -175,14 +176,18 @@ def probe_issues(data,source,pins):
     return issues
 
 
-def check(directory,image_id,package,keys,mode='active',now=None):
+def check(directory,image_id,package,keys,mode='active',now=None,*,custody_roots=None):
     if not re.fullmatch('sha256:[a-f0-9]{64}',image_id):raise ValueError('Use an immutable image ID')
     if mode not in {'active','recovery'}:raise ValueError('Invalid mode')
+    if custody_roots is not None and (mode != 'active' or package is not None or keys is not None):
+        raise ValueError('Custody preparation requires the active gate without an explicit pair')
     directory=Path(directory).resolve();state=manifest(directory);clock=now
     now=time.time() if now is None else now
     if type(now) not in (int,float) or not math.isfinite(now):raise ValueError('Invalid check time')
     result={'version':1,'checked_at':now,'project':state['project'],'mode':mode,'expected_image':image_id,
             'production_ready':False,'scope':'local_simulation','status':'failed','issues':[],'evidence':{}}
+    if custody_roots is not None:
+        result['evidence']['custody_preparation'] = 'skipped'
     def issue(code,component):result['issues'].append({'code':code,'component':component})
     if not state.get('initialized') or state.get('restore_state') in {'preparing','failed'}:
         issue('staging_not_initialized','manifest');return result
@@ -235,24 +240,51 @@ def check(directory,image_id,package,keys,mode='active',now=None):
     backup_digest=None
     if not held:
         try:
-            policy=ops.policy(directory);job=ops.read_json(directory/'ops/backup.json',{})
-            timestamp=job.get('last_success_at')
+            policy = ops.policy(directory)
+            backup_record = directory / 'ops/backup.json'
+            job = ops.read_json(backup_record, {})
+            timestamp = job.get('last_success_at')
+            interval = policy['backup_interval']
             if (not policy['backup_enabled'] or job.get('failed')
-                or not ops.backup_time_current(timestamp,now,policy['backup_interval'])):raise ValueError('Backup not current')
-            archive=Path(job['last_archive'])
-            details=archive_details(archive,read_key(Path(policy['backup_key_file'])))
-            created_at=datetime.fromisoformat(details['created_at']).timestamp()
-            if not ops.backup_time_current(created_at,time.time() if clock is None else clock,policy['backup_interval']):
+                    or not ops.backup_time_current(timestamp, now, interval)):
+                raise ValueError('Backup not current')
+            archive = Path(job['last_archive'])
+            observed_archive = file_identity(archive.lstat())
+            details = archive_details(archive, read_key(Path(policy['backup_key_file'])))
+            created_at = datetime.fromisoformat(details['created_at']).timestamp()
+            if not ops.backup_time_current(created_at, time.time() if clock is None else clock, interval):
                 raise ValueError('Archive timestamp not current')
-            backup_digest=details['archive_sha256']
-            result['evidence']['backup_at']=timestamp
+            backup_digest = details['archive_sha256']
+            result['evidence']['backup_at'] = timestamp
         except Exception:issue('backup_unverified','backup')
+    if custody_roots is not None:
+        if result['issues']:
+            return result
+        try:
+            selected = ensure_pair(directory, *custody_roots, now=clock)
+            package, keys = selected['package_dir'], selected['keys_dir']
+            result['evidence']['custody_preparation'] = selected['status']
+        except Exception:
+            result['evidence']['custody_preparation'] = 'failed'
+            issue('custody_preparation_failed', 'recovery')
+            return result
     try:
         metadata=verify_package(Path(package),Path(keys))
         if hashlib.sha256(mfa_key(directory/'secrets/mfa-key')).hexdigest()!=metadata['mfa_sha256']:raise ValueError('Package MFA differs')
         if not held and backup_digest is not None and metadata['archive_sha256']!=backup_digest:issue('recovery_backup_mismatch','recovery')
         result['evidence']['recovery_package_id']=metadata['package_id']
     except Exception:issue('recovery_package_unverified','recovery')
+    if backup_digest is not None:
+        try:
+            finished = time.time() if clock is None else clock
+            if (ops.policy(directory) != policy or ops.read_json(backup_record, {}) != job
+                    or file_identity(archive.lstat()) != observed_archive):
+                issue('backup_state_changed', 'backup')
+            elif not (ops.backup_time_current(timestamp, finished, interval)
+                      and ops.backup_time_current(created_at, finished, interval)):
+                issue('backup_unverified', 'backup')
+        except Exception:
+            issue('backup_state_changed', 'backup')
     result['status']='passed' if not result['issues'] else 'failed'
     return result
 
@@ -261,18 +293,31 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--directory',type=Path,default=ROOT/'data/staging')
     parser.add_argument('--image-id',required=True)
-    parser.add_argument('--package-dir',type=Path,required=True)
-    parser.add_argument('--keys-dir',type=Path,required=True)
+    parser.add_argument('--package-dir',type=Path)
+    parser.add_argument('--keys-dir',type=Path)
+    parser.add_argument('--prepare-custody',type=Path,nargs=2,metavar=('PACKAGE_ROOT','KEYS_ROOT'),
+                        help='Prepare a matching local pair after the active staging checks pass.')
     parser.add_argument('--mode',choices=['active','recovery'],default='active')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
+    explicit = (args.package_dir, args.keys_dir)
+    if args.prepare_custody is None:
+        if not all(explicit):
+            parser.error('Supply --package-dir and --keys-dir, or use --prepare-custody for active staging.')
+    elif args.mode != 'active' or any(explicit):
+        parser.error('--prepare-custody is available only in active mode without an explicit pair.')
     try:
         if os.path.lexists(args.output):raise ValueError('Report already exists')
+        if any(args.output.resolve().is_relative_to(path.resolve()) for path in (args.prepare_custody or explicit)):
+            raise ValueError('Output must be outside package and key directories')
         # Publication is exclusive even if another process creates the same name later.
         with atomic_output(args.output) as stream:
-            result=check(args.directory,args.image_id,args.package_dir,args.keys_dir,args.mode)
+            result=check(args.directory,args.image_id,*explicit,mode=args.mode,custody_roots=args.prepare_custody)
             stream.write(json.dumps(result,indent=2,sort_keys=True).encode())
-        print(json.dumps({'status':result['status'],'scope':result['scope'],'production_ready':False,'issues':result['issues']}))
+        summary = {'status':result['status'],'scope':result['scope'],'production_ready':False,'issues':result['issues']}
+        if args.prepare_custody is not None:
+            summary['custody_preparation'] = result['evidence']['custody_preparation']
+        print(json.dumps(summary))
         return 0 if result['status']=='passed' else 1
     except Exception as error:parser.exit(1,'Preflight refused: '+type(error).__name__+'; no secret/diagnostic printed.\n')
 

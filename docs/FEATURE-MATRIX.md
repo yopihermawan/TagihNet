@@ -47,13 +47,13 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Profil mandiri | Nama tampilan sendiri, informasi akun, token sesi/snapshot15menit, konflik bersamaan, audit atomik; sandi/MFA/akses dan consent tetap | 4 · implemented lokal; perubahan username/email/avatar pending |
 | Scope wilayah geografis | Penugasan teknisi tersedia; batas wilayah geografis belum tersedia | 4 · pending |
 | Backup/restore | AES-256-GCM streaming SQLite/PG, inventaris offline dan pencocokan paket, target kosong/no-clobber, restore ledger+MFA | 5 · implemented lokal; offsite/retensi/PITR pending |
-| Backend PostgreSQL | Role non-superuser lab, 864 tes per backend. Migrasi pemulihan job `0018` diuji dari backup `0017` sebelum diterapkan ke staging lokal | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
+| Backend PostgreSQL | Role non-superuser lab, 871 tes per backend. Migrasi pemulihan job `0018` diuji dari backup `0017` sebelum diterapkan ke staging lokal | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
 | Staging lokal | Gunicorn HTTPS/WhiteNoise, PG verify-full, migrator/runtime terpisah, secret file, non-root/read-only, restart worker, bootstrap/MFA dan guard volume | 5 · implemented lokal; simulasi; VPS/domain/kapasitas/offsite pending |
 | Recovery staging | Backup streaming AES-GCM, fresh-project SQL restore, identitas/empty/key/lock guards, sesi baru, MFA tetap, worker hold/review dan rekonsiliasi tabel/sequence | 5 · implemented lokal; offsite/PITR/RPO/RTO pending |
 | Operasi staging | HTTPS/SQL/sertifikat, heartbeat, antrean, kapasitas filesystem dan volume PostgreSQL, watcher lokal dan backup periodik opt-in terautentikasi | 5 · implemented lokal; alert eksternal/systemd/offsite/retensi pending |
 | Uji beban staging | Klien HTTPS terbatas, 500 pelanggan fiktif, batch worker500, latency/error/resource/health gates dan ledger replay; query dashboard/faktur dibatasi | 5 · measured lokal; kapasitas/soak produksi pending |
 | Paket pemulihan | Arsip/manifest terautentikasi, kunci terpisah, penyiapan pasangan backup terpantau, verify offline, freeze input dan restore setelah sumber fiktif hilang | 5 · implemented lokal; media/host/custody offsite pending |
-| Kandidat rilis staging | Pin image ID per proyek, isi/dependency/schema/container/TLS/backup+custody gates, bukti read-only dan guard metadata migrasi | 5 · implemented lokal; bukan sertifikasi/deployment produksi |
+| Kandidat rilis staging | Pin image ID per proyek, pemeriksaan isi/dependency/schema/container/TLS/backup, opsi satu perintah untuk paket pemulihan, dan penolakan jika metadata berubah saat verifikasi | 5 · implemented lokal; sertifikasi/deployment produksi pending |
 | Latihan rollback image | Kandidat normal/gagal dengan schema sama, pin/up/failure/rollback, sesi target, seluruh tabel/sequence/recorder serta hold worker pada fixture terpisah | 5 · verified lokal; migrasi lintas versi/cutover produksi pending |
 | Rilis produksi | TLS, SMTP, secret vault, queue/capacity multiworker, beban, lab perangkat, penetration test | 5 · pending |
 

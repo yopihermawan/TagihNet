@@ -1,6 +1,6 @@
 # Runbook kandidat rilis dan pemeriksaan staging
 
-Checkpoint 19 November 2026 WIB. Alat ini menyiapkan bukti untuk **staging lokal simulasi**. `passed` berarti pemeriksaan teknis yang disebutkan lulus pada saat itu. Field `production_ready` selalu false; tidak ada mode untuk mengubahnya melalui persetujuan manual. Tidak ada deployment publik, cutover, migrasi, pembayaran/router nyata atau resume worker dari preflight.
+Diperbarui 22 November 2026 WIB. Alat ini menyiapkan bukti untuk **staging lokal simulasi**. `passed` berarti pemeriksaan teknis yang disebutkan lulus pada saat itu. Field `production_ready` selalu false; tidak ada mode untuk mengubahnya melalui persetujuan manual. Tidak ada deployment publik, cutover, migrasi, pembayaran/router nyata atau resume worker dari preflight.
 
 Panduan terkait: [STAGING](STAGING.md), [STAGING-RECOVERY](STAGING-RECOVERY.md), [RECOVERY-HANDOFF](RECOVERY-HANDOFF.md), [STAGING-LOAD](STAGING-LOAD.md), [FEATURE-MATRIX](FEATURE-MATRIX.md).
 
@@ -14,10 +14,10 @@ git status --short
 .venv/bin/python -c "from scripts.staging_lab import docker; print(docker('image','inspect','tagihnet-staging:local','--format','{{.Id}}',capture=True).stdout.strip())"
 ```
 
-Cloud dengan proxy CA dapat memakai opsi build `--proxy-ca-file /etc/ssl/certs/ca-certificates.crt`. Gunakan image ID `sha256:`64hex hasil build, bukan tag yang dapat berubah. Pada instance checkpoint ini ID yang sudah diuji adalah `sha256:55ee60b3f061b1005a90f46928ba243c1703d66e8b8b795509a0d435a58be4a1`.
+Cloud dengan proxy CA dapat memakai opsi build `--proxy-ca-file /etc/ssl/certs/ca-certificates.crt`. Gunakan image ID `sha256:`64hex hasil build, bukan tag yang dapat berubah. ID image yang dipakai staging lokal pada 22 November adalah `sha256:218ea4c7e71f8758b040a6699d9967b0810f16f8cf5a30642a62d49c050bd8de`.
 
 ```bash
-.venv/bin/python scripts/staging_lab.py pin-image --directory data/staging --image-id sha256:55ee60b3f061b1005a90f46928ba243c1703d66e8b8b795509a0d435a58be4a1
+.venv/bin/python scripts/staging_lab.py pin-image --directory data/staging --image-id sha256:218ea4c7e71f8758b040a6699d9967b0810f16f8cf5a30642a62d49c050bd8de
 ```
 
 Pin hanya menyimpan `image_id` pada manifest di bawah operation lock, setelah membuktikan image tersedia lokal. Tidak ada restart/migrate/service start atau perubahan recovery_pending. Seluruh panggilan Compose melalui helper memilih image itu untuk web/migrate/worker dan mengabaikan selector image dari environment luar. Perintah yang dapat menyalakan container menolak image pin yang hilang sebelum Compose dapat melakukan fallback/pull. Stop/down/status tetap dapat dipakai saat image hilang. Direktori lama tanpa pin memakai tag lokal untuk kompatibilitas, tetapi preflight rilis menolaknya.
@@ -33,17 +33,19 @@ Checkpoint lokasi 19 November memakai pasangan berikut:
 - `data/recovery-handoff/archives/locations-20261119`
 - `data/recovery-handoff/keys/locations-20261119`
 
-Paket `staging-20261115`, `release-20261115`, `self-password-20261116`, `profile-20261118` dan `plan-archive-20261118` tetap tercatat sebagai pasangan historis. Untuk pemeriksaan aktif, jalankan `staging_backup_custody.py` dan gunakan `package_dir` serta `keys_dir` yang dikembalikan. Perintah memverifikasi kecocokan dengan backup terpantau sebelum memakai ulang atau menyiapkan pasangan. [Panduan paket backup terpantau](RECOVERY-HANDOFF.md#paket-untuk-backup-terpantau)
+Paket `staging-20261115`, `release-20261115`, `self-password-20261116`, `profile-20261118` dan `plan-archive-20261118` tetap tercatat sebagai pasangan historis. Opsi `--prepare-custody` menyiapkan pasangan untuk pemeriksaan aktif. Perintah `staging_backup_custody.py` juga bisa dipakai sendiri untuk memperoleh `package_dir` dan `keys_dir`. [Panduan paket backup terpantau](RECOVERY-HANDOFF.md#paket-untuk-backup-terpantau)
 
 ## Jalankan gate aktif
 
-Pastikan pekerjaan jatuh tempo sudah selesai dan tidak ada proses rilis/migrasi lain. Jalankan pemeriksaan setelah kandidat berjalan di lingkungan uji:
+Jalankan pemeriksaan setelah kandidat berjalan di lingkungan uji dan pekerjaan jatuh tempo selesai. Berikan dua direktori induk privat untuk menyiapkan pasangan lewat perintah yang sama.
 
 ```bash
-.venv/bin/python scripts/staging_preflight.py --directory data/staging --image-id sha256:55ee60b3f061b1005a90f46928ba243c1703d66e8b8b795509a0d435a58be4a1 --package-dir data/recovery-handoff/archives/locations-20261119 --keys-dir data/recovery-handoff/keys/locations-20261119 --output data/evidence/preflight-active-baru.json
+.venv/bin/python scripts/staging_preflight.py --directory data/staging --image-id sha256:218ea4c7e71f8758b040a6699d9967b0810f16f8cf5a30642a62d49c050bd8de --prepare-custody data/recovery-handoff/archives data/recovery-handoff/keys --output data/evidence/preflight-active-baru.json
 ```
 
-Output baru wajib; file/symlink yang sudah ada ditolak. JSON file0600 diterbitkan atomic/no-clobber. Exit0 hanya passed, exit1 untuk kegagalan/ketidaktersediaan. Tidak ada exception body, environment dump, key, OTP, password, pelanggan atau nominal pada laporan. Git HEAD/dirty hanya provenance checkout; gunakan commit bersih yang dapat direproduksi untuk kandidat rilis. Gate membandingkan byte aplikasi aktual, tidak menganggap label Git sebagai bukti image.
+Opsi `--prepare-custody` berlaku untuk mode aktif. Setelah pemeriksaan image, layanan, antrean, dan backup lulus, laporan mencatat `created` jika pasangan baru diterbitkan atau `reused` jika pasangan valid ditemukan. Kegagalan pemeriksaan awal mencatat `skipped`. Jika backup berubah selama verifikasi, laporan gagal dan pemeriksaan dapat diulang pada arsip terkini. Untuk memakai pasangan tertentu secara baca-saja, berikan `--package-dir` dan `--keys-dir` sebagai pengganti opsi penyiapan.
+
+Simpan laporan di luar direktori arsip paket dan kunci. Output baru wajib; file/symlink yang sudah ada ditolak. JSON file0600 diterbitkan atomic/no-clobber. Exit0 hanya passed, exit1 untuk kegagalan/ketidaktersediaan. Tidak ada exception body, environment dump, key, OTP, password, pelanggan atau nominal pada laporan. Git HEAD/dirty hanya provenance checkout; gunakan commit bersih yang dapat direproduksi untuk kandidat rilis. Gate membandingkan byte aplikasi aktual, tidak menganggap label Git sebagai bukti image.
 
 | Pemeriksaan | Syarat |
 | --- | --- |
@@ -63,7 +65,7 @@ Digest membandingkan source terpilih, bukan tanda tangan supply chain, seluruh f
 Clone yang worker-nya ditahan harus memakai mode eksplisit recovery. Mode aktif menolaknya. Contoh memakai snapshot clone yang sudah ada:
 
 ```bash
-.venv/bin/python scripts/staging_preflight.py --directory data/staging-recovery-20261115 --mode recovery --image-id sha256:55ee60b3f061b1005a90f46928ba243c1703d66e8b8b795509a0d435a58be4a1 --package-dir data/recovery-handoff/archives/staging-20261115 --keys-dir data/recovery-handoff/keys/staging-20261115 --output data/evidence/preflight-recovery-baru.json
+.venv/bin/python scripts/staging_preflight.py --directory data/staging-recovery-20261115 --mode recovery --image-id sha256:218ea4c7e71f8758b040a6699d9967b0810f16f8cf5a30642a62d49c050bd8de --package-dir data/recovery-handoff/archives/staging-20261115 --keys-dir data/recovery-handoff/keys/staging-20261115 --output data/evidence/preflight-recovery-baru.json
 ```
 
 Recovery tidak mensyaratkan backup otomatis clone atau antrean snapshot kosong. Web/database dan paket diverifikasi; worker yang ternyata berjalan menyebabkan gagal. Passed tidak mengizinkan resume/cutover otomatis. Operator tetap merekonsiliasi transaksi, akses/MFA/consent dan antrian pascasnapshot sebelum tindakan eksplisit berikutnya.
