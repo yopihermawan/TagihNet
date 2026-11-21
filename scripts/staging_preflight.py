@@ -14,10 +14,10 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from core.backup_archive import Discard,atomic_output,decrypt_stream,read_key
+from core.backup_archive import atomic_output,read_key
 from scripts.staging_lab import PG_IMAGE,compose,docker,manifest
 from scripts import staging_ops as ops
-from scripts.recovery_package import MAX_ARCHIVE,digest_archive,private_file,verify_package,mfa_key
+from scripts.recovery_package import archive_details,verify_package,mfa_key
 
 APP_SERVICES=('web','network-worker','billing-worker','reminder-worker')
 ROOT_FILES=('manage.py','requirements.txt','requirements-postgres.txt','requirements-staging.txt')
@@ -240,11 +240,10 @@ def check(directory,image_id,package,keys,mode='active',now=None):
             if (not policy['backup_enabled'] or job.get('failed') or type(timestamp) not in (int,float)
                 or not math.isfinite(timestamp) or not -5<=now-timestamp<=policy['backup_interval']+3600):raise ValueError('Backup not current')
             archive=Path(job['last_archive'])
-            with private_file(archive,MAX_ARCHIVE) as stream:header=decrypt_stream(stream,Discard(),read_key(Path(policy['backup_key_file'])))
-            if header['kind']!='postgresql':raise ValueError('Wrong backup kind')
-            age=(time.time() if clock is None else clock)-datetime.fromisoformat(header['created_at']).timestamp()
+            details=archive_details(archive,read_key(Path(policy['backup_key_file'])))
+            age=(time.time() if clock is None else clock)-datetime.fromisoformat(details['created_at']).timestamp()
             if not -5<=age<=policy['backup_interval']+3600:raise ValueError('Archive timestamp not current')
-            _,backup_digest=digest_archive(archive)
+            backup_digest=details['archive_sha256']
             result['evidence']['backup_at']=timestamp
         except Exception:issue('backup_unverified','backup')
     try:

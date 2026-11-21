@@ -77,6 +77,20 @@ class RecoveryPackageTests(SimpleTestCase):
             with self.subTest(package=package),self.assertRaises(ArchiveError):kit.export_package(self.archive,self.keyfile,self.mfa,package,keys)
         self.assertFalse(self.package.exists());self.assertFalse(self.keys.exists())
 
+    def test_archive_replacement_between_authentication_and_digest_is_refused(self):
+        replacement = self.root / 'replacement.tnbk'
+        replacement.write_bytes(self.archive.read_bytes())
+        replacement.chmod(0o600)
+        original_digest = kit.digest_stream
+
+        def replace_after_digest(stream):
+            result = original_digest(stream)
+            os.replace(replacement, self.archive)
+            return result
+
+        with patch.object(kit, 'digest_stream', side_effect=replace_after_digest), self.assertRaises(ArchiveError):
+            kit.archive_details(self.archive, self.key)
+
     def test_symlink_or_fifo_archive_is_refused(self):
         link=self.root/'link';link.symlink_to(self.archive)
         with self.assertRaises(OSError):kit.export_package(link,self.keyfile,self.mfa,self.package,self.keys)

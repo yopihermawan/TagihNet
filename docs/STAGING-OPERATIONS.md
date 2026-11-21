@@ -45,6 +45,8 @@ Watcher memeriksa setiap60detik setelah putaran sebelumnya selesai. Backup perta
 
 Nama arsip memakai UTC + suffix acak, snapshot pg_dump konsisten, AES-GCM dan publikasi tanpa overwrite. Seluruh arsip baru diautentikasi lagi sebelum sukses dicatat. Batas payload1GiB tetap. Arsip terakhir yang hilang memberi critical; autentikasi penuh tidak diulang setiap menit. Gunakan verify/restore eksplisit untuk pemeriksaan arsip berikutnya. Tidak ada perubahan tabel aplikasi oleh monitor/backup.
 
+Inventaris offline memberi tanggal arsip terautentikasi, ukuran logis dan kecocokan paket pemulihan. [Panduan inventaris](RECOVERY-HANDOFF.md#inventaris-backup-staging)
+
 Konfigurasi, laporan, metadata backup dan watcher berada di `ops/*.json` pada direktori staging yang diabaikan Git. File baru0600, direktori baru0700. Laporan hanya timestamp/status/jumlah agregat/path arsip, tanpa nama pelanggan/nominal/password/isi key. `ops/events.jsonl` berisi transisi raised/resolved tanpa body exception. Rotasi sesudah256KiB menyimpan3 file lama. Arsip backup **tidak dihapus otomatis**; pantau ruang disk dan tentukan retensi terpisah. Key dan arsip satu workspace belum memenuhi custody/offsite produksi.
 
 ## Watcher dan restart

@@ -93,14 +93,20 @@ def manifest_data(package):
     return value
 
 
+def digest_stream(stream):
+    digest = hashlib.sha256()
+    size = 0
+    while block := stream.read(CHUNK):
+        size += len(block)
+        if size > MAX_ARCHIVE:
+            raise ArchiveError('Arsip melampaui batas.')
+        digest.update(block)
+    return size, digest.hexdigest()
+
+
 def digest_archive(path):
-    digest=hashlib.sha256();size=0
-    with private_file(path,MAX_ARCHIVE) as stream:
-        while block:=stream.read(CHUNK):
-            size+=len(block)
-            if size>MAX_ARCHIVE:raise ArchiveError('Arsip melampaui batas.')
-            digest.update(block)
-    return size,digest.hexdigest()
+    with private_file(path, MAX_ARCHIVE) as stream:
+        return digest_stream(stream)
 
 
 def copy_archive(source,target):
@@ -112,13 +118,43 @@ def copy_archive(source,target):
             output.write(block)
 
 
-def verify_dump(path,key):
+def dump_header(stream, key):
     class Prefix:
-        def __init__(self):self.first=b''
-        def write(self,data):self.first+=data[:max(0,5-len(self.first))];return len(data)
-    sink=Prefix()
-    with private_file(path,MAX_ARCHIVE) as stream:header=decrypt_stream(stream,sink,key)
-    if header['kind']!='postgresql' or sink.first!=b'PGDMP':raise ArchiveError('Paket memerlukan arsip PostgreSQL custom yang terautentikasi.')
+        def __init__(self):
+            self.first = b''
+
+        def write(self, data):
+            self.first += data[:max(0, 5 - len(self.first))]
+            return len(data)
+
+    sink = Prefix()
+    header = decrypt_stream(stream, sink, key)
+    if header['kind'] != 'postgresql' or sink.first != b'PGDMP':
+        raise ArchiveError('Paket memerlukan arsip PostgreSQL custom yang terautentikasi.')
+    return header
+
+
+def verify_dump(path, key):
+    with private_file(path, MAX_ARCHIVE) as stream:
+        dump_header(stream, key)
+
+
+def file_identity(info):
+    return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
+
+
+def archive_details(path, key):
+    """Authenticate and fingerprint the same opened archive before reporting its age or custody."""
+    path = Path(path)
+    with private_file(path, MAX_ARCHIVE) as stream:
+        before = file_identity(os.fstat(stream.fileno()))
+        header = dump_header(stream, key)
+        stream.seek(0)
+        size, digest = digest_stream(stream)
+        if (before != file_identity(os.fstat(stream.fileno())) or before != file_identity(path.lstat())
+                or size != before[2]):
+            raise ArchiveError('Arsip berubah saat diperiksa.')
+    return {'archive_size': size, 'archive_sha256': digest, 'created_at': header['created_at']}
 
 
 def exporter_commit():
@@ -136,13 +172,13 @@ def export_package(archive,keyfile,mfa_file,package,keys):
     # Both destinations are exclusive. A partial export has no authenticated completion manifest.
     new_directory(package);new_directory(keys)
     copy_archive(archive,package/'archive.tnbk')
-    verify_dump(package/'archive.tnbk',key)
+    details = archive_details(package/'archive.tnbk', key)
     key_data={'format':'tagihnet-backup-key','version':1,'id':key.identifier,'key':base64.b64encode(key.material).decode('ascii')}
     with atomic_output(keys/'backup-key.json') as stream:stream.write(json_bytes(key_data))
     with atomic_output(keys/'mfa.key') as stream:stream.write(mfa)
-    size,digest=digest_archive(package/'archive.tnbk')
     metadata={'version':1,'package_id':uuid.uuid4().hex,'created_at':datetime.now(timezone.utc).isoformat(),
-        'exporter_commit':revision,'archive_size':size,'archive_sha256':digest,'mfa_sha256':hashlib.sha256(mfa).hexdigest()}
+        'exporter_commit':revision,'archive_size':details['archive_size'],'archive_sha256':details['archive_sha256'],
+        'mfa_sha256':hashlib.sha256(mfa).hexdigest()}
     metadata['mac']=manifest_mac(metadata,key)
     with atomic_output(package/'manifest.json') as stream:stream.write(json_bytes(metadata))
     verify_package(package,keys)
@@ -169,10 +205,10 @@ def materials(package,keys):
 
 
 def verify_content(archive,material):
-    size,digest=digest_archive(archive)
-    if size!=material.metadata['archive_size'] or not hmac.compare_digest(digest,material.metadata['archive_sha256']):
+    details = archive_details(archive, material.key)
+    if (details['archive_size'] != material.metadata['archive_size']
+            or not hmac.compare_digest(details['archive_sha256'], material.metadata['archive_sha256'])):
         raise ArchiveError('Ukuran/digest arsip tidak sesuai manifest.')
-    verify_dump(archive,material.key)
 
 
 def verify_package(package,keys):

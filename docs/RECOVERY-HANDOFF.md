@@ -32,6 +32,18 @@ Manifest diautentikasi sebelum mempercayai hash/metadata. Hash arsip/pasangan MF
 
 `verify` bekerja offline tanpa Docker/database/sumber staging. Kunci salah, metadata diubah, arsip ditukar, kunci MFA tertukar, atau paket tidak lengkap menghasilkan exit1. CLI hanya mencetak hasil/jenis error generik, tanpa body exception/faktor. Tidak ada proses web/worker yang dimulai oleh verify.
 
+## Inventaris backup staging
+
+Jalankan dari host staging untuk memeriksa arsip `.tnbk` pada direktori backup yang dikonfigurasi. Opsional, berikan dua direktori induk berisi pasangan paket dan custody dengan nama folder anak yang sama.
+
+```bash
+.venv/bin/python scripts/staging_backup_inventory.py --directory data/staging --package-root data/recovery-handoff/archives --keys-root data/recovery-handoff/keys --output data/evidence/backup-inventory-baru.json
+```
+
+Inventaris mengautentikasi isi AES-GCM dan memeriksa penanda dump PostgreSQL `PGDMP`. Tanggal dan umur backup diambil dari header yang sudah diautentikasi. Autentikasi dan penghitungan hash membaca deskriptor arsip yang sama. Laporan memuat ukuran logis per nama file, hasil verifikasi, dan paket dengan ciphertext serta kunci MFA yang sesuai. Paket historis dengan kunci MFA berbeda masih dapat terverifikasi sebagai pasangan untuk arsip historisnya.
+
+Pilih output baru di luar direktori arsip dan custody. Laporan diterbitkan sebagai file privat `0600`. Exit 0 berarti verifikasi lulus. Exit 1 menandai masalah seperti arsip rusak, pasangan parsial, backup terpantau di luar daftar, paket yang tidak cocok, atau perubahan metadata saat diperiksa. Saat dua direktori custody diberikan, backup terpantau harus memiliki paket yang cocok. Cadangan historis ditampilkan bersama status dan pasangan yang ditemukan. Ukuran logis membantu perencanaan retensi, sedangkan uji pemulihan database tetap mengikuti prosedur restore pada target terpisah.
+
 ## Memulihkan pada target baru
 
 Siapkan kode/dependency/image yang sesuai, direktori baru dan port loopback kosong. Baca panduan recovery sebelum tindakan berikut:

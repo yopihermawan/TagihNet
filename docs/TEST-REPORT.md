@@ -624,3 +624,9 @@ Chromium menjalankan alur MFA, perubahan skenario router, dan pembukaan catatan 
 SQLite dan PostgreSQL masing-masing lulus **849 tes**. Enam tes baru mencakup ruang yang tersedia bagi proses non-root, ambang per filesystem, inode habis, counter tidak valid, tujuan backup yang belum ada, dan pembatasan probe saat pemulihan gagal.
 
 Pada 22 November 2026 WIB, staging utama dan clone pemulihan melaporkan sekitar 1,29 GiB ruang bebas. Perintah baca-saja lulus tanpa ambang dan menghasilkan peringatan dengan ambang uji 2 GiB pada staging utama. Watcher memuat metrik melalui restart proses watcher saja. Pemeriksaan mencocokkan image, ID container, kebijakan, dan metadata backup sebelum dan sesudah. Worker clone terverifikasi dalam status ditahan. Bukti privat tersimpan di `data/evidence/staging-storage-capacity-20261122.json`. [Panduan kapasitas](STAGING-OPERATIONS.md#kapasitas-penyimpanan)
+
+## Inventaris backup staging
+
+SQLite dan PostgreSQL masing-masing lulus **856 tes**. Tujuh tes baru mencakup umur dari header terautentikasi, pasangan ciphertext dan MFA, arsip rusak dan symlink, metadata yang berpindah atau berubah saat diperiksa, penggantian inode antara autentikasi dan hashing, serta publikasi laporan privat tanpa overwrite.
+
+Inventaris 22 November 2026 WIB memverifikasi **13 arsip** dengan ukuran logis total 3.022.438 byte dan **12 pasangan pemulihan**. Sepuluh arsip dari direktori terpantau memiliki pasangan yang cocok, termasuk backup tercatat terakhir `TagihNet-post-network-recovery-0018.tnbk` yang dibuat 21 November pukul 20.06 WIB. Pemeriksaan ulang mencocokkan isi dan izin 63 file input, termasuk metadata operasi. Bukti privat tersimpan di `data/evidence/backup-inventory-20261122.json`. [Panduan inventaris](RECOVERY-HANDOFF.md#inventaris-backup-staging)

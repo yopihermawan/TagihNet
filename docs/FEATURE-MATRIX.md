@@ -46,8 +46,8 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Keamanan akun mandiri | Ubah sandi dengan sandi lama/MFA/CSRF/rate limit, pemeriksaan sesi dalam transaksi, pencabutan sesi dan audit | 4 · implemented lokal |
 | Profil mandiri | Nama tampilan sendiri, informasi akun, token sesi/snapshot15menit, konflik bersamaan, audit atomik; sandi/MFA/akses dan consent tetap | 4 · implemented lokal; perubahan username/email/avatar pending |
 | Scope wilayah geografis | Penugasan teknisi tersedia; batas wilayah geografis belum tersedia | 4 · pending |
-| Backup/restore | AES-256-GCM streaming SQLite/PG, kunci terpisah, verify, target kosong/no-clobber, restore ledger+MFA | 5 · implemented lokal; offsite/retensi/PITR pending |
-| Backend PostgreSQL | Role non-superuser lab, 849 tes per backend. Migrasi pemulihan job `0018` diuji dari backup `0017` sebelum diterapkan ke staging lokal | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
+| Backup/restore | AES-256-GCM streaming SQLite/PG, inventaris offline dan pencocokan paket, target kosong/no-clobber, restore ledger+MFA | 5 · implemented lokal; offsite/retensi/PITR pending |
+| Backend PostgreSQL | Role non-superuser lab, 856 tes per backend. Migrasi pemulihan job `0018` diuji dari backup `0017` sebelum diterapkan ke staging lokal | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
 | Staging lokal | Gunicorn HTTPS/WhiteNoise, PG verify-full, migrator/runtime terpisah, secret file, non-root/read-only, restart worker, bootstrap/MFA dan guard volume | 5 · implemented lokal; simulasi; VPS/domain/kapasitas/offsite pending |
 | Recovery staging | Backup streaming AES-GCM, fresh-project SQL restore, identitas/empty/key/lock guards, sesi baru, MFA tetap, worker hold/review dan rekonsiliasi tabel/sequence | 5 · implemented lokal; offsite/PITR/RPO/RTO pending |
 | Operasi staging | HTTPS/SQL/sertifikat, heartbeat, antrean, kapasitas filesystem dan volume PostgreSQL, watcher lokal dan backup periodik opt-in terautentikasi | 5 · implemented lokal; alert eksternal/systemd/offsite/retensi pending |
