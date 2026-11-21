@@ -579,3 +579,4 @@ from .business_models import (Fund, PaymentFunding, CashMovement, CashCorrection
     Employee, SalaryTerms, PayrollRun, PayrollLine, Campaign, Lead, Commission,
     HotspotProfile, VoucherBatch, Voucher, NetworkNode, CustomerEndpoint, BusinessAction)
 from .document_models import InvoiceIssuerSnapshot, PaymentIssuerSnapshot
+from .isolation_models import InvoiceIsolationTerms, TenantIsolationPolicy

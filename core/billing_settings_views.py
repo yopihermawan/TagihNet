@@ -16,6 +16,7 @@ from .billing_settings import (FIELDS, MAX_TOKEN, SettingsConflict, confirm_chan
     manager, read_token, review_change, values_for)
 from .billing_timeline import calendar_dates, rules_for
 from .forms import BillingSettingsForm
+from .isolation import GRACE_FIELD
 from .models import Customer, Invoice
 from .permissions import require
 from .security_views import recent_factor
@@ -51,7 +52,8 @@ def review_response(request, token, proposal, form=None, status=200):
     for label in ("before","after"):
         values = proposal[label]
         total, tax = totals(100000, 0, values["tax_bp"])
-        examples[label] = {**calendar_dates(period, values["due_day"], timeline_rules), "tax":tax, "total":total}
+        examples[label] = {**calendar_dates(period, values["due_day"], timeline_rules, values[GRACE_FIELD]),
+                           "tax":tax, "total":total}
     return render(request,"billing/settings_review.html",{"proposal":proposal,"period":period,"examples":examples,
         "timeline_rules":timeline_rules,"month_query":month_query,
         "impact":{"customers":Customer.objects.filter(tenant=tenant).count(),"invoices":Invoice.objects.filter(tenant=tenant).count()},
@@ -84,10 +86,10 @@ def billing_settings(request):
     period, month_form, _ = example_month(request)
     timeline_rules = rules_for(member.tenant)
     return render(request,"billing/settings.html",{"form":form,"title":"Setelan billing","back":"/",
-        "submit_label":"Tinjau perubahan","description":"Atur identitas penerbit, jatuh tempo, pajak dan footer faktur. "
+        "submit_label":"Tinjau perubahan","description":"Atur identitas penerbit, jatuh tempo, tenggang isolir, pajak dan footer faktur. "
             "Pajak 0 bp berarti tarif nol. Tinjau perubahan sebelum konfirmasi MFA.",
         "period":period,"month_form":month_form,"timeline_rules":timeline_rules,
-        "examples":{"before":calendar_dates(period, initial["due_day"], timeline_rules)}},status=status)
+        "examples":{"before":calendar_dates(period, initial["due_day"], timeline_rules, initial[GRACE_FIELD])}},status=status)
 
 
 @require("settings")

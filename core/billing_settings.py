@@ -11,12 +11,15 @@ from django.db import transaction
 from django.views.decorators.debug import sensitive_variables
 
 from .billing import audit, retry_locked
-from .models import MFADevice, Membership, Tenant
+from .isolation import GRACE_FIELD, configured_grace_days, validate_grace_days
+from .models import MFADevice, Membership, Tenant, TenantIsolationPolicy
 from .operations import member_for
 from .permissions import capabilities
 
-FIELDS = ("name", "address", "due_day", "tax_bp", "invoice_footer")
+TENANT_FIELDS = ("name", "address", "due_day", "tax_bp", "invoice_footer")
+FIELDS = (*TENANT_FIELDS, GRACE_FIELD)
 SALT = "tagihnet.billing-settings.v1"
+TOKEN_VERSION = 2
 MAX_TOKEN = 65536
 SECONDS = 900
 
@@ -33,7 +36,8 @@ def manager(actor):
 
 
 def values_for(tenant):
-    return {field: getattr(tenant, field) for field in FIELDS}
+    return {**{field: getattr(tenant, field) for field in TENANT_FIELDS},
+            GRACE_FIELD: configured_grace_days(tenant)}
 
 
 def fingerprint(values):
@@ -70,6 +74,10 @@ def validate_values(values):
             errors[field] = [f"Gunakan bilangan bulat {lower}–{upper}."]
         else:
             result[field] = values[field]
+    try:
+        result[GRACE_FIELD] = validate_grace_days(values[GRACE_FIELD])
+    except ValidationError as error:
+        errors[GRACE_FIELD] = error.messages
     if errors:
         raise ValidationError(errors)
     return result
@@ -84,7 +92,7 @@ def device_revision(actor):
 
 def form_token(actor):
     member = manager(actor)
-    return signing.dumps({"v":1, "kind":"form", "actor":actor.pk, "tenant":member.tenant_id,
+    return signing.dumps({"v":TOKEN_VERSION, "kind":"form", "actor":actor.pk, "tenant":member.tenant_id,
         "access":member.session_version, "mfa":device_revision(actor),
         "state":fingerprint(values_for(member.tenant))}, salt=SALT)
 
@@ -100,7 +108,7 @@ def read_token(actor, token, kind):
         if kind == "review":
             fields |= {"before", "after"}
         if (kind not in {"form", "review"} or not isinstance(value, dict) or set(value) != fields
-                or type(value["v"]) is not int or value["v"] != 1 or value["kind"] != kind
+                or type(value["v"]) is not int or value["v"] != TOKEN_VERSION or value["kind"] != kind
                 or any(type(value[key]) is not int or value[key] < 1 for key in ("actor","tenant","access"))
                 or not isinstance(value["state"],str) or len(value["state"]) != 64
                 or any(char not in "0123456789abcdef" for char in value["state"])
@@ -113,6 +121,7 @@ def read_token(actor, token, kind):
                     or any(type(before[key]) is not int for key in ("due_day","tax_bp"))
                     or fingerprint(before) != value["state"] or validate_values(value["after"]) != value["after"]):
                 raise ValueError
+            validate_grace_days(before[GRACE_FIELD])
     except (signing.BadSignature, ValueError, TypeError, KeyError, AttributeError, ValidationError):
         raise ValidationError("Form atau tinjauan setelan tidak valid atau kedaluwarsa. Muat ulang setelan billing.") from None
     if (value["actor"] != actor.pk or value["tenant"] != member.tenant_id
@@ -144,15 +153,20 @@ def confirm_change(actor, token, verified_at, access_version, correlation_id=Non
     if (type(access_version) is not int or member.session_version != access_version
             or type(verified_at) not in (int,float) or not 0 <= time.time()-verified_at <= 300):
         raise PermissionDenied("Verifikasi MFA terbaru diperlukan untuk menyimpan setelan billing.")
-    if values_for(tenant) != proposal["before"]:
+    current = values_for(tenant)
+    if current != proposal["before"]:
         raise SettingsConflict("Setelan berubah sejak tinjauan. Muat ulang dan tinjau lagi.")
     after = validate_values(proposal["after"])
-    changed = [field for field in FIELDS if getattr(tenant,field) != after[field]]
+    changed = [field for field in FIELDS if current[field] != after[field]]
     if not changed:
         return False
-    for field in changed:
+    tenant_changes = [field for field in changed if field in TENANT_FIELDS]
+    for field in tenant_changes:
         setattr(tenant, field, after[field])
-    tenant.save(update_fields=changed)
+    if tenant_changes:
+        tenant.save(update_fields=tenant_changes)
+    if GRACE_FIELD in changed:
+        TenantIsolationPolicy.objects.update_or_create(tenant=tenant, defaults={'grace_days': after[GRACE_FIELD]})
     audit(tenant, actor, "billing.settings_updated", tenant.pk,
         "Field setelan diperbarui: "+", ".join(changed)+". Ledger dan snapshot disetujui tetap.", correlation_id)
     return True

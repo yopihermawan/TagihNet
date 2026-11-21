@@ -38,7 +38,13 @@
     </div>
     <div>
       <dt>Tenggang</dt>
-      <dd><strong>0 hari tambahan</strong><p>Faktur bersaldo menunggak mulai sehari setelah jatuh tempo, atau langsung jika terbit lebih lambat.</p></dd>
+      <dd>
+        {% if examples.after %}
+          <span class="billing-timeline-date"><small>Sebelum</small> <strong>{{ examples.before.grace_days }} hari</strong></span>
+          <span class="billing-timeline-date"><small>Sesudah</small> <strong>{{ examples.after.grace_days }} hari</strong></span>
+        {% else %}<strong>{{ examples.before.grace_days }} hari tambahan</strong>{% endif %}
+        <p>Tenggang berlaku untuk isolir. Faktur bersaldo dicatat menunggak setelah jatuh tempo.</p>
+      </dd>
     </div>
     <div>
       <dt>Isolir simulasi</dt>

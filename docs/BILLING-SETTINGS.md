@@ -1,6 +1,6 @@
 # Tinjauan setelan billing
 
-Menu **Setelan billing** mengatur nama/alamat penerbit, tanggal jatuh tempo, pajak dalam basis poin dan footer teks. Izin `settings` tersedia untuk owner atau operator dengan peran kustom yang diberi izin tersebut; preset lain tidak memperolehnya. Tenant selalu berasal dari akun, bukan field request.
+Menu **Setelan billing** mengatur nama/alamat penerbit, tanggal jatuh tempo, tenggang isolir simulasi, pajak dalam basis poin dan footer teks. Izin `settings` tersedia untuk owner atau operator dengan peran kustom yang diberi izin tersebut. Cakupan ISP berasal dari akun yang masuk.
 
 ## Mengubah setelan
 
@@ -10,7 +10,7 @@ Menu **Setelan billing** mengatur nama/alamat penerbit, tanggal jatuh tempo, paj
 
 Form dan tinjauan mempunyai tanda tangan dengan umur maksimum15menit masing-masing, terikat aktor/ISP/versi akses/revisi MFA serta fingerprint lima nilai awal. Form tanpa token tidak dapat menyimpan atau membuat tinjauan. Mengganti target/nilai tambahan saat konfirmasi tidak mengubah usulan bertanda tangan. Form atau tinjauan dari setelan yang sudah berubah ditolak409; muat ulang, bukan menimpa perubahan operator lain. Token asing403; token rusak/kedaluwarsa ditolak. Token bukan enkripsi dan memuat setelan komersial saat ditinjau; jangan membagikannya. Tidak ada faktor autentikasi di dalamnya.
 
-Fingerprint membandingkan **state saat ini**, bukan rekam versi permanen: perubahan yang dikembalikan persis ke nilai semula tidak dapat dibedakan dari state awal. Tidak ada migrasi/version counter baru. Replay setelah penyimpanan yang mengubah nilai menjadi stale dan tidak menambah audit; no-op tidak mengubah data atau menambah audit.
+Fingerprint membandingkan **state saat ini**. Perubahan yang dikembalikan persis ke nilai semula tidak dapat dibedakan dari state awal. Pengiriman ulang sesudah perubahan ditolak sebagai usang. Konfirmasi tanpa perubahan selesai tanpa penulisan. Form dan tinjauan dari versi sebelum pengaturan tenggang perlu dimuat ulang.
 
 ## Dampak pada tagihan dan identitas
 
@@ -28,20 +28,22 @@ Di **Setelan billing**, pilih **Bulan contoh** lalu **Lihat contoh**. Tinjauan p
 
 - **Terbit.** Jadwal aktif dengan persetujuan yang masih berlaku memakai hari jadwal, dibatasi akhir bulan. Saat jadwal nonaktif atau tertahan, contoh mengasumsikan terbit manual pada awal bulan. Tanggal jadwal menunjukkan kapan faktur dapat mulai masuk antrean.
 - **Pengingat.** Jika aktif dan berizin, tanggal paling awal adalah tanggal terbit contoh atau awal jendela pengingat, mana yang lebih akhir. Jam kebijakan mengikuti WIB. Pengingat dapat masuk antrean sekali sehari selama ada sisa tagihan. Status persetujuan tertahan dan skenario gangguan tampil di halaman.
-- **Jatuh tempo dan tenggang.** Tanggal 29–31 dibatasi akhir bulan. Tambahan tenggang saat ini nol hari. Faktur dapat langsung menunggak jika diterbitkan setelah jatuh tempo dan masih bersaldo.
-- **Isolir simulasi.** Untuk faktur contoh yang masih bersaldo, pemeriksaan dapat memperhitungkannya mulai hari setelah jatuh tempo atau tanggal terbit jika terbit lebih lambat. Worker memeriksa semua tunggakan pelanggan saat memproses job jaringan. Lewat jatuh tempo sendiri tidak membuat job.
+- **Jatuh tempo dan tenggang.** Tanggal 29–31 dibatasi akhir bulan. Tetapkan 0–30 hari kalender tambahan sebelum faktur dapat diperhitungkan untuk isolir simulasi. Faktur bersaldo tetap tercatat menunggak pada hari setelah jatuh tempo. Pengingat tetap mengikuti jatuh tempo.
+- **Isolir simulasi.** Tanggal pertama yang memenuhi syarat adalah jatuh tempo ditambah jumlah hari tenggang dan satu hari. Contoh memakai tanggal terbit bila lebih lambat. Saat memproses job, worker memeriksa ulang saldo semua faktur terkait dan tenggang yang tersimpan per faktur. Lewat jatuh tempo sendiri tidak membuat job.
 
 Contoh dengan jadwal terbit 10 Februari 2024 dan pengingat tiga hari sebelumnya. Perubahan hari jatuh tempo dari 31 ke 20 menggeser jatuh tempo dari 29 Februari ke 20 Februari. Tanggal paling awal pengingat bergeser dari 26 ke 17 Februari. Tanggal faktur dapat diperhitungkan untuk isolir simulasi bergeser dari 1 Maret ke 21 Februari, jika job berjalan dan saldo masih tersisa.
+
+Dengan jatuh tempo 29 Februari dan tenggang tiga hari, 1–3 Maret masuk tenggang. Faktur bersaldo tersebut bisa menjadi dasar isolir mulai 4 Maret saat job diproses. Faktur lain pada pelanggan yang sama dapat lebih dahulu memenuhi syarat menurut tenggang masing-masing.
 
 Linimasa merangkum kebijakan ISP saat halaman dimuat. Jadwal terpisah, status worker, persetujuan, saldo dan faktur yang sudah terbit menentukan hasil operasional. Pengguna dengan izin pengelolaan terkait dapat membuka Jadwal bulanan atau Kebijakan pengingat dari linimasa.
 
 ## Transaksi dan kompatibilitas SLA
 
-Konfirmasi mengunci tenant→membership, membaca ulang akun/izin/versi akses/revisi MFA serta membandingkan lima nilai awal. Hanya field yang berubah disimpan bersama audit metadata secara atomik. Audit gagal membatalkan perubahan. Isi nama/alamat/footer/token tidak dicatat dalam audit dan disamarkan pada laporan error produksi. Database sibuk tidak mengubah token menjadi form baru atau menimpa data; pengguna diminta memuat ulang.
+Konfirmasi mengunci ISP lalu membership, membaca ulang akun, izin, versi akses dan revisi MFA, serta membandingkan enam nilai awal. Perubahan dan audit metadata tersimpan dalam satu transaksi. Audit gagal membatalkan perubahan. Isi nama, alamat, footer dan token disamarkan pada laporan error produksi. Saat database sibuk, pengguna diminta memuat ulang.
 
 Jalur **Target SLA tiket** juga membaca ulang akses di bawah lock yang sama dan hanya menulis empat field SLA. Dengan demikian penyimpanan SLA yang validasinya dimulai sebelum konfirmasi billing tidak mengembalikan nilai billing lama. Persetujuan MFA baru pada dokumen ini khusus setelan billing; alur SLA belum memperoleh review/MFA baru. Snapshot SLA tiket lama tetap berlaku.
 
-Route lama `/settings/billing/` tetap menjadi halaman edit, tetapi POST sekarang menghasilkan tinjauan. Konfirmasi ada di `/settings/billing/confirm/`, hanya POST. Integrasi/form lama yang mencoba langsung menyimpan tanpa token/tinjauan harus diperbarui. Alur review awal memakai schema0012. Dukungan identitas historis berikutnya menambah schema0015 tanpa dependency baru. Akses SQL administrator di luar kontrak form aplikasi.
+Schema `0016_isolation_grace` menambah kebijakan per ISP dan tabel tenggang faktur. Kedua tabel kosong setelah migrasi data yang dipertahankan. Ketiadaan kebijakan atau snapshot berarti tenggang nol. Tenggang positif disimpan bersama faktur dan audit, termasuk pada faktur awal PSB. Batch yang disetujui memakai jumlah hari dari pratinjaunya. Scheduler mengambil setelan saat membuat batch setiap bulan. Perubahan kebijakan meminta tinjauan ulang atas pratinjau penerbitan yang masih terbuka untuk faktur baru.
 
 ## Verifikasi dan batas
 

@@ -7,6 +7,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
 from .billing import audit, invoice_snapshot, retry_locked, write_snapshot_invoice
+from .isolation import configured_grace_days, invoice_grace_days
 from .models import BillingBatch, BillingBatchItem, Customer, Invoice, Membership, Tenant
 from .permissions import capabilities
 
@@ -14,7 +15,7 @@ MAX_CUSTOMERS = 500
 
 
 def authorized(actor, tenant_id=None, version=None):
-    member = Membership.objects.select_related("tenant", "user", "access_role").get(user=actor)
+    member = Membership.objects.select_related("tenant__isolation_policy", "user", "access_role").get(user=actor)
     if (not member.user.is_active or "bulk_issue" not in capabilities(member)
             or (tenant_id is not None and member.tenant_id != tenant_id)
             or (version is not None and member.session_version != version)):
@@ -44,11 +45,13 @@ def preview_data(tenant, period, filters, discount):
     if len(customers) > MAX_CUSTOMERS:
         raise ValidationError(f"Maksimal {MAX_CUSTOMERS} pelanggan per batch. Persempit filter paket/wilayah.")
     existing = {invoice.customer_id: invoice for invoice in Invoice.objects.filter(
-        tenant=tenant, customer_id__in=[item.pk for item in customers], period=period)}
+        tenant=tenant, customer_id__in=[item.pk for item in customers], period=period).select_related('isolation_terms')}
+    grace_days = configured_grace_days(tenant)
     rows = []
     for customer in customers:
         prior = existing.get(customer.pk)
-        snapshot = invoice_snapshot(tenant, customer, period, 0 if prior else discount)
+        snapshot = invoice_snapshot(tenant, customer, period, 0 if prior else discount,
+                                    grace_days=invoice_grace_days(prior) if prior else grace_days)
         if prior:
             # Uniform discounts apply only to NEW invoices, never to already-issued rows.
             snapshot["invoice"] = {key: getattr(prior, key) for key in ["customer_name", "customer_address", "subtotal",

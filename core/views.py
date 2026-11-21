@@ -262,7 +262,7 @@ def allowed_invoice(request, pk):
     member = membership(request.user)
     if not ({"invoices", "portal"} & capabilities(member)):
         raise PermissionDenied
-    result = Invoice.objects.filter(tenant=member.tenant).select_related("customer", "tenant", "issuer_snapshot")
+    result = Invoice.objects.filter(tenant=member.tenant).select_related("customer", "tenant", "issuer_snapshot", "isolation_terms")
     if member.role == "customer":
         result = result.filter(customer=member.customer)
     return get_object_or_404(result, pk=pk)
@@ -273,7 +273,9 @@ def invoice_detail(request, pk):
         return redirect("login")
     invoice = allowed_invoice(request, pk)
     from .document_identity import document_issuer
+    from .isolation import invoice_grace_days
     return render(request, "core/invoice_detail.html", {"invoice": invoice, "issuer": document_issuer(invoice),
+        "grace_days": invoice_grace_days(invoice),
         "payments": invoice.payments.select_related("recorded_by", "reversal"),
         "payment_form": PaymentForm(tenant=invoice.tenant,initial={"amount": invoice.balance, "event_key": uuid.uuid4()})})
 

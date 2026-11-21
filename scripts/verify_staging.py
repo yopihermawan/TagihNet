@@ -216,7 +216,7 @@ print('PASS: runtime SQL permissions and TLS verification, no migration/CA priva
     assert status==200
     original_form=re.search(rb'name="token" value="([^"]+)"',body).group(1).decode()
     fields={'token':original_form,'name':'ISP Staging Ditinjau','address':'Alamat Staging Fiktif','due_day':'31',
-        'tax_bp':'1100','invoice_footer':'Footer staging ditinjau.'}
+        'tax_bp':'1100','isolation_grace_days':'3','invoice_footer':'Footer staging ditinjau.'}
     assert request('/settings/billing/',fields)[0]==403
     status,_,body,_=request('/settings/billing/',{**fields,'csrfmiddlewaretoken':csrf()})
     assert status==200 and b'Tinjau setelan billing' in body

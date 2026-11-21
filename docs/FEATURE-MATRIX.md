@@ -21,8 +21,8 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Kuitansi pembayaran | Satu transaksi/sebagian, nomor stabil/WIB/terbilang, HTML/PDF A4/font lokal, reversal terkini, scope operator/portal, penerbit saat pembayaran dicatat, read-only | 2 · implemented lokal; simulasi; tanda tangan/verifikasi publik pending |
 | Gateway/webhook | Endpoint gateway tidak didaftarkan; tidak ada signature/settlement produksi | 3 · pending |
 | PDF | ReportLab lokal, A4 multipage, total/snapshot/label simulasi, footer plain text | 2 · implemented |
-| Setelan billing | Nama/alamat penerbit, pajak0–10.000bp, jatuh tempo1–31/footer teks, review/MFA/audit dan preservasi SLA. Linimasa dengan bulan pilihan membandingkan terbit, pengingat, jatuh tempo, tenggang, dan kemungkinan isolir simulasi | 2 · implemented lokal; siklus fleksibel dan tenggang yang bisa diatur masih tertunda |
-| Isolir/aktivasi | Recheck utang saat eksekusi; adapter palsu, backoff 30/60/120 detik, maksimal 3 percobaan | 3 · simulated |
+| Setelan billing | Identitas penerbit, pajak, jatuh tempo, tenggang isolir 0–30 hari, footer, tinjauan dan MFA. Linimasa bulan pilihan membandingkan tanggal sebelum dan sesudah perubahan | 2 · implemented lokal; siklus fleksibel masih tertunda |
+| Isolir/aktivasi | Pemeriksaan ulang saldo dan tenggang tiap faktur saat job berjalan. Adapter simulasi, retry maksimal tiga kali | 3 · simulated; pembuatan job dari jadwal tunggakan masih tertunda |
 | MikroTik/RADIUS/CoA | Belum ada adapter read-only/write nyata, lab, VPN collector, accounting | 3 · pending |
 | Portal | Pelanggan melihat layanan/faktur/PDF dan kuitansi transaksi milik sendiri | 2 · limited |
 | Lokasi/peta | Koordinat WGS84 pelanggan/PSB nullable, paired/range checks, editor berscope/stale, portal sendiri/teknisi ditugaskan, copy aktivasi, tautan OpenStreetMap tanpa request otomatis | 2/4 · implemented lokal; akurasi lapangan/geofencing/geocoder pending; topologi administratif tersedia |
@@ -46,7 +46,7 @@ Status `implemented` berarti dapat dijalankan lokal; `simulated` tidak menghubun
 | Profil mandiri | Nama tampilan sendiri, informasi akun, token sesi/snapshot15menit, konflik bersamaan, audit atomik; sandi/MFA/akses dan consent tetap | 4 · implemented lokal; perubahan username/email/avatar pending |
 | Scope wilayah geografis | Penugasan teknisi tersedia; batas wilayah geografis belum tersedia | 4 · pending |
 | Backup/restore | AES-256-GCM streaming SQLite/PG, kunci terpisah, verify, target kosong/no-clobber, restore ledger+MFA | 5 · implemented lokal; offsite/retensi/PITR pending |
-| Backend PostgreSQL | Role non-superuser lab, 801 tes per backend. Migrasi identitas penerbit `0015` dan 17 skenario lintas proses serta pg_dump/pg_restore diverifikasi pada checkpoint sebelumnya | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
+| Backend PostgreSQL | Role non-superuser lab, 808 tes per backend. Migrasi tenggang isolir `0016` diuji dari backup `0015` sebelum diterapkan ke staging lokal | 5 · implemented lokal; migrasi data/kapasitas produksi pending |
 | Staging lokal | Gunicorn HTTPS/WhiteNoise, PG verify-full, migrator/runtime terpisah, secret file, non-root/read-only, restart worker, bootstrap/MFA dan guard volume | 5 · implemented lokal; simulasi; VPS/domain/kapasitas/offsite pending |
 | Recovery staging | Backup streaming AES-GCM, fresh-project SQL restore, identitas/empty/key/lock guards, sesi baru, MFA tetap, worker hold/review dan rekonsiliasi tabel/sequence | 5 · implemented lokal; offsite/PITR/RPO/RTO pending |
 | Operasi staging | HTTPS/SQL/sertifikat/loop heartbeat/antrean, log transisi privat, watcher lokal dan backup periodik opt-in terautentikasi | 5 · implemented lokal; alert eksternal/systemd/offsite/retensi pending |

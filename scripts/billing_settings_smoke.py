@@ -75,13 +75,14 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
             page.get_by_label('Nama ISP').fill('Nusantara Net Ditinjau')
             page.get_by_label('Alamat ISP').fill('Jl. Contoh Staging No. 19\nBandung · Data fiktif')
             page.get_by_label('Tanggal jatuh tempo (1–31)').fill('31')
+            page.get_by_label('Tenggang isolir (hari)').fill('3')
             page.get_by_label('Pajak dalam basis poin (100 bp = 1%)').fill('1100')
             page.get_by_label('Footer faktur (teks biasa)').fill('Terima kasih.\nTagihNet · Data fiktif.')
             page.get_by_role('button',name='Tinjau perubahan',exact=True).click()
             expect(page.get_by_role('heading',name='Tinjau setelan billing',exact=True)).to_be_visible()
             expect(timeline.locator('time[datetime="2024-02-20"]')).to_be_visible()
             expect(timeline.locator('time[datetime="2024-02-29"]')).to_be_visible()
-            expect(timeline.locator('time[datetime="2024-03-01"]')).to_be_visible()
+            expect(timeline.locator('time[datetime="2024-03-04"]')).to_be_visible()
             assert ledger()==before
             with sqlite3.connect(database) as db:
                 assert db.execute('SELECT tax_bp FROM core_tenant WHERE id=?',(tenant_id,)).fetchone()[0]==0
@@ -106,11 +107,13 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
             page.wait_for_url(settings_url)
             expect(page.get_by_label('Nama ISP')).to_have_value('Nusantara Net Ditinjau')
             expect(page.get_by_label('Pajak dalam basis poin (100 bp = 1%)')).to_have_value('1100')
+            expect(page.get_by_label('Tenggang isolir (hari)')).to_have_value('3')
             assert ledger()==before
             with sqlite3.connect(database) as db:
                 assert db.execute('SELECT sla_urgent_hours FROM core_tenant WHERE id=?',(tenant_id,)).fetchone()[0]==17
                 assert db.execute("SELECT count(*) FROM core_auditevent WHERE action='billing.settings_updated'").fetchone()[0]==1
-            fields={'name':'Old form overwrite','address':'Alamat fiktif','due_day':'1','tax_bp':'0','invoice_footer':'Lama','token':old_form,'csrfmiddlewaretoken':csrf}
+            fields={'name':'Old form overwrite','address':'Alamat fiktif','due_day':'1','tax_bp':'0','invoice_footer':'Lama',
+                'isolation_grace_days':'0','token':old_form,'csrfmiddlewaretoken':csrf}
             headers={'Origin':base,'Referer':base+'/settings/billing/'}
             assert context.request.post(base+'/settings/billing/',form=fields,headers=headers).status==409
             assert context.request.post(base+'/settings/billing/confirm/',form={'token':token,'reviewed':'on','csrfmiddlewaretoken':csrf},headers=headers).status==409
@@ -119,7 +122,7 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-billing-settings-browser-') as
             expect(page.locator('.invoice-paper').get_by_text(original_issuer,exact=False)).to_be_visible()
             assert ledger()==before and not failures
             browser.close()
-        print('PASS: isolated real MFA/settings review, leap-month timeline and next-month boundary, checkbox, confirmation, stale form/review409, concurrent SLA, unchanged ledger and issuer, dark mode and four widths.',flush=True)
+        print('PASS: isolated real MFA/settings review, grace across leap-month boundary, saved grace, stale form/review409, concurrent SLA, unchanged ledger and issuer, dark mode and four widths.',flush=True)
     except Exception as error:
         raise SystemExit('Billing settings browser failed at '+phase+': '+type(error).__name__+'; no diagnostic/factors printed.') from None
     finally:

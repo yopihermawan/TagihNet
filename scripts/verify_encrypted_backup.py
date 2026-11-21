@@ -50,9 +50,10 @@ from datetime import date
 from core.tests.test_workflow import fixtures
 from core.tests.auth_helpers import TEST_TOTP_SECRET
 from core.billing import issue_invoice, record_payment
-from core.models import MFADevice
+from core.models import MFADevice, TenantIsolationPolicy
 from core.security import encrypt_secret, recovery_digest
 tenants, owners, customers = fixtures()
+TenantIsolationPolicy.objects.create(tenant=tenants[0], grace_days=3)
 invoice, _ = issue_invoice(tenants[0], customers[0].pk, date(2026, 10, 1), owners[0])
 record_payment(tenants[0], invoice.pk, 100000, uuid.uuid4(), owners[0])
 recovery = hashlib.sha256(b"tagihnet-isolated-drill-only").hexdigest()[:32]

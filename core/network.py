@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from .billing import audit, retry_locked
+from .isolation import invoice_grace_days
 from .models import Customer, NetworkJob
 
 class SimulationAdapter:
@@ -23,8 +24,11 @@ def run_job(job_id):
         return job
     customer = Customer.objects.select_for_update().get(tenant=job.tenant, pk=job.customer_id)
     # Recheck debt at execution time, never reuse the state when the job was queued.
-    overdue = any(invoice.balance > 0 for invoice in customer.invoice_set.filter(tenant=job.tenant, due_date__lt=timezone.localdate()))
-    desired = "isolated" if overdue else "active"
+    today = timezone.localdate()
+    overdue = customer.invoice_set.filter(tenant=job.tenant, due_date__lt=today).select_related('isolation_terms')
+    eligible_debt = any((today - invoice.due_date).days > invoice_grace_days(invoice) and invoice.balance > 0
+                        for invoice in overdue)
+    desired = "isolated" if eligible_debt else "active"
     job.attempts += 1
     try:
         customer.service_state = SimulationAdapter().reconcile(customer, desired)

@@ -379,7 +379,7 @@ class BillingSettingsConcurrencyTests(TransactionTestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:return list(pool.map(run,range(2)))
 
     def test_two_competing_confirmations_have_one_winner(self):
-        tokens=[review_change(self.actor,form_token(self.actor),{**values_for(self.tenants[0]),'tax_bp':value})[0] for value in (0,500)]
+        tokens=[review_change(self.actor,form_token(self.actor),{**values_for(self.tenants[0]),'isolation_grace_days':days})[0] for days in (3,7)]
         def action(index):
             try:return confirm_change(self.actor,tokens[index],time.time(),1)
             except SettingsConflict:return False

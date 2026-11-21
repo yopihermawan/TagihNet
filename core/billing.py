@@ -10,6 +10,8 @@ from django.db import OperationalError, transaction
 from django.utils import timezone
 from .models import AuditEvent, Customer, Invoice, InvoiceLine, NetworkJob, Payment, PaymentReversal, Tenant, month_due
 from .document_identity import capture_invoice_issuer, capture_payment_issuer
+from .isolation import GRACE_FIELD, configured_grace_days, validate_grace_days
+from .isolation_models import InvoiceIsolationTerms
 
 
 def retry_locked(function):
@@ -55,7 +57,7 @@ def prorated_days(period, service_start):
     return days_in_month - service_start.day + 1, days_in_month
 
 
-def invoice_snapshot(tenant, customer, period, discount=0, *, service_start=None):
+def invoice_snapshot(tenant, customer, period, discount=0, *, service_start=None, grace_days=None):
     if customer.tenant_id != tenant.pk or customer.plan.tenant_id != tenant.pk:
         raise ValidationError("Paket dan pelanggan harus berada pada ISP yang sama.")
     if period.day != 1:
@@ -83,6 +85,10 @@ def invoice_snapshot(tenant, customer, period, discount=0, *, service_start=None
         "line": {"description": description, "quantity": 1, "unit_price": subtotal}}
     if proration is not None:
         snapshot["proration"] = proration
+    grace_days = validate_grace_days(configured_grace_days(tenant) if grace_days is None else grace_days)
+    # Omission represents zero, preserving existing approved snapshots and their fingerprints.
+    if grace_days:
+        snapshot[GRACE_FIELD] = grace_days
     return snapshot
 
 
@@ -97,8 +103,11 @@ def write_snapshot_invoice(tenant, customer, period, snapshot, actor, correlatio
     if values["total"] != total or values["tax_amount"] != tax or line["quantity"] != 1 or line["unit_price"] != values["subtotal"]:
         raise ValidationError("Snapshot nominal tidak konsisten.")
     values["due_date"] = date.fromisoformat(values["due_date"])
+    grace_days = validate_grace_days(snapshot.get(GRACE_FIELD, 0))
     invoice = Invoice.objects.create(tenant=tenant, customer=customer, period=period, **values)
     capture_invoice_issuer(invoice)
+    if grace_days:
+        InvoiceIsolationTerms.objects.create(invoice=invoice, grace_days=grace_days)
     InvoiceLine.objects.create(invoice=invoice, **line)
     audit(tenant, actor, "invoice.issued", invoice.pk, invoice.number, correlation_id)
     return invoice
@@ -117,7 +126,7 @@ def issue_invoice(tenant, customer_id, period, actor, discount=0, correlation_id
         if existing.discount != discount:
             raise ValidationError("Faktur periode ini sudah terbit dengan diskon berbeda.")
         return existing, False
-    tenant = Tenant.objects.get(pk=tenant.pk)
+    tenant = Tenant.objects.select_related('isolation_policy').get(pk=tenant.pk)
     invoice = write_snapshot_invoice(tenant, customer, period, invoice_snapshot(tenant, customer, period, discount), actor, correlation_id)
     return invoice, True
 

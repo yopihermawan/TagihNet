@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
 from .billing_scheduler import FIELDS, WIB, confirm_change, manager, next_month, read_review, review_change, values_for
+from .isolation import configured_grace_days, isolation_date
 from .models import BillingSchedule, Plan, month_due
 from .permissions import require
 from .security_views import recent_factor
@@ -38,14 +39,17 @@ def review_response(request, token, payload, form=None, status=200):
     period = date.fromisoformat(payload["period"])
     example_period = period
     dates = []
+    grace_days = configured_grace_days(request.member.tenant)
     for _ in range(3):
-        dates.append({"issue": month_due(period, payload["after"]["day"]),
-                      "due": month_due(period, request.member.tenant.due_day)})
+        issue = month_due(period, payload["after"]["day"])
+        due = month_due(period, request.member.tenant.due_day)
+        dates.append({"issue": issue, "due": due, "isolation": max(issue, isolation_date(due, grace_days))})
         period = next_month(period)
     plan_name = (Plan.objects.filter(tenant=request.member.tenant, pk=payload["after"]["plan"])
                  .values_list("name", flat=True).first()) if payload["after"]["plan"] else "Semua paket"
     return render(request, "billing/schedule_review.html", {"proposal":payload, "dates":dates,
-        "example_period":example_period, "state_label":dict(ScheduleForm.base_fields["state"].choices)[payload["after"]["state"]],
+        "example_period":example_period, "grace_days":grace_days,
+        "state_label":dict(ScheduleForm.base_fields["state"].choices)[payload["after"]["state"]],
         "plan_name":plan_name or "Paket tidak tersedia",
         "form":form if form is not None else ConfirmationForm(initial={"token":token})}, status=status)
 

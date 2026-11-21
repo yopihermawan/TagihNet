@@ -1,6 +1,7 @@
 from datetime import date
 from django import forms
 from django.core.exceptions import ValidationError
+from .isolation_models import MAX_GRACE_DAYS
 from .models import Customer, Fund
 from .validation import normalize_phone
 from .plan_selection import selectable_plans
@@ -50,6 +51,8 @@ class BillingSettingsForm(forms.Form):
     address = forms.CharField(label="Alamat ISP", max_length=250, strip=False,
         widget=forms.Textarea(attrs={"rows":3}))
     due_day = forms.IntegerField(label="Tanggal jatuh tempo (1–31)", min_value=1, max_value=31)
+    isolation_grace_days = forms.IntegerField(label="Tenggang isolir (hari)", min_value=0, max_value=MAX_GRACE_DAYS,
+        help_text="Hari kalender tambahan setelah jatuh tempo, untuk faktur baru. Berlaku pada pemeriksaan isolir simulasi.")
     tax_bp = forms.IntegerField(label="Pajak dalam basis poin (100 bp = 1%)", min_value=0, max_value=10000)
     invoice_footer = forms.CharField(label="Footer faktur (teks biasa)", max_length=1000, required=False,
         strip=False, widget=forms.Textarea(attrs={"rows":3}))

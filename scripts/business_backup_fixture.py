@@ -47,6 +47,8 @@ previous=(timezone.localdate().replace(day=1)-timedelta(days=1)).replace(day=1)
 business_action('cash_close',{'period':previous.strftime('%Y-%m')})
 assert m.InvoiceIssuerSnapshot.objects.count()==m.Invoice.objects.count()>0
 assert m.PaymentIssuerSnapshot.objects.count()==m.Payment.objects.count()>0
+assert m.TenantIsolationPolicy.objects.get(tenant=tenant).grace_days==3
+assert m.InvoiceIsolationTerms.objects.count()==m.Invoice.objects.count()>0
 assert all(model.objects.exists() for model in (m.Fund,m.PaymentFunding,m.CashMovement,m.CashCorrection,m.CashClose,m.Employee,m.SalaryTerms,
     m.PayrollRun,m.PayrollLine,m.Campaign,m.Lead,m.Commission,m.HotspotProfile,m.VoucherBatch,m.Voucher,m.NetworkNode,m.CustomerEndpoint,m.BusinessAction))
 '''
@@ -84,6 +86,9 @@ for document in m.Payment.objects.select_related('issuer_snapshot','tenant','inv
     assert render_receipt(receipt_context(document,timezone.now())).startswith(b'%PDF-')
 assert m.InvoiceIssuerSnapshot.objects.count()==m.Invoice.objects.count()>0
 assert m.PaymentIssuerSnapshot.objects.count()==m.Payment.objects.count()>0
+assert m.TenantIsolationPolicy.objects.get(tenant=fund.tenant).grace_days==3
+assert m.InvoiceIsolationTerms.objects.count()==m.Invoice.objects.count()>0
+assert not m.InvoiceIsolationTerms.objects.exclude(grace_days=3).exists()
 print('PASS: invoice and payment historical issuer rows/timestamps and PDFs restored')
 print('PASS: business cash/payroll/slip/commission/campaign/encrypted vouchers/topology/closing restored')
 '''

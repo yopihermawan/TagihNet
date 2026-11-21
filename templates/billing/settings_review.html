@@ -10,6 +10,7 @@
     <tbody><tr><th>Nama ISP</th><td>{{ proposal.before.name }}</td><td>{{ proposal.after.name }}</td></tr>
     <tr><th>Alamat ISP</th><td>{{ proposal.before.address|linebreaksbr|default:'—' }}</td><td>{{ proposal.after.address|linebreaksbr|default:'—' }}</td></tr>
     <tr><th>Tanggal jatuh tempo</th><td>{{ proposal.before.due_day }}</td><td>{{ proposal.after.due_day }}</td></tr>
+    <tr><th>Tenggang isolir</th><td>{{ proposal.before.isolation_grace_days }} hari</td><td>{{ proposal.after.isolation_grace_days }} hari</td></tr>
     <tr><th>Pajak (basis poin)</th><td>{{ proposal.before.tax_bp }} bp</td><td>{{ proposal.after.tax_bp }} bp</td></tr>
     <tr><th>Footer faktur</th><td>{{ proposal.before.invoice_footer|linebreaksbr|default:'—' }}</td><td>{{ proposal.after.invoice_footer|linebreaksbr|default:'—' }}</td></tr></tbody>
   </table></div>
@@ -18,7 +19,7 @@
 <section class="panel padded form-panel billing-settings-impact">
   <h2>Dampak dan contoh</h2>
   <p>{{ impact.customers }} pelanggan dan {{ impact.invoices }} faktur sudah ada pada ISP ini. Jumlah ini dapat berubah.</p>
-  <p>Nominal, pajak, jatuh tempo dan footer faktur yang sudah terbit serta snapshot batch yang sudah disetujui tetap. Tagihan yang baru disiapkan memakai setelan terbaru. Pratinjau billing dan aktivasi PSB yang belum disetujui diperiksa ulang ketika dikonfirmasi.</p>
+  <p>Tagihan yang baru disiapkan memakai setelan terbaru, termasuk tenggang isolir. Faktur terbit dan batch yang sudah disetujui memakai rincian awalnya. Pratinjau billing dan aktivasi PSB diperiksa ulang ketika dikonfirmasi.</p>
   <p>Jadwal bulanan yang aktif menyiapkan siklus berikutnya dengan setelan terbaru. Hari penerbitan dan persetujuan jadwal tetap; batch yang sudah disetujui tidak dihitung ulang.</p>
   <p><strong>Identitas penerbit disimpan pada dokumen baru.</strong> Nama dan alamat ISP disimpan saat faktur diterbitkan atau pembayaran dicatat, lalu dipakai pada tampilan dan PDF cetak ulang. Dokumen lama tanpa snapshot menampilkan profil ISP terkini beserta penanda riwayat yang belum tersimpan. Profil pada workspace mengikuti setelan terbaru. File yang sudah diunduh tidak berubah.</p>
   <p>Contoh tagihan bulanan penuh {{ period|date:'F Y' }}, sebelum pajak {{ 100000|idr }}, diskon nol. Ini contoh perhitungan; tidak menerbitkan tagihan atau membekukan harga pelanggan.</p>

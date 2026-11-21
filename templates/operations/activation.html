@@ -36,6 +36,7 @@
     <dt>Pajak</dt><dd class="amount">{{ snapshot.invoice.tax_amount|idr }} ({{ snapshot.invoice.tax_bp }} bp)</dd>
     <dt>Total faktur awal</dt><dd class="amount">{{ snapshot.invoice.total|idr }}</dd>
     <dt>Jatuh tempo</dt><dd>{{ snapshot.invoice.due_date }}</dd>
+    <dt>Tenggang isolir simulasi</dt><dd>{{ snapshot.isolation_grace_days|default:'0' }} hari setelah jatuh tempo</dd>
   </dl>
   {% if snapshot.proration %}
   <p class="info-note">Prorata memakai hari kalender termasuk tanggal awal. Harga dibulatkan ke rupiah terdekat sebelum pajak, minimal Rp1. Jatuh tempo paling awal pada tanggal awal prorata. Periode berikutnya ditagih satu bulan penuh.</p>

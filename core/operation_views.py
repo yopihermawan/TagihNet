@@ -337,7 +337,7 @@ def installation_reschedule(request, pk):
 @scope_stability
 @require_http_methods(["GET", "POST"])
 def installation_activate(request, pk):
-    order = get_object_or_404(visible_installations(member_for(request.user)).select_related("tenant", "plan"), pk=pk)
+    order = get_object_or_404(visible_installations(member_for(request.user)).select_related("tenant__isolation_policy", "plan"), pk=pk)
     initial = {"period": timezone.localdate().replace(day=1)}
     form = ActivationConfirmationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():

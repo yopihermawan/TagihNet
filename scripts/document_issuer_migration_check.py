@@ -13,14 +13,17 @@ MODELS={'invoiceissuersnapshot','paymentissuersnapshot'}
 NEW_TABLES={'core_'+name for name in MODELS}
 
 
-def check(database,baseline):
+def check(database,baseline,*,models=MODELS,migration='0015_document_issuers'):
     previous=json.loads(Path(baseline).read_text())['development'];added={}
+    new_tables={'core_'+name for name in models}
     with sqlite3.connect(Path(database).resolve().as_uri()+'?mode=ro',uri=True) as db:
         assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
         assert not db.execute('PRAGMA foreign_key_check').fetchall()
         tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
-        assert tables==set(previous['database'])|NEW_TABLES
-        for table in NEW_TABLES:assert db.execute('SELECT count(*) FROM '+table).fetchone()[0]==0,'Unexpected seeded records'
+        assert tables==set(previous['database'])|new_tables
+        for table in new_tables:
+            assert table.replace('_','').isalnum()
+            assert db.execute('SELECT count(*) FROM '+table).fetchone()[0]==0,'Unexpected seeded records'
         for table,before in previous['database'].items():
             assert table.replace('_','').isalnum()
             columns=[r[1] for r in db.execute('PRAGMA table_info("'+table+'")')]
@@ -32,14 +35,14 @@ def check(database,baseline):
             new=set(after)-set(before['rows'])
             if table=='django_migrations':
                 assert len(new)==1
-                assert db.execute('SELECT app,name FROM django_migrations WHERE id=?',(next(iter(new)),)).fetchone()==('core','0015_document_issuers')
+                assert db.execute('SELECT app,name FROM django_migrations WHERE id=?',(next(iter(new)),)).fetchone()==('core',migration)
             elif table=='django_content_type':
-                assert len(new)==len(MODELS)
+                assert len(new)==len(models)
                 actual={db.execute('SELECT app_label,model FROM django_content_type WHERE id=?',(pk,)).fetchone() for pk in new}
-                assert actual=={('core',name) for name in MODELS}
+                assert actual=={('core',name) for name in models}
             elif table=='auth_permission':
-                assert len(new)==4*len(MODELS)
-                expected={(name,f'{verb}_{name}') for name in MODELS for verb in ('add','change','delete','view')}
+                assert len(new)==4*len(models)
+                expected={(name,f'{verb}_{name}') for name in models for verb in ('add','change','delete','view')}
                 actual={db.execute('SELECT c.model,p.codename FROM auth_permission p JOIN django_content_type c ON c.id=p.content_type_id WHERE p.id=?',(pk,)).fetchone() for pk in new}
                 assert actual==expected
             else:assert not new,'Unexpected rows added: '+table
@@ -47,10 +50,12 @@ def check(database,baseline):
         sequences=dict(db.execute('SELECT name,seq FROM sqlite_sequence'))
         for name,seq in previous['sequences'].items():
             assert sequences[name]==seq+added.get(name,0),'Sequence changed: '+name
-        assert set(sequences)-set(previous['sequences'])<=NEW_TABLES
+        assert set(sequences)-set(previous['sequences'])<=new_tables
         assert all(sequences[name]==0 for name in set(sequences)-set(previous['sequences']))
-    return {'status':'passed','scope':'schema0014_to0015_sqlite','old_rows_and_columns_unchanged':True,
-        'new_issuer_tables_empty':len(NEW_TABLES),'new_content_types':len(MODELS),'new_permissions':len(MODELS)*4,
+    issuer=migration=='0015_document_issuers'
+    return {'status':'passed','scope':'schema0014_to0015_sqlite' if issuer else migration,'old_rows_and_columns_unchanged':True,
+        ('new_issuer_tables_empty' if issuer else 'new_tables_empty'):len(new_tables),
+        'new_content_types':len(models),'new_permissions':len(models)*4,
         'foreign_keys':'ok','old_sequences_preserved_except_expected_metadata':True,'production_ready':False}
 
 

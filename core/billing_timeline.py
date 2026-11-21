@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.conf import settings
 
 from .billing_scheduler import consent_valid
+from .isolation import isolation_date
 from .models import BillingSchedule, ReminderPolicy, month_due
 from .reminders import policy_authorized
 
@@ -51,12 +52,12 @@ def rules_for(tenant):
     return TimelineRules(issue_day, issue_note, reminder_days, reminder_hour, reminder_note, simulated)
 
 
-def calendar_dates(period, due_day, rules):
+def calendar_dates(period, due_day, rules, grace_days=0):
     issue = month_due(period, rules.issue_day or 1)
     due = month_due(period, due_day)
     reminder = None
     if rules.reminder_days is not None:
         reminder = max(issue, due - timedelta(days=rules.reminder_days))
-    isolation = max(issue, due + timedelta(days=1)) if rules.simulation else None
+    isolation = max(issue, isolation_date(due, grace_days)) if rules.simulation else None
     return {"issue": issue, "reminder": reminder, "due": due, "isolation": isolation,
-            "past_due_at_issue": issue > due}
+            "grace_days": grace_days, "past_due_at_issue": issue > due}
