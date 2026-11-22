@@ -40,6 +40,8 @@ Database uji dibuang saat verifikasi selesai, termasuk jika restore atau perband
 
 Pilih direktori baru dan port loopback yang belum dipakai. **Jangan jalankan up/bootstrap pada target sebelum restore**, karena keduanya dapat membuat tabel/akun dan target yang sudah digunakan akan ditolak.
 
+Pada host Docker `vfs`, ukur ruang sebelum menyiapkan proyek. Hasil estimasi dapat membantu menentukan apakah perlu memakai host dengan ruang tambahan. [Estimasi ruang pemulihan Docker](STAGING-OPERATIONS.md#estimasi-ruang-pemulihan-docker)
+
 ```bash
 .venv/bin/python scripts/staging_lab.py prepare --directory data/staging-recovery-baru --port 20443
 .venv/bin/python scripts/staging_backup.py restore data/staging/backups/TagihNet-staging-20261115-managed.tnbk --directory data/staging-recovery-baru --key-file data/staging/secrets/backup-key.json --mfa-key-file data/staging/secrets/mfa-key

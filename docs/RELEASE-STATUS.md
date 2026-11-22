@@ -46,3 +46,5 @@ Nomor kriteria mengikuti brief awal. Istilah **Simulasi** menunjukkan alur yang 
 | Operasi | Penyimpanan backup terpisah, aturan retensi, pemantauan dari host lain, dan anggaran kapasitas | Restore dari media penerima, hasil waktu pemulihan, beban dan failover terukur, audit keamanan independen |
 
 Ruang bebas cloud saat validasi sekitar 1,3 GiB. Pengujian ini memakai image yang sudah dipin dan fixture terisolasi. Matriks fitur mencatat pengembangan tersisa, termasuk siklus penagihan fleksibel, cakupan wilayah, dan portal lanjutan. [Matriks fitur](FEATURE-MATRIX.md)
+
+Latihan Docker penuh dari backup terpantau terbaru tertahan karena filesystem Docker habis saat membuat `pg_wal`. Pengukuran berikutnya memperkirakan 1,31 GiB untuk image dan volume, dengan sekitar 1,28 GiB tersedia. Pemulihan SQL dan halaman login HTTPS dari arsip yang sama lulus di lab PostgreSQL lokal dengan Gunicorn host. [Prosedur estimasi ruang](STAGING-OPERATIONS.md#estimasi-ruang-pemulihan-docker)

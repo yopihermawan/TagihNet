@@ -173,6 +173,70 @@ class StagingOperationsTests(SimpleTestCase):
         self.assertIsNone(report['filesystems']['postgres_volume'])
         self.assertIsNotNone(report['filesystems']['checkout'])
 
+    def test_recovery_plan_estimates_four_vfs_containers_and_postgres_on_docker_filesystem(self):
+        image = 'sha256:' + 'a' * 64
+        self.save_state(image_id=image)
+        available = ops.filesystem_capacity(1, 4000, 650, 800, 200)
+        responses = [STORAGE_STATS, '["vfs", "/var/lib/docker"]', '120\n180\n', '75 /var/lib/postgresql/data\n']
+        with (patch.object(ops, 'host_filesystem', return_value=available) as sample,
+              patch.object(ops, 'database_container', return_value='db'),
+              patch.object(ops, 'docker', side_effect=[SimpleNamespace(stdout=value) for value in responses]) as docker):
+            report = ops.storage(self.root, recovery_plan=True)
+        plan = report['recovery_plan']
+        self.assertEqual(plan['estimated_bytes'], 675)
+        self.assertEqual(plan['remaining_after_estimate_bytes'], -25)
+        self.assertEqual(report['status'], 'warning')
+        self.assertEqual(report['issues'], [{'code': 'recovery_estimate_exceeds_available', 'severity': 'warning',
+                                             'component': 'docker_recovery'}])
+        self.assertEqual(sample.call_args.args, (Path('/var/lib/docker'),))
+        self.assertEqual(docker.call_args_list[2].args[:4], ('image', 'inspect', ops.PG_IMAGE, image))
+        self.assertEqual(docker.call_args.args[:5], ('exec', '--user', '999:999', 'db', 'du'))
+        self.assertFalse((self.root/'ops').exists())
+
+    def test_recovery_plan_with_room_reports_remaining_estimate(self):
+        responses = ['["vfs", "/var/lib/docker"]', '120\n180\n', '75 /var/lib/postgresql/data\n']
+        capacity = ops.filesystem_capacity(1, 4000, 900, 800, 200)
+        with (patch.object(ops, 'host_filesystem', return_value=capacity),
+              patch.object(ops, 'docker', side_effect=[SimpleNamespace(stdout=value) for value in responses])):
+            plan = ops.recovery_storage_plan('test-image', 'db')
+        self.assertEqual(plan['status'], 'ok')
+        self.assertEqual(plan['remaining_after_estimate_bytes'], 225)
+
+    def test_recovery_plan_reports_exhausted_unknown_or_unsupported_storage(self):
+        enough = ops.filesystem_capacity(1, 4000, 900, 800, 200)
+        exhausted = ops.filesystem_capacity(1, 4000, 900, 800, 0)
+        for driver, capacity, severity, issue in (
+            ('vfs', exhausted, 'critical', 'filesystem_exhausted'),
+            ('vfs', None, 'unknown', 'recovery_plan_unavailable'),
+            ('overlay2', enough, 'unknown', 'recovery_estimate_unsupported_driver'),
+        ):
+            with (self.subTest(driver=driver, issue=issue),
+                  patch.object(ops, 'host_filesystem', return_value=capacity),
+                  patch.object(ops, 'docker', return_value=SimpleNamespace(stdout=json.dumps([driver, '/var/lib/docker']))) as docker):
+                plan = ops.recovery_storage_plan('test-image', 'db')
+                docker.assert_called_once()
+            self.assertEqual((plan['status'], plan['issue']), (severity, issue))
+            self.assertNotIn('estimated_bytes', plan)
+
+    def test_recovery_plan_never_treats_malformed_measurements_as_success(self):
+        with (patch.object(ops, 'host_filesystem', return_value=ops.filesystem_capacity(1, 4000, 900, 800, 200)),
+              patch.object(ops, 'docker', side_effect=[SimpleNamespace(stdout='["vfs", "/var/lib/docker"]'),
+                                                       SimpleNamespace(stdout='120\n180\n'),
+                                                       OSError('private diagnostic')])):
+            plan = ops.recovery_storage_plan('test-image', 'db')
+        self.assertEqual(plan['status'], 'unknown')
+        self.assertNotIn('estimated_bytes', plan)
+        self.assertNotIn('private diagnostic', json.dumps(plan))
+
+    def test_storage_cli_returns_nonzero_when_recovery_estimate_does_not_fit(self):
+        argv = ['staging_ops', 'storage', '--directory', str(self.root), '--recovery-plan']
+        report = {'status': 'warning', 'recovery_plan': {'issue': 'recovery_estimate_exceeds_available'}}
+        with (patch.object(ops.sys, 'argv', argv), patch.object(ops, 'storage', return_value=report) as storage,
+              redirect_stdout(io.StringIO()) as stream):
+            self.assertEqual(ops.main(), 1)
+        storage.assert_called_once_with(self.root, None, recovery_plan=True)
+        self.assertEqual(json.loads(stream.getvalue()), report)
+
     def test_running_worker_without_progress_is_critical(self):
         with self.checks(beats={'billing':self.beat(updated_at=self.now-121)}):report=ops.check(self.root,now=self.now)
         self.assertIn({'code':'heartbeat_stale','severity':'critical','component':'billing-worker'},report['issues'])

@@ -23,7 +23,7 @@ sys.path.insert(0,str(ROOT))
 from cryptography import x509
 from core.backup_archive import read_key,verify_archive
 from scripts.staging_backup import backup,database_container
-from scripts.staging_lab import compose,docker,manifest
+from scripts.staging_lab import PG_IMAGE,compose,docker,manifest
 
 WORKERS={'network-worker':'network','billing-worker':'billing','reminder-worker':'reminder'}
 LEVELS={'ok':0,'warning':1,'unknown':2,'critical':3}
@@ -188,7 +188,50 @@ def storage_snapshot(directory, config, container, min_free_mib=None):
     return {'status': status, 'filesystems': filesystems, 'minimum_free_bytes': minimum, 'issues': issues}
 
 
-def storage(directory, min_free_mib=None):
+def recovery_storage_plan(image_id, container):
+    """Estimate space for the four containers and database of a fresh VFS recovery."""
+    plan = {'status': 'unknown', 'issue': 'recovery_plan_unavailable', 'driver': None, 'docker_filesystem': None}
+    try:
+        info = docker('info', '--format', '[{{json .Driver}},{{json .DockerRootDir}}]', capture=True, timeout=15)
+        driver, root = json.loads(info.stdout)
+        if not isinstance(driver, str) or not Path(root).is_absolute():
+            return plan
+        plan['driver'] = driver
+        capacity = host_filesystem(Path(root))
+        plan['docker_filesystem'] = capacity
+        if capacity is None:
+            return plan
+        if capacity['available_bytes'] == 0 or capacity['available_inodes'] == 0:
+            return {**plan, 'status': 'critical', 'issue': 'filesystem_exhausted'}
+        if driver != 'vfs':
+            return {**plan, 'issue': 'recovery_estimate_unsupported_driver'}
+        if not image_id or not container:
+            return plan
+
+        images = docker('image', 'inspect', PG_IMAGE, image_id, '--format', '{{.Size}}', capture=True, timeout=15)
+        postgres_image, app_image = map(int, images.stdout.split())
+        volume = '/var/lib/postgresql/data'
+        usage = docker('exec', '--user', '999:999', container, 'du', '-sx', '-B1', '--', volume,
+                       capture=True, timeout=20)
+        size, path = usage.stdout.split()
+        postgres_used = int(size)
+        if path != volume or min(postgres_image, app_image, postgres_used) <= 0:
+            return plan
+    except (OSError, subprocess.SubprocessError, TypeError, ValueError):
+        return plan
+
+    # Count prepare and db separately, and count migrate and web separately.
+    estimated = 2 * postgres_image + 2 * app_image + postgres_used
+    remaining = capacity['available_bytes'] - estimated
+    plan.update(postgres_image_bytes=postgres_image, application_image_bytes=app_image,
+                source_postgres_volume_bytes=postgres_used, estimated_bytes=estimated,
+                remaining_after_estimate_bytes=remaining)
+    if remaining < 0:
+        return {**plan, 'status': 'warning', 'issue': 'recovery_estimate_exceeds_available'}
+    return {**plan, 'status': 'ok', 'issue': None}
+
+
+def storage(directory, min_free_mib=None, *, recovery_plan=False):
     if min_free_mib is not None and (type(min_free_mib) is not int or min_free_mib < 1):
         raise ValueError('Minimum ruang kosong harus bilangan bulat positif dalam MiB.')
     directory = Path(directory).resolve()
@@ -200,8 +243,15 @@ def storage(directory, min_free_mib=None):
             container = database_container(directory)
         except Exception:
             pass
-    return {'version': 1, 'project': state['project'], 'checked_at': time.time(),
-            **storage_snapshot(directory, config, container, min_free_mib)}
+    report = {'version': 1, 'project': state['project'], 'checked_at': time.time(),
+              **storage_snapshot(directory, config, container, min_free_mib)}
+    if recovery_plan:
+        plan = recovery_storage_plan(state.get('image_id'), container)
+        report['recovery_plan'] = plan
+        if plan['issue']:
+            report['issues'].append({'code': plan['issue'], 'severity': plan['status'], 'component': 'docker_recovery'})
+            report['status'] = max(report['status'], plan['status'], key=LEVELS.get)
+    return report
 
 
 def check(directory,config=None,now=None):
@@ -427,10 +477,13 @@ def main():
     parser.add_argument('--check-interval',type=int)
     parser.add_argument('--heartbeat-max-age',type=int)
     parser.add_argument('--min-free-mib',type=int,help='Ruang kosong minimum per filesystem untuk pemeriksaan storage.')
+    parser.add_argument('--recovery-plan', action='store_true', help='Taksir penggunaan ruang recovery baru pada Docker VFS.')
     parser.add_argument('--watch-token',default='',help=argparse.SUPPRESS)
     args=parser.parse_args();directory=args.directory.resolve()
     if args.min_free_mib is not None and args.action != 'storage':
         parser.error('--min-free-mib hanya untuk pemeriksaan storage.')
+    if args.recovery_plan and args.action != 'storage':
+        parser.error('--recovery-plan hanya untuk pemeriksaan storage.')
     try:
         if args.action=='configure':
             if args.enable_backup and args.disable_backup:raise ValueError('Pilih satu status backup.')
@@ -451,7 +504,7 @@ def main():
         elif args.action=='status':
             result=status(directory);print(json.dumps(result,sort_keys=True));return 0 if result['status']=='ok' else 1
         elif args.action == 'storage':
-            result = storage(directory, args.min_free_mib)
+            result = storage(directory, args.min_free_mib, recovery_plan=args.recovery_plan)
             print(json.dumps(result, sort_keys=True))
             return 0 if result['status'] == 'ok' else 1
         elif args.action=='start':print('Watcher lokal aktif; pid='+str(start(directory)['pid']))

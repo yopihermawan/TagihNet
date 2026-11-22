@@ -662,3 +662,9 @@ SQLite dan PostgreSQL masing-masing lulus **883 tes**. Empat tes baru mencakup b
 SQLite dan PostgreSQL masing-masing lulus **889 tes**. Enam tes baru mencakup pemeriksaan identitas, status dan binding loopback lab, syarat role, pembersihan database saat gagal, penolakan output yang berisiko menimpa laporan atau masuk ke direktori kustodi, ketidakcocokan kunci MFA dan perubahan sumber saat verifikasi.
 
 Pada 22 November 2026, arsip staging pukul 17.09 WIB terautentikasi dan dipulihkan di database sementara. Isi 62 tabel, 327 baris, metadata kolom dalam urutan logis, dan kondisi 57 sequence cocok dengan sumber. Arsip ini berisi nol perangkat MFA. Database sementara dibersihkan. Bukti privat berada di `data/evidence/monitored-restore-20261122.json`. [Panduan uji restore](STAGING-RECOVERY.md#uji-restore-backup-terpantau)
+
+## Estimasi ruang pemulihan Docker VFS
+
+SQLite dan PostgreSQL masing-masing lulus **894 tes**. Lima tes baru mencakup perhitungan empat container dan volume sumber, sisa ruang jika estimasi muat, inode habis, filesystem tidak terukur, driver lain, kegagalan pembacaan, serta exit code CLI.
+
+Pada 22 November 2026, estimasi staging lokal sekitar 1,31 GiB dengan ruang tersedia sekitar 1,28 GiB. `storage --recovery-plan` menghasilkan `warning` sebelum alur pemulihan membuat container. Percobaan Compose sebelumnya berhenti saat PostgreSQL membuat `pg_wal` karena filesystem Docker habis. Bukti privat berada di `data/evidence/recovery-capacity-20261122.json`. [Panduan estimasi](STAGING-OPERATIONS.md#estimasi-ruang-pemulihan-docker)

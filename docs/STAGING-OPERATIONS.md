@@ -30,6 +30,18 @@ Perintah `storage` mengambil sampel baru secara baca-saja. Pemeriksaan di bawah 
 
 Gunakan ambang sesuai kebutuhan build, backup, atau pemulihan. Argumen ini hanya berlaku pada pemanggilan tersebut. Exit 0 berarti semua filesystem terukur dan lolos pemeriksaan. Exit 1 menghasilkan `warning` jika ruang di bawah ambang, `critical` jika byte atau inode habis, atau `unknown` jika pengukuran tidak lengkap. Folder tujuan backup yang belum tersedia dilaporkan `unknown`. Bagian penyimpanan memiliki status tersendiri. Jadwal backup dan pemeriksaan kesehatan layanan tetap mengikuti konfigurasi operasi.
 
+### Estimasi ruang pemulihan Docker
+
+Pada host yang memakai driver Docker `vfs`, jalankan pemeriksaan berikut dari staging sumber yang sedang berjalan dengan image yang dipin.
+
+```bash
+.venv/bin/python scripts/staging_ops.py storage --directory data/staging --recovery-plan
+```
+
+Laporan `recovery_plan` membandingkan ruang yang tersedia pada filesystem Docker dengan dua kali ukuran image PostgreSQL untuk `prepare` dan `db`, dua kali ukuran image aplikasi untuk `migrate` dan `web`, serta byte terpakai pada volume PostgreSQL sumber. Nilai negatif pada `remaining_after_estimate_bytes` menghasilkan `warning` dan exit 1. Driver lain atau pengukuran yang tidak tersedia menghasilkan `unknown` untuk estimasi.
+
+Sisakan ruang tambahan untuk file sementara, WAL, log, dan overhead driver. Besarnya bisa berbeda menurut ukuran arsip, kondisi volume dan host. Estimasi yang muat masih perlu dibuktikan dengan latihan restore. Perintah hanya membaca kapasitas dan tidak memulai container atau mengubah jadwal backup.
+
 ## Backup opt-in
 
 Key harus sudah ada, valid dan privat0400/0600. Jangan mengganti key lama; pembuatan key untuk proyek baru mengikuti panduan recovery. Contoh source yang telah memiliki key:
