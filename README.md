@@ -232,7 +232,7 @@ python scripts/browser_smoke.py
 
 [TEST-REPORT](docs/TEST-REPORT.md) memuat hasil yang benar-benar dijalankan. Backend serta browser MFA/billing, operasional, dan aksesibilitas didaftarkan pada GitHub Actions. PDF dan restore juga dapat dijalankan mandiri. Keberhasilan CI remote belum dikonfirmasi.
 
-Uji aksesibilitas menjalankan Chromium dengan data fiktif. Laporan memuat aturan axe, pemeriksaan keyboard, dan rasio kontras batas kolom pada formulir yang diuji. Pasang `axe-core` pada direktori sementara dan pilih nama laporan baru.
+Uji aksesibilitas menjalankan Chromium dengan data fiktif. Laporan memuat aturan axe, pemeriksaan keyboard, rasio kontras, dan hasil uji pohon aksesibilitas untuk status pencarian, tombol tema, serta ringkasan kesalahan. Pasang `axe-core` pada direktori sementara dan pilih nama laporan baru.
 
 ```bash
 audit_dir=$(mktemp -d)

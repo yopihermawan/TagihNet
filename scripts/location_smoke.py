@@ -95,9 +95,9 @@ print('LOCATION:'+json.dumps({'order':order.pk,'hidden':hidden.pk,'customer':ten
                 page.set_viewport_size({'width':width,'height':1000})
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
                 if width in (360,1366):page.screenshot(path=str(evidence/('customer-location-mobile.png' if width==360 else 'customer-location-desktop.png')),full_page=True)
-            page.get_by_role('button',name='Ganti mode terang atau gelap').click()
+            page.get_by_role('button',name='Mode gelap').click()
             expect(page.locator('html')).to_have_attribute('data-theme','dark')
-            page.get_by_role('button',name='Ganti mode terang atau gelap').click()
+            page.get_by_role('button',name='Mode gelap').click()
             phase='psb_old_quote'
             order_url=base+f"/operations/installations/{ids['order']}/"
             page.goto(order_url+'activate/')

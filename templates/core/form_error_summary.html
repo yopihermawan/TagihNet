@@ -1,0 +1,17 @@
+{% if limited or form.errors %}
+<div class="form-error-summary" data-form-error-summary tabindex="-1" role="group" aria-labelledby="form-errors-title" aria-describedby="form-errors-list">
+  <h2 id="form-errors-title">{% if limited %}Terlalu banyak percobaan{% else %}Periksa isian formulir{% endif %}</h2>
+  <ul id="form-errors-list">
+    {% if limited %}
+      <li>{{ limit_message }}</li>
+    {% else %}
+      {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+      {% for field in form %}
+        {% for error in field.errors %}
+          <li>{% if field.id_for_label and not field.is_hidden %}<a href="#{{ field.id_for_label }}">{{ field.label }}. {{ error }}</a>{% else %}{{ error }}{% endif %}</li>
+        {% endfor %}
+      {% endfor %}
+    {% endif %}
+  </ul>
+</div>
+{% endif %}

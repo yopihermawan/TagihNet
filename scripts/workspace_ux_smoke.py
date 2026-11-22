@@ -114,7 +114,7 @@ with tempfile.TemporaryDirectory(prefix='tagihnet-workspace-ux-') as temporary:
                         assert page.evaluate('document.querySelector("#sidebar").contains(document.activeElement)')
                     page.keyboard.press('Escape');expect(page.get_by_role('button',name='Buka atau tutup navigasi')).to_be_focused()
                     assert page.locator('.app').evaluate('(element)=>element.inert') is False
-            page.get_by_role('button',name='Ganti mode terang atau gelap').click()
+            page.get_by_role('button',name='Mode gelap').click()
             first_link.click();expect(dialog.get_by_role('heading',name=first[1],exact=True)).to_be_visible()
             expect(page.locator('html')).to_have_attribute('data-theme','dark');page.keyboard.press('Escape')
             phase='detail_return'

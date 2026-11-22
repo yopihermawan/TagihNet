@@ -88,6 +88,81 @@ def audit_page(page, axe):
     }''', RULES)
 
 
+def ax_node(page, selector):
+    session = page.context.new_cdp_session(page)
+    try:
+        root = session.send('DOM.getDocument')['root']['nodeId']
+        node_id = session.send('DOM.querySelector', {'nodeId': root, 'selector': selector})['nodeId']
+        assert node_id, selector
+        node = session.send('Accessibility.getPartialAXTree', {'nodeId': node_id, 'fetchRelatives': False})['nodes'][0]
+        assert not node['ignored'], selector
+        return (node.get('role', {}).get('value'), node.get('name', {}).get('value'),
+                node.get('description', {}).get('value', ''),
+                {item['name']: item['value'].get('value') for item in node.get('properties', [])})
+    finally:
+        session.detach()
+
+
+def check_error_focus(page, field=None):
+    summary = page.locator('[data-form-error-summary]')
+    expect(summary).to_be_focused()
+    role, name, description, properties = ax_node(page, '[data-form-error-summary]')
+    assert role == 'group' and name == 'Periksa isian formulir' and description and properties.get('focused') is True
+    if field:
+        summary.locator(f'a[href="#{field}"]').click()
+        expect(page.locator(f'#{field}')).to_be_focused()
+        _, _, description, properties = ax_node(page, f'#{field}')
+        inline_error = page.locator(f'#{field}_error').inner_text().strip()
+        assert inline_error and inline_error in description and properties.get('invalid') in (True, 'true'), field
+
+
+def submit_login(page, password):
+    page.get_by_label('Username', exact=True).fill('owner')
+    page.get_by_label('Kata sandi', exact=True).fill(password)
+    page.get_by_role('button', name='Masuk ke workspace').click()
+
+
+def invalid_totp(secret):
+    totp = pyotp.TOTP(secret)
+    now = int(time.time())
+    nearby = {totp.at(now + step * totp.interval) for step in range(-2, 3)}
+    return next(f'{number:06d}' for number in range(6) if f'{number:06d}' not in nearby)
+
+
+def check_menu_announcements(page, base, width):
+    mobile = width <= 850
+    page.set_viewport_size({'width': width, 'height': 900})
+    page.goto(base + '/')
+    if mobile:
+        page.get_by_role('button', name='Buka atau tutup navigasi', exact=True).click()
+    name = 'Cari menu navigasi mobile' if mobile else 'Cari menu navigasi'
+    search = page.get_by_role('searchbox', name=name, exact=True)
+    selector = f'{".sidebar-search" if mobile else ".menu-search"} [data-menu-search-status]'
+    status = page.locator(selector)
+    search.fill('payroll')
+    expect(status).to_have_text(re.compile(r'^[1-9][0-9]* menu ditemukan\.$'))
+    search.fill('menu-fiktif-yang-tidak-tersedia')
+    expect(status).to_have_text('0 menu ditemukan.')
+    role, _, _, properties = ax_node(page, selector)
+    assert role == 'status' and properties.get('live') == 'polite'
+    search.fill('')
+    if mobile:
+        page.keyboard.press('Escape')
+
+
+def check_theme_state(page, base):
+    page.goto(base + '/')
+    page.evaluate('localStorage.setItem("tagihnet-theme", "light")')
+    page.reload()
+    selector = '#theme-toggle'
+    _, name, _, properties = ax_node(page, selector)
+    assert name == 'Mode gelap' and properties.get('pressed') in ('false', False)
+    page.get_by_role('button', name='Mode gelap', exact=True).click()
+    page.reload()
+    _, name, _, properties = ax_node(page, selector)
+    assert name == 'Mode gelap' and properties.get('pressed') in ('true', True)
+
+
 def run(options):
     axe = options.axe.read_text()
     if os.path.lexists(options.output):
@@ -113,7 +188,7 @@ def run(options):
                    'network': '/network/'}
         server = subprocess.Popen([sys.executable, 'manage.py', 'runserver', f'127.0.0.1:{port}', '--noreload'],
                                   cwd=ROOT, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-        scans, keyboard = [], []
+        scans, keyboard, accessibility_tree = [], [], []
         try:
             for _ in range(100):
                 try:
@@ -130,9 +205,10 @@ def run(options):
                 context = browser.new_context(viewport={'width': 1366, 'height': 900}, reduced_motion='reduce')
                 page = context.new_page()
 
-                def scan(screen, width, theme):
-                    result = audit_page(page, axe)
-                    scans.append(dict(screen=screen, width=width, theme=theme, **result))
+                def scan(screen, tab=page):
+                    width = tab.viewport_size['width']
+                    theme = tab.locator('html').get_attribute('data-theme')
+                    scans.append(dict(screen=screen, width=width, theme=theme, **audit_page(tab, axe)))
 
                 def visit(path, theme):
                     page.evaluate('theme => localStorage.setItem("tagihnet-theme", theme)', theme)
@@ -154,17 +230,24 @@ def run(options):
                     for theme in ('light', 'dark'):
                         visit('/login/', theme)
                         check_skip_link(width, theme)
-                        scan('login', width, theme)
-                page.get_by_label('Username', exact=True).fill('owner')
-                page.get_by_label('Kata sandi', exact=True).fill(password)
-                page.get_by_role('button', name='Masuk ke workspace').click()
+                        scan('login')
+                submit_login(page, 'Sandi-uji-yang-sengaja-salah!')
+                check_error_focus(page)
+                accessibility_tree.append('login_error')
+                scan('login_error')
+                submit_login(page, password)
                 page.wait_for_url(re.compile(re.escape(base) + r'/mfa/setup/(?:#main)?$'))
                 for width in options.widths:
                     page.set_viewport_size({'width': width, 'height': 900})
                     for theme in ('light', 'dark'):
                         visit('/mfa/setup/', theme)
-                        scan('mfa_setup', width, theme)
+                        scan('mfa_setup')
                 secret = page.locator('.provisioning-secret').text_content().strip()
+                page.get_by_label('Kode authenticator (6 digit)').fill(invalid_totp(secret))
+                page.get_by_role('button', name='Aktifkan MFA', exact=True).click()
+                check_error_focus(page, field='id_code')
+                accessibility_tree.append('mfa_enrollment_error')
+                scan('mfa_enrollment_error')
                 page.get_by_label('Kode authenticator (6 digit)').fill(pyotp.TOTP(secret).now())
                 page.get_by_role('button', name='Aktifkan MFA', exact=True).click()
                 page.get_by_role('link', name='Saya sudah menyimpan kode').click()
@@ -173,7 +256,7 @@ def run(options):
                     for theme in ('light', 'dark'):
                         for name, path in screens.items():
                             visit(path, theme)
-                            scan(name, width, theme)
+                            scan(name)
                             if name == 'network':
                                 job_link = page.locator('.network-job-link').first
                                 expect(job_link).to_have_css('text-decoration-line', 'underline')
@@ -194,12 +277,32 @@ def run(options):
                         page.keyboard.press('Enter')
                         dialog = page.get_by_role('dialog', name='Ringkasan cepat pelanggan')
                         expect(dialog).to_be_visible()
-                        scan('customer_quick_view', width, theme)
+                        scan('customer_quick_view')
                         page.keyboard.press('Escape')
                         keyboard.append({'label': 'drawer_returns_focus', 'width': width, 'theme': theme,
                                          'passed': link.evaluate('el => el === document.activeElement') and not dialog.is_visible()})
                 chromium_version = browser.version
                 axe_version = page.evaluate('axe.version')
+                visit('/customers/new/', 'light')
+                page.locator('form.stack-form').evaluate('form => form.noValidate = true')
+                page.get_by_role('button', name='Simpan', exact=True).click()
+                check_error_focus(page, field='id_name')
+                accessibility_tree.append('customer_error')
+                scan('customer_error')
+                for width, layout in ((1366, 'desktop'), (360, 'mobile')):
+                    check_menu_announcements(page, base, width)
+                    accessibility_tree.append(f'{layout}_menu_status')
+                check_theme_state(page, base)
+                accessibility_tree.append('theme_toggle_state')
+                challenge = browser.new_context().new_page()
+                challenge.goto(base + '/login/')
+                submit_login(challenge, password)
+                challenge.wait_for_url(base + '/mfa/verify/')
+                challenge.locator('#id_code').fill(invalid_totp(secret))
+                challenge.get_by_role('button', name='Verifikasi dan masuk', exact=True).click()
+                check_error_focus(challenge, field='id_code')
+                accessibility_tree.append('mfa_challenge_error')
+                scan('mfa_challenge_error', challenge)
                 browser.close()
         finally:
             server.terminate()
@@ -216,6 +319,7 @@ def run(options):
                                 for scan in scans if scan['page_has_horizontal_overflow']],
         'keyboard_checks': len(keyboard),
         'keyboard_failed': [check for check in keyboard if not check['passed']],
+        'accessibility_tree_checks': accessibility_tree,
     }
     failed = (summary['violating_scans'] or summary['horizontal_overflow'] or summary['keyboard_failed']
               or contrast['flagged']['failed'] or contrast['boundaries']['failed'] or contrast['boundaries']['unresolved'])

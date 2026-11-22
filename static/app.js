@@ -43,12 +43,17 @@ document.addEventListener('keydown', (event) => {
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   }
 });
-try {
-  document.documentElement.dataset.theme = localStorage.getItem('tagihnet-theme') || 'light';
-} catch { /* Storage may be unavailable in a private context. */ }
-document.querySelector('#theme-toggle')?.addEventListener('click', () => {
-  const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+const themeToggle = document.querySelector('#theme-toggle');
+function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
+  themeToggle?.setAttribute('aria-pressed', String(theme === 'dark'));
+}
+try {
+  applyTheme(localStorage.getItem('tagihnet-theme') === 'dark' ? 'dark' : 'light');
+} catch { /* Storage may be unavailable in a private context. */ }
+themeToggle?.addEventListener('click', () => {
+  const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  applyTheme(theme);
   try { localStorage.setItem('tagihnet-theme', theme); } catch { /* Optional preference. */ }
 });
 document.querySelector('#password-toggle')?.addEventListener('click', (event) => {
@@ -59,6 +64,7 @@ document.querySelector('#password-toggle')?.addEventListener('click', (event) =>
   event.target.setAttribute('aria-pressed', String(showing));
 });
 const menuInputs = [...document.querySelectorAll('[data-menu-search]')];
+const menuStatuses = [...document.querySelectorAll('[data-menu-search-status]')];
 const menuGroups = [...document.querySelectorAll('[data-nav-group]')];
 const menuPreferenceKey = 'tagihnet-navigation-v1';
 let menuPreferences = {}, beforeSearch = null, searching = false;
@@ -97,10 +103,14 @@ function filterMenus(value) {
   if (!term) beforeSearch = null;
   const empty = document.querySelector('[data-nav-search-empty]');
   if (empty) empty.hidden = !term || count > 0;
-  const status = document.querySelector('[data-menu-search-status]');
-  if (status) status.textContent = term ? `${count} menu ditemukan.` : '';
+  for (const status of menuStatuses) status.textContent = term ? `${count} menu ditemukan.` : '';
 }
 for (const input of menuInputs) input.addEventListener('input', event => filterMenus(event.target.value));
+const formErrorSummary = document.querySelector('[data-form-error-summary]');
+if (formErrorSummary) {
+  // Let the browser finish fragment navigation before focusing a rejected form.
+  window.addEventListener('load', () => formErrorSummary.focus(), {once: true});
+}
 document.querySelector('#show-username')?.addEventListener('change', (event) => {
   document.querySelectorAll('.username-column').forEach(cell => { cell.hidden = !event.target.checked; });
 });

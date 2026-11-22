@@ -114,3 +114,20 @@ html:not([data-enhanced]) .menu-search,html:not([data-enhanced]) #theme-toggle,h
 }
 
 .network-job-link { text-decoration: underline; text-underline-offset: 0.18em; }
+
+.form-error-summary {
+  margin-block: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  background: var(--red-soft);
+  color: var(--red);
+}
+.form-error-summary ul { margin: 8px 0 0; padding-inline-start: 20px; }
+.form-error-summary a {
+  display: inline-block;
+  min-height: 24px;
+  padding-block: 3px;
+  color: inherit;
+  text-decoration: underline;
+}

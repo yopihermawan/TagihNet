@@ -124,7 +124,7 @@ Membership.objects.create(user=sales,tenant=owner.membership.tenant,role='sales'
                 for width in (360,768,1366,1920):
                     page.set_viewport_size({'width':width,'height':1000})
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),module
-            page.get_by_role('button',name='Ganti mode terang atau gelap').click();expect(page.locator('html')).to_have_attribute('data-theme','dark')
+            page.get_by_role('button',name='Mode gelap').click();expect(page.locator('html')).to_have_attribute('data-theme','dark')
             assert not external and not errors
             browser.close()
         print('PASS: real MFA/review/confirmation, cash/team/payroll/own payslip/sales conversion/scope/voucher private PDF/activation/refund/topology port/public promo;6 modules ×4 widths/dark/no external requests; disposable data only.',flush=True)

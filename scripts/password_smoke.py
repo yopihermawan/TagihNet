@@ -64,9 +64,9 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-password-browser-") as tempora
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                 if width in (360,1366):
                     page.screenshot(path=str(evidence / ("account-profile-mobile.png" if width==360 else "account-profile-desktop.png")),full_page=True)
-            page.get_by_role("button",name="Ganti mode terang atau gelap").click()
+            page.get_by_role("button",name="Mode gelap").click()
             expect(page.locator('html')).to_have_attribute('data-theme','dark')
-            page.get_by_role("button",name="Ganti mode terang atau gelap").click()
+            page.get_by_role("button",name="Mode gelap").click()
             page.get_by_label("Nama depan atau panggilan:",exact=True).fill("Ayu Profil Fiktif")
             page.get_by_label("Nama belakang:",exact=True).fill("Utami")
             page.get_by_role("button",name="Simpan nama tampilan",exact=True).click()
@@ -86,9 +86,9 @@ with tempfile.TemporaryDirectory(prefix="tagihnet-password-browser-") as tempora
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                 if width in (360,1366):
                     page.screenshot(path=str(evidence / ("account-password-mobile.png" if width==360 else "account-password-desktop.png")),full_page=True)
-            page.get_by_role("button",name="Ganti mode terang atau gelap").click()
+            page.get_by_role("button",name="Mode gelap").click()
             expect(page.locator('html')).to_have_attribute('data-theme','dark')
-            page.get_by_role("button",name="Ganti mode terang atau gelap").click()
+            page.get_by_role("button",name="Mode gelap").click()
             def submit(current,code):
                 page.get_by_label("Kata sandi saat ini:",exact=True).fill(current)
                 page.get_by_label("Kata sandi baru:",exact=True).fill(changed)

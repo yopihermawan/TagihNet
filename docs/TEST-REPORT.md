@@ -684,3 +684,11 @@ Batas input, select, dan textarea yang diuji sebelumnya mencapai 1,73:1 pada per
 Pemeriksaan warna yang dirender Chromium mengukur seluruh 496 elemen yang ditandai axe untuk tinjauan kontras dalam rangkaian 88 pemindaian. Rasio terendah 5,47:1. Jumlah ini mencakup pengulangan elemen lintas halaman, lebar dan tema. Pengukuran memakai warna RGB pada latar solid. Latar yang tidak dapat dihitung dengan metode ini ditandai untuk tinjauan manual. Dua puluh pemeriksaan keyboard kembali lulus.
 
 Ketika warna batas lama diterapkan ulang pada browser uji lebar 360 piksel, 14 pengukuran gagal dan skrip mengembalikan exit 1. SQLite dan PostgreSQL masing-masing lulus 894 tes. Bukti privat tersimpan di `data/evidence/accessibility-contrast-20261122.json`.
+
+### Pohon aksesibilitas Chromium
+
+Status hasil pencarian sekarang berada di area navigasi yang aktif, termasuk saat panel mobile terbuka. Tombol “Mode gelap” menyampaikan status tekan dan memulihkannya saat halaman dimuat ulang. Formulir login, pengaturan dan verifikasi MFA, serta formulir umum memindahkan fokus ke ringkasan saat server menolak isian. Tautan ringkasan menuju kolom bermasalah. Pesan di tiap kolom tetap terhubung dengan kontrol tersebut.
+
+Pohon aksesibilitas Chromium memeriksa peran status dan pengaturan `polite` pada pencarian desktop/mobile, status tombol tema, serta fokus, nama dan deskripsi kesalahan di empat alur. Uji ini memakai data fiktif dan pemeriksaan semantik Chromium. Verifikasi ucapan dengan pembaca layar desktop masih terbuka karena perangkatnya tidak tersedia pada sesi cloud ini.
+
+Ketujuh skenario pohon aksesibilitas lulus. Pemindaian axe pada 92 keadaan, termasuk empat formulir yang ditolak server, selesai tanpa pelanggaran otomatis. Dua puluh pemeriksaan keyboard dan seluruh pengukuran kontras lulus. SQLite dan PostgreSQL masing-masing lulus 894 tes. Regresi Chromium untuk alur keamanan, navigasi, pengaturan billing, lokasi, paket, dan operasional juga lulus. Bukti privat tersedia di `data/evidence/accessibility-tree-20261122.json`.
