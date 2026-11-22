@@ -28,6 +28,8 @@ Pin hanya menyimpan `image_id` pada manifest di bawah operation lock, setelah me
 
 Staging aktif harus mempunyai backup berkala yang enabled, percobaan terakhir tidak gagal, metadata sukses masih dalam interval+1jam, dan timestamp **arsip terautentikasi** juga cukup baru. File harus reguler privat; seluruh GCM dibaca ulang. Paket pemulihan yang dipilih harus memuat ciphertext yang sama dengan backup terakhir tersebut dan key MFA yang sesuai source.
 
+Operator dapat menjalankan `staging_ops.py backup-now` untuk membuat snapshot terpantau sebelum pemeriksaan rilis. Interval backup berikutnya dihitung dari waktu verifikasi snapshot manual selesai. [Panduan backup manual](STAGING-OPERATIONS.md#backup-manual)
+
 Checkpoint lokasi 19 November memakai pasangan berikut:
 
 - `data/recovery-handoff/archives/locations-20261119`

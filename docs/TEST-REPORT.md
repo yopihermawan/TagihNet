@@ -652,3 +652,7 @@ Pada 22 November WIB, CLI dijalankan pada staging utama dan clone yang sudah akt
 SQLite dan PostgreSQL masing-masing lulus **879 tes**. Uji PostgreSQL dua proses mengonfirmasi 17 skenario dengan hasil transaksi dan antrean konsisten, lalu menjalankan restore `pg_dump` dan restore terenkripsi ke target kosong. Restore SQLite terenkripsi mengonfirmasi isi database serta login MFA ulang pada fixture.
 
 Sepuluh skenario Chromium lulus pada database dan akun fiktif, termasuk alur utama login MFA → pelanggan → faktur → pembayaran → reversal → logout. Build aset statis, faktur multipage, dan kuitansi A4 dikonfirmasi ulang. Metadata PyPI untuk 16 versi runtime terkunci tidak menampilkan advisory aktif saat diperiksa. Log dan hasil privat dikelompokkan di `data/evidence/local-release-20261122/`. [Status per kriteria penerimaan](RELEASE-STATUS.md)
+
+## Backup terpantau manual
+
+SQLite dan PostgreSQL masing-masing lulus **883 tes**. Empat tes baru mencakup backup sebelum jadwal, waktu sukses setelah autentikasi, penolakan pada proyek yang tidak memenuhi syarat, kegagalan yang mempertahankan rujukan arsip sebelumnya, dan exit code backup yang terpisah dari kesehatan layanan. Lock bersama dengan watcher juga diuji. [Panduan backup manual](STAGING-OPERATIONS.md#backup-manual)

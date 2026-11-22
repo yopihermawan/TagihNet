@@ -3,7 +3,7 @@ import io
 import json
 import os
 import tempfile
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -215,6 +215,70 @@ class StagingOperationsTests(SimpleTestCase):
         self.assertTrue(Path(result['backup']['last_archive']).is_file())
         self.assertEqual((self.root/'ops/backup.json').stat().st_mode&0o777,0o600)
 
+    def test_manual_backup_runs_before_due_and_schedules_from_verified_completion(self):
+        config = self.enable()
+        archive = Path(config['backup_directory']) / 'previous.tnbk'
+        key = ops.read_key(Path(config['backup_key_file']))
+        encrypt_stream(io.BytesIO(b'PGDMPprevious'), archive, key, 'postgresql')
+        previous = archive.read_bytes()
+        ops.write_json(self.root / 'ops/backup.json', {'last_success_at': self.now - 60, 'last_archive': str(archive)})
+
+        def dump(directory, target, key):
+            encrypt_stream(io.BytesIO(b'PGDMPmanual'), target, key, 'postgresql')
+
+        finished = self.now + 21
+        with (patch.object(ops, 'backup', side_effect=dump) as dump_mock,
+              patch.object(ops, 'check', side_effect=lambda directory, config, now: {**self.healthy(), 'checked_at': now}),
+              patch.object(ops.time, 'time', side_effect=[self.now, finished, finished + 1])):
+            result = ops.tick(self.root, force_backup=True)
+            ops.tick(self.root, finished + 30)
+        dump_mock.assert_called_once()
+        self.assertEqual(result['checked_at'], finished + 1)
+        self.assertEqual(result['backup']['last_attempt_at'], self.now)
+        self.assertEqual(result['backup']['last_success_at'], finished)
+        self.assertEqual(result['backup']['next_attempt_at'], finished + config['backup_interval'])
+        self.assertFalse(result['backup']['failed'])
+        self.assertNotEqual(result['backup']['last_archive'], str(archive))
+        self.assertEqual(archive.read_bytes(), previous)
+
+    def test_manual_backup_refuses_unready_held_or_unconfigured_project(self):
+        with patch.object(ops, 'backup') as dump:
+            with self.assertRaises(ValueError):
+                ops.tick(self.root, self.now, force_backup=True)
+            self.enable()
+            for changes in ({'initialized': False}, {'recovery_pending': True}, {'restore_state': 'failed'}):
+                self.save_state(initialized=True, recovery_pending=False, restore_state=None)
+                self.save_state(**changes)
+                with self.subTest(changes=changes), self.assertRaises(ValueError):
+                    ops.tick(self.root, self.now, force_backup=True)
+        dump.assert_not_called()
+        self.assertFalse((self.root / 'ops/backup.json').exists())
+
+    def test_failed_manual_backup_preserves_previous_archive_and_records_retry_from_finish(self):
+        self.enable()
+        previous = {'last_success_at': self.now - 60, 'last_archive': str(self.root / 'previous.tnbk')}
+        ops.write_json(self.root / 'ops/backup.json', previous)
+        finished = self.now + 22
+        with (patch.object(ops, 'backup', side_effect=OSError('private fixture')),
+              patch.object(ops, 'check', side_effect=lambda *args: self.healthy()),
+              patch.object(ops.time, 'time', side_effect=[self.now, finished, finished + 1])):
+            result = ops.tick(self.root, force_backup=True)
+        metadata = ops.read_json(self.root / 'ops/backup.json')
+        self.assertEqual(metadata, {**previous, 'last_attempt_at': self.now, 'failed': True, 'next_attempt_at': finished + 300})
+        self.assertTrue(result['backup']['failed'])
+        self.assertEqual(result['status'], 'critical')
+        self.assertNotIn('private fixture', json.dumps(result))
+
+    def test_backup_now_exit_code_reflects_backup_result(self):
+        argv = ['staging_ops', 'backup-now', '--directory', str(self.root)]
+        for failed, exit_code in ((False, 0), (True, 1)):
+            report = {'status': 'warning', 'backup': {'failed': failed}}
+            with (patch.object(ops.sys, 'argv', argv), patch.object(ops, 'tick', return_value=report) as tick,
+                  redirect_stdout(io.StringIO()) as output):
+                self.assertEqual(ops.main(), exit_code)
+                tick.assert_called_once_with(self.root, force_backup=True)
+                self.assertEqual(json.loads(output.getvalue()), report)
+
     def test_backup_failure_is_visible_and_retries_with_backoff(self):
         self.enable()
         with patch.object(ops,'backup',side_effect=OSError('secret fixture')) as dump,patch.object(ops,'check',side_effect=lambda *a:copy.deepcopy(self.healthy())):
@@ -273,7 +337,10 @@ class StagingOperationsTests(SimpleTestCase):
         self.assertIsNone(ops.watcher(self.root))
 
     def test_tick_lock_prevents_duplicate_backups(self):
-        with ops.ops_lock(self.root),self.assertRaises(RuntimeError):ops.tick(self.root,self.now)
+        with ops.ops_lock(self.root):
+            for force_backup in (False, True):
+                with self.assertRaises(RuntimeError):
+                    ops.tick(self.root,self.now,force_backup=force_backup)
 
     def test_stop_remains_possible_while_tick_holds_lock(self):
         with ops.ops_lock(self.root),patch.object(ops,'watcher',return_value={'pid':42}),patch.object(ops.os,'kill') as kill:

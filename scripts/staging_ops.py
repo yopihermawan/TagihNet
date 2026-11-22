@@ -302,31 +302,44 @@ def append_events(directory,report,previous):
             for event in events:stream.write(json.dumps(event,sort_keys=True)+'\n')
 
 
-def tick(directory,now=None):
-    directory=Path(directory).resolve();now=time.time() if now is None else now
+def tick(directory,now=None,*,force_backup=False):
+    directory=Path(directory).resolve()
+    clock = time.time if now is None else lambda: now
     with ops_lock(directory):
         config=policy(directory);previous=read_json(directory/'ops/status.json',{})
         job=read_json(directory/'ops/backup.json',{})
         state=manifest(directory)
         blocked=state.get('recovery_pending') or state.get('restore_state') in {'preparing','failed'}
+        if force_backup and (not config['backup_enabled'] or blocked or not state.get('initialized')):
+            raise ValueError('Backup manual memerlukan proyek aktif yang siap dan sudah mengaktifkan backup.')
         if job.get('failed'):next_attempt=job.get('next_attempt_at',0)
         elif job:next_attempt=job.get('last_success_at',0)+config['backup_interval']
         else:next_attempt=0
-        if config['backup_enabled'] and not blocked and now>=next_attempt:
-            job['last_attempt_at']=now
+        started_at = clock()
+        if config['backup_enabled'] and not blocked and (force_backup or started_at >= next_attempt):
+            job['last_attempt_at'] = started_at
             try:
-                key=read_key(Path(config['backup_key_file']))
-                filename=datetime.fromtimestamp(now,timezone.utc).strftime('TagihNet-%Y%m%dT%H%M%SZ-')+uuid.uuid4().hex[:8]+'.tnbk'
-                target=Path(config['backup_directory'])/filename
-                backup(directory,target,key);verify_archive(target,key)
-                job.update(last_success_at=now,last_archive=str(target),next_attempt_at=now+config['backup_interval'],failed=False)
-            except Exception:job.update(next_attempt_at=now+300,failed=True)
+                key = read_key(Path(config['backup_key_file']))
+                filename = (datetime.fromtimestamp(started_at, timezone.utc).strftime('TagihNet-%Y%m%dT%H%M%SZ-')
+                            + uuid.uuid4().hex[:8] + '.tnbk')
+                target = Path(config['backup_directory']) / filename
+                backup(directory, target, key)
+                verify_archive(target, key)
+            except Exception:
+                job.update(next_attempt_at=clock() + 300, failed=True)
+            else:
+                completed_at = clock()
+                job.update(last_success_at=completed_at, last_archive=str(target),
+                           next_attempt_at=completed_at + config['backup_interval'], failed=False)
             write_json(directory/'ops/backup.json',job)
-        report=check(directory,config,now)
-        report['backup']={'enabled':config['backup_enabled'],'last_success_at':job.get('last_success_at'),'last_archive':job.get('last_archive')}
+        checked_at = clock()
+        report=check(directory,config,checked_at)
+        report['backup']={'enabled':config['backup_enabled'],'last_success_at':job.get('last_success_at'),
+                          'last_archive':job.get('last_archive'),'last_attempt_at':job.get('last_attempt_at'),
+                          'next_attempt_at':job.get('next_attempt_at'),'failed':bool(job.get('failed'))}
         if config['backup_enabled'] and not blocked:
             if job.get('failed'):report['issues'].append({'code':'backup_failed','severity':'critical','component':'backup'})
-            elif not backup_time_current(job.get('last_success_at'), now, config['backup_interval']):
+            elif not backup_time_current(job.get('last_success_at'), checked_at, config['backup_interval']):
                 report['issues'].append({'code':'backup_overdue','severity':'warning','component':'backup'})
             elif not Path(job['last_archive']).is_file():
                 report['issues'].append({'code':'backup_missing','severity':'critical','component':'backup'})
@@ -404,7 +417,7 @@ def status(directory,now=None):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=['configure','once','start','stop','status','storage','watch'])
+    parser.add_argument('action',choices=['configure','once','backup-now','start','stop','status','storage','watch'])
     parser.add_argument('--directory',type=Path,default=ROOT/'data/staging')
     parser.add_argument('--enable-backup',action='store_true')
     parser.add_argument('--disable-backup',action='store_true')
@@ -431,6 +444,10 @@ def main():
             configure(directory,**values);print('Konfigurasi operasi lokal tersimpan; tidak ada pesan eksternal dikirim.')
         elif args.action=='once':
             result=tick(directory);print(json.dumps(result,sort_keys=True));return 0 if result['status']=='ok' else 1
+        elif args.action == 'backup-now':
+            result = tick(directory, force_backup=True)
+            print(json.dumps(result, sort_keys=True))
+            return 1 if result['backup']['failed'] else 0
         elif args.action=='status':
             result=status(directory);print(json.dumps(result,sort_keys=True));return 0 if result['status']=='ok' else 1
         elif args.action == 'storage':

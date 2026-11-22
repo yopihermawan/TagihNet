@@ -45,6 +45,18 @@ Watcher memeriksa setiap60detik setelah putaran sebelumnya selesai. Backup perta
 
 Nama arsip memakai UTC + suffix acak, snapshot pg_dump konsisten, AES-GCM dan publikasi tanpa overwrite. Seluruh arsip baru diautentikasi lagi sebelum sukses dicatat. Batas payload1GiB tetap. Arsip terakhir yang hilang memberi critical; autentikasi penuh tidak diulang setiap menit. Gunakan verify/restore eksplisit untuk pemeriksaan arsip berikutnya. Tidak ada perubahan tabel aplikasi oleh monitor/backup.
 
+### Backup manual
+
+Pada proyek aktif yang sudah mengaktifkan backup, perintah ini membuat satu backup terpantau segera.
+
+```bash
+.venv/bin/python scripts/staging_ops.py backup-now --directory data/staging
+```
+
+Backup manual memakai lock yang sama dengan watcher. Setelah arsip berhasil diautentikasi, metadata menetapkannya sebagai backup terbaru. `last_attempt_at` mencatat waktu mulai, `last_success_at` waktu verifikasi selesai, dan `next_attempt_at` waktu sukses ditambah interval yang dikonfigurasi. Jika backup gagal, metadata mempertahankan rujukan ke arsip sukses sebelumnya dan menjadwalkan percobaan ulang lima menit setelah kegagalan. Exit 0 pada `backup-now` berarti arsip terverifikasi. Kondisi layanan tetap dilaporkan melalui field `status`.
+
+Pemeriksaan rilis dapat menyiapkan pasangan pemulihan dari backup terbaru lewat `--prepare-custody`. [Runbook rilis](RELEASE-RUNBOOK.md#jalankan-gate-aktif)
+
 Inventaris offline memberi tanggal arsip terautentikasi, ukuran logis dan kecocokan paket pemulihan. [Panduan inventaris](RECOVERY-HANDOFF.md#inventaris-backup-staging)
 
 Sesudah backup terpantau berganti, perintah `staging_backup_custody.py` bisa memakai ulang pasangan yang cocok atau menyiapkan pasangan baru. Hasilnya memberi kedua direktori untuk pemeriksaan rilis. [Panduan paket backup terpantau](RECOVERY-HANDOFF.md#paket-untuk-backup-terpantau)
