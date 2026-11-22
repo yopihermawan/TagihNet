@@ -264,4 +264,6 @@ Pelanggan dapat membuka **Layanan saya → Ajukan upgrade paket** untuk memilih 
 
 Bagian **Tagihan saya** pada **Layanan saya** menampilkan periode, jatuh tempo, status, dan saldo tagihan. Gunakan **Status tagihan** untuk menyaring hasil. Perpindahan halaman membawa filter dan jumlah baris yang dipilih.
 
+Buka **Tagihan saya → Riwayat pembayaran** untuk melihat transaksi tercatat maupun yang direversal. Ringkasan memakai seluruh riwayat pembayaran milik pelanggan. Pilih **Lihat kuitansi** pada baris transaksi untuk membuka bukti simulasi dan versi PDF.
+
 PSB tidak membuat pelanggan/faktur sampai tahap Terpasang dan aktivasi disetujui akun berizin dengan MFA terbaru. Status customer awal Menunggu provisioning; invoice belum otomatis lunas dan router nyata tidak diubah. `operations_smoke.py` menguji alur pada server/database sementara tanpa mengubah akun/data demo pengguna. Panduan lengkap dan batas SLA, lampiran serta integrasi: [SUPPORT-AND-INSTALLATIONS](docs/SUPPORT-AND-INSTALLATIONS.md).

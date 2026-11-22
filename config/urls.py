@@ -112,6 +112,7 @@ urlpatterns = [
     path("settings/billing/confirm/", billing_settings.billing_settings_confirm, name="billing_settings_confirm"),
     path("audit/", audits.audit_log, name="audit"),
     path("portal/", views.portal, name="portal"),
+    path("portal/payments/", views.portal_payments, name="portal_payments"),
     path("portal/upgrade/", portal_upgrades.options, name="portal_upgrade"),
     path("portal/upgrade/<int:pk>/", portal_upgrades.review, name="portal_upgrade_review"),
     path("portal/upgrade/confirm/", portal_upgrades.confirm, name="portal_upgrade_confirm"),

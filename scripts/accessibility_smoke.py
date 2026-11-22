@@ -181,7 +181,9 @@ def run(options):
             subprocess.run([sys.executable, 'manage.py', *args], cwd=ROOT, env=env, check=True, stdout=subprocess.DEVNULL)
         portal_history = '''
 from datetime import date, timedelta
+from uuid import uuid4
 from django.utils import timezone
+from core.billing import record_payment, reverse_payment
 from core.models import Invoice, Membership
 
 customer = Membership.objects.select_related('customer__tenant').get(user__username='pelanggan').customer
@@ -192,6 +194,12 @@ Invoice.objects.bulk_create([
             customer_name=customer.name, customer_address='Alamat fiktif', subtotal=150000, total=150000)
     for month in range(1, 13)
 ])
+invoice = Invoice.objects.get(customer=customer, period=date(today.year - 2, 12, 1))
+operator = Membership.objects.get(tenant=customer.tenant, user__username='owner').user
+for _ in range(12):
+    record_payment(customer.tenant, invoice.pk, 1000, uuid4(), operator)
+corrected, _ = record_payment(customer.tenant, invoice.pk, 2000, uuid4(), operator)
+reverse_payment(customer.tenant, corrected.pk, 'Koreksi pembayaran fiktif', operator)
 '''
         subprocess.run([sys.executable, 'manage.py', 'shell', '-c', portal_history], cwd=ROOT, env=env,
                        check=True, stdout=subprocess.DEVNULL)
@@ -344,6 +352,32 @@ Invoice.objects.bulk_create([
                 portal.get_by_role('link', name='Reset filter', exact=True).click()
                 portal.wait_for_url(base + '/portal/?size=10')
                 expect(portal.get_by_label('Status tagihan', exact=True)).to_have_value('')
+
+                portal.get_by_role('link', name='Riwayat pembayaran', exact=True).click()
+                expect(portal.get_by_role('heading', name='Riwayat pembayaran', exact=True)).to_be_visible()
+                portal.set_viewport_size({'width': 360, 'height': 900})
+                portal.get_by_role('button', name='Mode gelap', exact=True).click()
+                expect(portal.locator('html')).to_have_attribute('data-theme', 'light')
+                payment_status = portal.get_by_label('Status pembayaran', exact=True)
+                payment_status.select_option('recorded')
+                portal.get_by_role('button', name='Terapkan', exact=True).click()
+                payments = portal.get_by_role('region', name='Riwayat pembayaran', exact=True)
+                expect(payments.get_by_role('row')).to_have_count(11)
+                scan('portal_payments_recorded', portal)
+                portal.get_by_role('link', name='Halaman berikutnya', exact=True).click()
+                expect(portal.get_by_text('Halaman 2 / 2', exact=True)).to_be_visible()
+                expect(payment_status).to_have_value('recorded')
+                payment_status.select_option('reversed')
+                portal.get_by_role('button', name='Terapkan', exact=True).click()
+                expect(payments.get_by_text('Direversal', exact=True)).to_be_visible()
+                expect(payments.get_by_role('row')).to_have_count(2)
+                portal.set_viewport_size({'width': 1366, 'height': 900})
+                portal.get_by_role('button', name='Mode gelap', exact=True).click()
+                expect(portal.locator('html')).to_have_attribute('data-theme', 'dark')
+                scan('portal_payments_reversed', portal)
+                payments.get_by_role('link', name=re.compile('^Lihat kuitansi pembayaran ')).click()
+                expect(portal.get_by_role('heading', name='Direversal · transaksi tidak berlaku')).to_be_visible()
+                portal.goto(base + '/portal/')
                 portal.get_by_role('link', name='Ajukan upgrade paket', exact=True).click()
                 for width, theme in ((1366, 'dark'), (360, 'light')):
                     portal.set_viewport_size({'width': width, 'height': 900})
@@ -380,6 +414,7 @@ Invoice.objects.bulk_create([
         'accessibility_tree_checks': accessibility_tree,
         'portal_upgrade': 'passed',
         'portal_invoices': 'passed',
+        'portal_payments': 'passed',
     }
     failed = (summary['violating_scans'] or summary['horizontal_overflow'] or summary['keyboard_failed']
               or contrast['flagged']['failed'] or contrast['boundaries']['failed'] or contrast['boundaries']['unresolved'])

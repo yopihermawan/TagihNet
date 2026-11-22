@@ -706,3 +706,9 @@ Portal memaginasi daftar dan memakai perhitungan saldo yang sama dengan daftar f
 Pada fixture SQLite, respons portal turun dari 21 kueri menjadi 13 untuk tiga faktur. Dengan 60 faktur, daftar awal turun dari 192 kueri menjadi 13 dan menampilkan 10 baris per halaman. Kueri pembayaran terpisah per baris tidak muncul pada kedua pengukuran baru. Bukti privat tersedia di `data/evidence/portal-invoices-queries-20261123.json`.
 
 Chromium menjalankan filter menunggak, halaman kedua, pembukaan detail dan reset filter. Seluruh 98 pemindaian axe, 20 pemeriksaan keyboard dan pengukuran kontras lulus. Bukti privat tersedia di `data/evidence/portal-invoices-20261123.json`.
+
+## Riwayat pembayaran portal
+
+Enam tes baru mencakup cakupan akun dan ISP pada daftar dan jumlah ringkasan, kuitansi HTML/PDF, tanggal WIB, status reversal, urutan tetap untuk waktu yang sama, filter antarhalaman, jumlah kueri tetap untuk halaman kecil dan besar, serta izin baca. Ringkasan berlaku untuk seluruh riwayat, termasuk saat filter daftar aktif. PostgreSQL lulus 914 tes. SQLite lulus 913 tes dengan satu tes penguncian PostgreSQL dilewati. Pemeriksaan migrasi bersih.
+
+Chromium dengan pelanggan fiktif menerapkan filter transaksi tercatat, membuka halaman kedua, menyaring transaksi direversal, lalu membuka kuitansi untuk transaksi tersebut. Seluruh 100 pemindaian axe, 20 pemeriksaan keyboard, dan pengukuran kontras lulus. Halaman riwayat dipindai pada mobile terang dan desktop gelap. Bukti privat tersedia di `data/evidence/portal-payments-20261123.json`.

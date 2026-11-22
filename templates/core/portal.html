@@ -13,7 +13,7 @@
 </section>
 <section class="panel padded"><h2>Lokasi layanan saya</h2>{% include 'locations/coordinates.html' %}</section>
 <section class="panel">
-  <div class="panel-heading"><h2>Tagihan saya</h2></div>
+  <div class="panel-heading"><h2>Tagihan saya</h2><a class="button" href="{% url 'portal_payments' %}">Riwayat pembayaran</a></div>
   <form method="get" class="filter-bar">
     <input type="hidden" name="size" value="{{ page.paginator.per_page }}">
     <div class="field"><label for="state">Status tagihan</label>

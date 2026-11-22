@@ -1,6 +1,6 @@
 # Kuitansi pembayaran
 
-Pada detail faktur, setiap pembayaran memiliki tautan **Lihat kuitansi**, termasuk transaksi yang sudah direversal. Operator yang dapat membuka tab Pembayaran pada detail pelanggan juga menemukan tautan di sana. Pelanggan masuk melalui faktur miliknya di portal. Halaman kuitansi menyediakan **Cetak / PDF A4**; gunakan perintah cetak pembaca PDF.
+Pada detail faktur, setiap pembayaran memiliki tautan **Lihat kuitansi**, termasuk transaksi yang sudah direversal. Operator yang dapat membuka tab Pembayaran pada detail pelanggan juga menemukan tautan di sana. Pelanggan dapat membuka faktur miliknya atau memilih **Tagihan saya → Riwayat pembayaran** di portal. Halaman kuitansi menyediakan **Cetak / PDF A4** untuk cetak dari pembaca PDF.
 
 Satu kuitansi mewakili satu pembayaran, termasuk pembayaran sebagian. Nomor `TN-KW-YYYYMMDD-ID` berasal dari tanggal transaksi WIB dan ID pembayaran, berbeda dari nomor faktur. Membuka atau mencetak ulang tidak menerbitkan transaksi, mengubah saldo, menambah audit bisnis atau membuat job. Pembukaan dan pencetakan tidak menulis snapshot; schema0015 menambah tabel identitas untuk pembayaran baru tanpa worker atau dependensi runtime baru.
 

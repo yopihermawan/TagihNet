@@ -3,8 +3,9 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import BigIntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import Http404
-from .models import AuditEvent, Invoice, NetworkJob, Payment
+from .models import AuditEvent, Invoice, NetworkJob
 from .invoice_queries import INVOICE_STATUS_LABELS
+from .payment_queries import customer_payments, payment_totals
 from .operations import visible_tickets
 from .locations import display
 from .permissions import capabilities
@@ -39,11 +40,8 @@ def profile_context(member, customer, selected):
             ledger_paid=Coalesce(Sum("payments__amount", filter=Q(payments__tenant=tenant,
                 payments__reversal__isnull=True)), Value(0), output_field=BigIntegerField())).order_by("-period", "-pk")
     elif selected == "payments":
-        rows = Payment.objects.filter(tenant=tenant, invoice__tenant=tenant, invoice__customer=customer).select_related(
-            "invoice", "recorded_by", "reversal__recorded_by").order_by("-created_at", "-pk")
-        totals = rows.aggregate(gross=Sum("amount"), reversed=Sum("amount", filter=Q(reversal__isnull=False)),
-            valid=Sum("amount", filter=Q(reversal__isnull=True)))
-        context["payment_totals"] = {key: amount or 0 for key, amount in totals.items()}
+        rows = customer_payments(tenant.pk, customer.pk).select_related("invoice", "recorded_by", "reversal__recorded_by")
+        context["payment_totals"] = payment_totals(rows)
     elif selected == "tickets":
         rows = visible_tickets(member).filter(customer=customer).select_related("assigned_to__user")
     elif selected == "history":

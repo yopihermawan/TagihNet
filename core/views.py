@@ -20,6 +20,7 @@ from .customer_profile import invoice_rows, profile_context
 from .invoice_queries import INVOICE_STATUS_LABELS, filter_invoice_status, with_balances
 from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment, Tenant
 from .network_recovery import attention_jobs, scoped_jobs
+from .payment_queries import customer_payments, payment_totals
 from .plan_selection import assignment_plan
 from .locations import display as location_display
 from .pdf import render_invoice
@@ -345,6 +346,20 @@ def portal(request):
     return render(request, "core/portal.html", {"customer": customer, "location": location_display(customer),
                   "page": page, "invoice_rows": invoice_rows(page.object_list, today),
                   "invoice_state": state, "invoice_statuses": INVOICE_STATUS_LABELS.items()})
+
+
+@require("portal")
+@require_GET
+def portal_payments(request):
+    payments = customer_payments(request.member.tenant_id, request.member.customer_id)
+    totals = payment_totals(payments)
+    state = request.GET.get("state", "")
+    if state in {"recorded", "reversed"}:
+        payments = payments.filter(reversal__isnull=state == "recorded")
+    else:
+        state = ""
+    page = paginate(request, payments.select_related("invoice", "reversal"))
+    return render(request, "core/portal_payments.html", {"payment_totals": totals, "payment_state": state, "page": page})
 
 
 @require_GET
