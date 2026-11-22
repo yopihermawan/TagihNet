@@ -22,7 +22,7 @@
       <tbody>
       {% for job in page %}
         <tr>
-          <td><a href="{% url 'network_job_detail' job.pk %}"><strong>#{{ job.pk }} · {{ job.customer.name }}</strong></a>
+          <td><a class="network-job-link" href="{% url 'network_job_detail' job.pk %}"><strong>#{{ job.pk }} · {{ job.customer.name }}</strong></a>
             <small>{% if job.retry_request %}Pemulihan #{{ job.retry_request.failed_job_id }}{% elif job.scheduled_isolation %}Jadwal isolir{% else %}Rekonsiliasi{% endif %} · {{ job.customer.code }}</small></td>
           <td>{% include 'network/job_status.html' %}{% if job.retry_replacement %}<small>Job pemulihan #{{ job.retry_replacement.job_id }}</small>{% endif %}</td>
           <td>{{ job.attempts }} / 3</td>

@@ -230,7 +230,16 @@ export CHROMIUM_PATH=/usr/bin/chromium   # sesuaikan lokasi executable
 python scripts/browser_smoke.py
 ```
 
-[TEST-REPORT](docs/TEST-REPORT.md) memuat hasil yang benar-benar dijalankan. Backend serta browser MFA/billing dan operasional terisolasi didaftarkan pada GitHub Actions; PDF/restore juga dapat dijalankan mandiri. Keberhasilan CI remote belum dikonfirmasi.
+[TEST-REPORT](docs/TEST-REPORT.md) memuat hasil yang benar-benar dijalankan. Backend serta browser MFA/billing, operasional, dan aksesibilitas didaftarkan pada GitHub Actions. PDF dan restore juga dapat dijalankan mandiri. Keberhasilan CI remote belum dikonfirmasi.
+
+Uji aksesibilitas menjalankan Chromium dengan data fiktif. Pasang `axe-core` pada direktori sementara dan pilih nama laporan baru.
+
+```bash
+audit_dir=$(mktemp -d)
+npm install --prefix "$audit_dir" --ignore-scripts --no-audit --no-fund --save-exact axe-core@4.10.3
+.venv/bin/python scripts/accessibility_smoke.py --axe "$audit_dir/node_modules/axe-core/axe.min.js" \
+  --output data/evidence/accessibility-baru.json
+```
 
 ## Konfigurasi dan troubleshooting
 

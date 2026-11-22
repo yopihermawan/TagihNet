@@ -668,3 +668,11 @@ Pada 22 November 2026, arsip staging pukul 17.09 WIB terautentikasi dan dipulihk
 SQLite dan PostgreSQL masing-masing lulus **894 tes**. Lima tes baru mencakup perhitungan empat container dan volume sumber, sisa ruang jika estimasi muat, inode habis, filesystem tidak terukur, driver lain, kegagalan pembacaan, serta exit code CLI.
 
 Pada 22 November 2026, estimasi staging lokal sekitar 1,31 GiB dengan ruang tersedia sekitar 1,28 GiB. `storage --recovery-plan` menghasilkan `warning` sebelum alur pemulihan membuat container. Percobaan Compose sebelumnya berhenti saat PostgreSQL membuat `pg_wal` karena filesystem Docker habis. Bukti privat berada di `data/evidence/recovery-capacity-20261122.json`. [Panduan estimasi](STAGING-OPERATIONS.md#estimasi-ruang-pemulihan-docker)
+
+## Aksesibilitas alur utama
+
+Chromium dan axe-core 4.10.3 memeriksa 11 tampilan dengan data fiktif pada lebar 360, 768, 1366, dan 1920 piksel dalam mode terang dan gelap. Cakupan meliputi login, pengaturan MFA, dasbor, daftar dan formulir pelanggan, ringkasan cepat pelanggan, faktur dan formulir pembayaran, serta monitor pekerjaan jaringan.
+
+Perbaikan mencakup fokus tautan “Lewati navigasi”, kontras teks login pada mode gelap, dan garis bawah tautan pekerjaan jaringan. Sebanyak 88 pemindaian selesai tanpa pelanggaran otomatis atau gulir horizontal seluruh halaman. Dua puluh pemeriksaan keyboard lulus, termasuk pengembalian fokus setelah navigasi mobile dan ringkasan pelanggan ditutup. Axe masih menandai kontras untuk pemeriksaan manual pada 72 pemindaian. Bukti privat tersedia di `data/evidence/accessibility-core-20261122.json`. [Perintah uji](../README.md)
+
+SQLite dan PostgreSQL masing-masing lulus 894 tes. Regresi Chromium untuk login, MFA, hak akses, ubah sandi, penerbitan massal, dan alur pelanggan hingga reversal juga lulus. Staging yang tersimpan masih menjalankan image sebelumnya.

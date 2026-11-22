@@ -23,7 +23,7 @@ Nomor kriteria mengikuti brief awal. Istilah **Simulasi** menunjukkan alur yang 
 | 13. Validasi upload, impor, dan ekspor | Lulus lokal | Foto privat, CSV preview, scope tenant, batas ukuran, formula safe |
 | 14. Aksi demo dibatasi pada simulasi | Lulus simulasi | Profil staging fail-closed, worker sintetis, dan guard server |
 | 15. Metrik dashboard memiliki sumber dan penanda data lama | Lulus simulasi | Fixtures dashboard billing dan snapshot monitoring |
-| 16. Tampilan desktop/mobile, keyboard, dan kondisi gagal | Terverifikasi sebagian | Chromium pada 360/768/1366/1920, gelap, keyboard, dan fallback. Pemeriksaan aksesibilitas menyeluruh masih tertunda |
+| 16. Tampilan desktop/mobile, keyboard, dan kondisi gagal | Terverifikasi sebagian | 88 pemindaian axe dan 20 pemeriksaan keyboard pada empat lebar dalam dua tema. Pemeriksaan manual masih diperlukan |
 | 17. PDF A4 multipage, isi dan batas izin | Lulus lokal | Faktur panjang, kuitansi/reversal, readback nominal, dan tes lintas tenant |
 | 18. Restore terenkripsi ke target kosong | Lulus lokal | SQLite dengan login MFA ulang, PostgreSQL dengan rekonsiliasi tabel, dan pemeriksaan paket clone staging |
 
@@ -48,3 +48,5 @@ Nomor kriteria mengikuti brief awal. Istilah **Simulasi** menunjukkan alur yang 
 Ruang bebas cloud saat validasi sekitar 1,3 GiB. Pengujian ini memakai image yang sudah dipin dan fixture terisolasi. Matriks fitur mencatat pengembangan tersisa, termasuk siklus penagihan fleksibel, cakupan wilayah, dan portal lanjutan. [Matriks fitur](FEATURE-MATRIX.md)
 
 Latihan Docker penuh dari backup terpantau terbaru tertahan karena filesystem Docker habis saat membuat `pg_wal`. Pengukuran berikutnya memperkirakan 1,31 GiB untuk image dan volume, dengan sekitar 1,28 GiB tersedia. Pemulihan SQL dan halaman login HTTPS dari arsip yang sama lulus di lab PostgreSQL lokal dengan Gunicorn host. [Prosedur estimasi ruang](STAGING-OPERATIONS.md#estimasi-ruang-pemulihan-docker)
+
+Kandidat dengan perbaikan aksesibilitas lulus uji Chromium lokal. Staging utama dan clone pemulihan masih sehat dengan image sebelumnya. Build dan penerapan image kandidat memerlukan ruang tambahan pada host ini atau host lain. [Laporan aksesibilitas](TEST-REPORT.md#aksesibilitas-alur-utama)

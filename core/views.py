@@ -2,7 +2,6 @@ import csv
 import uuid
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.views import PasswordResetView
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
@@ -15,7 +14,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.debug import sensitive_post_parameters
 from .billing import audit, issue_invoice, record_payment, reverse_payment
-from .forms import CustomerForm, InvoiceForm, PaymentForm
+from .forms import CustomerForm, InvoiceForm, LoginForm, PaymentForm
 from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, with_financial_summary
 from .customer_profile import invoice_rows, profile_context
 from .invoice_queries import with_balances
@@ -42,11 +41,11 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect(landing(membership(request.user)))
     if request.method == "POST" and throttle(request, "login"):
-        response = render(request, "registration/login.html", {"form": AuthenticationForm(request),
+        response = render(request, "registration/login.html", {"form": LoginForm(request),
                           "throttled": True}, status=429)
         response["Retry-After"] = "900"
         return response
-    form = AuthenticationForm(request, data=request.POST or None)
+    form = LoginForm(request, data=request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.get_user()
         member = membership(user)

@@ -1,10 +1,18 @@
 from datetime import date
 from django import forms
+from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 from .isolation_models import MAX_GRACE_DAYS
 from .models import Customer, Fund
 from .validation import normalize_phone
 from .plan_selection import selectable_plans
+
+
+class LoginForm(AuthenticationForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["username"].widget.attrs.pop("autofocus", None)
+
 
 class CustomerForm(forms.ModelForm):
     class Meta:
