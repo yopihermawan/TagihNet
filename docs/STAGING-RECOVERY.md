@@ -21,6 +21,21 @@ Arsip contoh itu sudah dibuat dan diverifikasi. Pengulangan perlu nama arsip bar
 
 Identitas proyek, service database, image PG yang dipatok dan volume diperiksa sebelum pg_dump. Tools PG dari container yang sama berjalan sebagai UID999 dengan role migrator pemilik database, melalui Unix socket privat yang tidak dibagi ke aplikasi. Tidak ada password pada argv/output. pg_dump memakai snapshot konsisten saat sumber berjalan; semua stdout dialirkan ke enkripsi, diagnostik dipisahkan. Arsip baru dipublikasikan secara atomik hanya jika pg_dump selesai sukses. Tidak ada dump plaintext permanen saat backup.
 
+## Uji restore backup terpantau
+
+Jalankan lab PostgreSQL lokal dan pilih pasangan direktori `package_dir` dan `keys_dir` yang dilaporkan oleh [penyiapan paket backup terpantau](RECOVERY-HANDOFF.md#paket-untuk-backup-terpantau). Gunakan output baru di luar kedua direktori tersebut.
+
+```bash
+.venv/bin/python scripts/postgres_lab.py start
+.venv/bin/python scripts/verify_monitored_restore.py --directory data/staging \
+  --package-dir /path/paket --keys-dir /path/kunci \
+  --output data/evidence/monitored-restore-baru.json
+```
+
+Verifier mengautentikasi salinan privat paket, mencocokkannya dengan backup berhasil yang terakhir dicatat, lalu memulihkan SQL ke database baru di lab loopback. Verifier membandingkan hash seluruh baris, urutan logis dan metadata kolom, serta `last_value` dan `is_called` seluruh sequence di skema `public`. Pembacaan sumber memakai transaksi hanya-baca. Jalankan saat sumber tenang karena penulisan bersamaan atau perubahan arsip terpantau menggagalkan perbandingan.
+
+Database uji dibuang saat verifikasi selesai, termasuk jika restore atau perbandingan gagal. Laporan privat mencatat hasil kecocokan, jumlah rekaman MFA yang berhasil didekripsi jika ada, dan durasi operasi SQL restore. Uji ini mengukur pemulihan database di lab lokal. Untuk latihan pemulihan web, sesi dan worker, ikuti alur proyek baru di bawah ini.
+
 ## Restore ke proyek baru
 
 Pilih direktori baru dan port loopback yang belum dipakai. **Jangan jalankan up/bootstrap pada target sebelum restore**, karena keduanya dapat membuat tabel/akun dan target yang sudah digunakan akan ditolak.

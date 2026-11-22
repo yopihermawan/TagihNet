@@ -5,13 +5,14 @@ import tempfile
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from cryptography.fernet import Fernet
 from django.test import SimpleTestCase
 
 from core.backup_archive import ArchiveError, encrypt_stream, generate_key, read_key
 from scripts import recovery_package, staging_backup_custody as custody, staging_backup_inventory as inventory, staging_ops as ops
+from scripts import verify_monitored_restore as restore_check
 
 
 class BackupInventoryTests(SimpleTestCase):
@@ -241,3 +242,36 @@ class BackupInventoryTests(SimpleTestCase):
             with self.assertRaises(RuntimeError):
                 self.ensure()
         export.assert_not_called()
+
+    def test_restore_drill_refuses_nonmatching_custody_before_accessing_databases(self):
+        self.export()
+        self.mfa.write_bytes(Fernet.generate_key())
+        with (patch.object(restore_check, 'database_container') as source,
+              patch.object(restore_check, 'disposable_database') as target, self.assertRaises(ArchiveError)):
+            restore_check.verify_restore(self.stage, self.packages / 'current', self.keys / 'current')
+        source.assert_not_called()
+        target.assert_not_called()
+
+    def test_restore_drill_detects_source_drift_while_restoring_frozen_package(self):
+        self.export()
+        original = {'tables': {'example': [1, 'digest']}, 'sequences': {'id': [1, True]}, 'columns': 'same'}
+        later = {**original, 'tables': {'example': [1, 'changed']}}
+        lab = MagicMock()
+        lab.__enter__.return_value = ('test_target', {}, {})
+        connection = MagicMock()
+        connection.__enter__.return_value = connection
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.rowcount = 0
+        with (patch.object(restore_check, 'database_container', return_value='source'),
+              patch.object(restore_check, 'source_snapshot', side_effect=[original, later]),
+              patch.object(restore_check, 'disposable_database', return_value=lab),
+              patch.object(restore_check, 'postgres_restore') as restore,
+              patch.object(restore_check, 'connect', return_value=connection),
+              patch.object(restore_check, 'database_snapshot', return_value=original)):
+            result = restore_check.verify_restore(self.stage, self.packages / 'current', self.keys / 'current')
+        self.assertEqual(result['status'], 'failed')
+        self.assertEqual(result['issues'], ['source_changed_during_check'])
+        frozen, name, _, _ = restore.call_args.args
+        self.assertEqual(name, 'test_target')
+        self.assertNotEqual(frozen, self.packages / 'current/archive.tnbk')
+        self.assertFalse(frozen.exists())

@@ -46,7 +46,7 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 - Pengingat billing/SLA opt-in: antrean simulasi, deduplikasi persisten, retry terbatas, serta pemeriksaan ulang kondisi dan izin.
 - Preset Teknisi dengan akses hanya pada pekerjaan yang ditugaskan, tanpa daftar pelanggan atau nominal billing.
 - [Kas, payroll, sales, voucher dan topologi](docs/LOCAL-OPERATIONS.md): alur lokal dengan tinjauan/MFA, idempotensi, koreksi historis, slip sendiri, prospek menjadi PSB, kampanye opt-in, voucher terenkripsi/PDF privat dan port ODP berkapasitas.
-- Backup CLI terenkripsi dengan kunci terpisah, autentikasi arsip, penolakan target berisi data, serta restore drill ledger dan MFA.
+- Backup CLI terenkripsi dengan kunci terpisah, autentikasi arsip, penolakan target berisi data, serta uji restore ledger dan MFA. [Verifikasi backup terpantau terbaru](docs/STAGING-RECOVERY.md#uji-restore-backup-terpantau)
 - Inventaris backup staging untuk membaca umur, ukuran, keaslian, dan pasangan pemulihan. [Panduan inventaris](docs/RECOVERY-HANDOFF.md#inventaris-backup-staging)
 - Pemeriksaan rilis staging dengan opsi menyiapkan pasangan pemulihan untuk backup terpantau dalam satu perintah. [Runbook rilis](docs/RELEASE-RUNBOOK.md#jalankan-gate-aktif)
 - Sambungan ulang proyek staging dari container dan image yang tersimpan, dengan hold worker pada clone. [Panduan sambungan ulang](docs/STAGING-OPERATIONS.md#sambungkan-ulang-staging-yang-tersimpan)

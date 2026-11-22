@@ -656,3 +656,9 @@ Sepuluh skenario Chromium lulus pada database dan akun fiktif, termasuk alur uta
 ## Backup terpantau manual
 
 SQLite dan PostgreSQL masing-masing lulus **883 tes**. Empat tes baru mencakup backup sebelum jadwal, waktu sukses setelah autentikasi, penolakan pada proyek yang tidak memenuhi syarat, kegagalan yang mempertahankan rujukan arsip sebelumnya, dan exit code backup yang terpisah dari kesehatan layanan. Lock bersama dengan watcher juga diuji. [Panduan backup manual](STAGING-OPERATIONS.md#backup-manual)
+
+## Uji pemulihan backup terpantau terbaru
+
+SQLite dan PostgreSQL masing-masing lulus **889 tes**. Enam tes baru mencakup pemeriksaan identitas, status dan binding loopback lab, syarat role, pembersihan database saat gagal, penolakan output yang berisiko menimpa laporan atau masuk ke direktori kustodi, ketidakcocokan kunci MFA dan perubahan sumber saat verifikasi.
+
+Pada 22 November 2026, arsip staging pukul 17.09 WIB terautentikasi dan dipulihkan di database sementara. Isi 62 tabel, 327 baris, metadata kolom dalam urutan logis, dan kondisi 57 sequence cocok dengan sumber. Arsip ini berisi nol perangkat MFA. Database sementara dibersihkan. Bukti privat berada di `data/evidence/monitored-restore-20261122.json`. [Panduan uji restore](STAGING-RECOVERY.md#uji-restore-backup-terpantau)
