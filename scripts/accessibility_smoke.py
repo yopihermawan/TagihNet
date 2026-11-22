@@ -28,11 +28,60 @@ RULES = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 def audit_page(page, axe):
     page.evaluate(axe)
     return page.evaluate('''async tags => {
+        function luminance(color) {
+            const channels = /^rgb[(]([0-9]+), ([0-9]+), ([0-9]+)[)]$/.exec(color);
+            if (!channels) return null;
+            const linear = channels.slice(1).map(value => {
+                const channel = Number(value) / 255;
+                return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+            });
+            return .2126 * linear[0] + .7152 * linear[1] + .0722 * linear[2];
+        }
+        function flatBackground(element) {
+            let background = null;
+            for (let current = element; current; current = current.parentElement) {
+                const style = getComputedStyle(current);
+                if (style.opacity !== '1' || style.filter !== 'none' || style.mixBlendMode !== 'normal') return null;
+                if (background !== null) continue;
+                if (style.backgroundImage !== 'none') return null;
+                if (style.backgroundColor === 'rgba(0, 0, 0, 0)') continue;
+                background = luminance(style.backgroundColor);
+                if (background === null) return null;
+            }
+            return background;
+        }
+        function ratio(foreground, background) {
+            if (foreground === null || background === null) return null;
+            return (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05);
+        }
+        function measurement(target, contrast, minimum) {
+            const status = contrast === null ? 'unresolved' : contrast >= minimum ? 'passed' : 'failed';
+            return {target, ratio: contrast === null ? null : Number(contrast.toFixed(2)), minimum, status};
+        }
+
         const result = await axe.run({runOnly: {type: 'tag', values: tags}});
+        const ambiguous = result.incomplete.find(rule => rule.id === 'color-contrast')?.nodes || [];
+        const flagged = ambiguous.map(({target}) => {
+            const matches = target.length === 1 ? document.querySelectorAll(target[0]) : [];
+            const element = matches.length === 1 ? matches[0] : null;
+            const contrast = element ? ratio(luminance(getComputedStyle(element).color), flatBackground(element)) : null;
+            return measurement(target, contrast, 4.5);
+        });
+        const fields = document.querySelectorAll('#id_username, #id_password, #id_name, #id_plan, #id_address, #id_amount');
+        const boundaries = [...fields].filter(field => field.getClientRects().length && !field.matches(':disabled')).map(field => {
+            const style = getComputedStyle(field);
+            const border = style.borderTopStyle === 'solid' && parseFloat(style.borderTopWidth) > 0
+                ? luminance(style.borderTopColor) : null;
+            const inside = ratio(border, flatBackground(field));
+            const outside = ratio(border, flatBackground(field.parentElement));
+            const minimumContrast = inside === null || outside === null ? null : Math.min(inside, outside);
+            return measurement('#' + field.id, minimumContrast, 3);
+        });
         return {
             violations: result.violations.map(rule => ({id: rule.id, impact: rule.impact,
                 nodes: rule.nodes.map(node => ({target: node.target, summary: node.failureSummary}))})),
             manual_review: result.incomplete.map(rule => ({id: rule.id, targets: rule.nodes.map(node => node.target)})),
+            contrast: {flagged, boundaries},
             automated_rules_passed: result.passes.length,
             page_has_horizontal_overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         };
@@ -155,17 +204,21 @@ def run(options):
         finally:
             server.terminate()
             server.wait(timeout=10)
+    contrast = {group: Counter(measurement['status'] for scan in scans for measurement in scan['contrast'][group])
+                for group in ('flagged', 'boundaries')}
     summary = {
         'scans': len(scans),
         'violating_scans': sum(bool(scan['violations']) for scan in scans),
         'rules': Counter(rule['id'] for scan in scans for rule in scan['violations']),
         'manual_review': Counter(rule['id'] for scan in scans for rule in scan['manual_review']),
+        'contrast': contrast,
         'horizontal_overflow': [(scan['screen'], scan['width'], scan['theme'])
                                 for scan in scans if scan['page_has_horizontal_overflow']],
         'keyboard_checks': len(keyboard),
         'keyboard_failed': [check for check in keyboard if not check['passed']],
     }
-    failed = summary['violating_scans'] or summary['horizontal_overflow'] or summary['keyboard_failed']
+    failed = (summary['violating_scans'] or summary['horizontal_overflow'] or summary['keyboard_failed']
+              or contrast['flagged']['failed'] or contrast['boundaries']['failed'] or contrast['boundaries']['unresolved'])
     data = {'status': 'failed' if failed else 'passed', 'summary': summary, 'scans': scans, 'keyboard': keyboard,
             'axe_version': axe_version, 'chromium_version': chromium_version,
             'checkout_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),

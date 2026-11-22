@@ -673,6 +673,14 @@ Pada 22 November 2026, estimasi staging lokal sekitar 1,31 GiB dengan ruang ters
 
 Chromium dan axe-core 4.10.3 memeriksa 11 tampilan dengan data fiktif pada lebar 360, 768, 1366, dan 1920 piksel dalam mode terang dan gelap. Cakupan meliputi login, pengaturan MFA, dasbor, daftar dan formulir pelanggan, ringkasan cepat pelanggan, faktur dan formulir pembayaran, serta monitor pekerjaan jaringan.
 
-Perbaikan mencakup fokus tautan “Lewati navigasi”, kontras teks login pada mode gelap, dan garis bawah tautan pekerjaan jaringan. Sebanyak 88 pemindaian selesai tanpa pelanggaran otomatis atau gulir horizontal seluruh halaman. Dua puluh pemeriksaan keyboard lulus, termasuk pengembalian fokus setelah navigasi mobile dan ringkasan pelanggan ditutup. Axe masih menandai kontras untuk pemeriksaan manual pada 72 pemindaian. Bukti privat tersedia di `data/evidence/accessibility-core-20261122.json`. [Perintah uji](../README.md)
+Perbaikan mencakup fokus tautan “Lewati navigasi”, kontras teks login pada mode gelap, dan garis bawah tautan pekerjaan jaringan. Sebanyak 88 pemindaian selesai tanpa pelanggaran otomatis atau gulir horizontal seluruh halaman. Dua puluh pemeriksaan keyboard lulus, termasuk pengembalian fokus setelah navigasi mobile dan ringkasan pelanggan ditutup. Temuan kontras dari 72 pemindaian diperiksa lebih lanjut di bawah. Bukti awal tersedia di `data/evidence/accessibility-core-20261122.json`. [Perintah uji](../README.md)
 
 SQLite dan PostgreSQL masing-masing lulus 894 tes. Regresi Chromium untuk login, MFA, hak akses, ubah sandi, penerbitan massal, dan alur pelanggan hingga reversal juga lulus. Staging yang tersimpan masih menjalankan image sebelumnya.
+
+### Tindak lanjut kontras
+
+Batas input, select, dan textarea yang diuji sebelumnya mencapai 1,73:1 pada permukaan terang serta 2,70:1 pada permukaan gelap. Setelah perubahan palet, seluruh 56 pengukuran batas lulus ambang 3:1. Rasio terendah 3,65:1 dalam mode terang dan 4,38:1 dalam mode gelap.
+
+Pemeriksaan warna yang dirender Chromium mengukur seluruh 496 elemen yang ditandai axe untuk tinjauan kontras dalam rangkaian 88 pemindaian. Rasio terendah 5,47:1. Jumlah ini mencakup pengulangan elemen lintas halaman, lebar dan tema. Pengukuran memakai warna RGB pada latar solid. Latar yang tidak dapat dihitung dengan metode ini ditandai untuk tinjauan manual. Dua puluh pemeriksaan keyboard kembali lulus.
+
+Ketika warna batas lama diterapkan ulang pada browser uji lebar 360 piksel, 14 pengukuran gagal dan skrip mengembalikan exit 1. SQLite dan PostgreSQL masing-masing lulus 894 tes. Bukti privat tersimpan di `data/evidence/accessibility-contrast-20261122.json`.
