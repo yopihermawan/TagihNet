@@ -692,3 +692,9 @@ Status hasil pencarian sekarang berada di area navigasi yang aktif, termasuk saa
 Pohon aksesibilitas Chromium memeriksa peran status dan pengaturan `polite` pada pencarian desktop/mobile, status tombol tema, serta fokus, nama dan deskripsi kesalahan di empat alur. Uji ini memakai data fiktif dan pemeriksaan semantik Chromium. Verifikasi ucapan dengan pembaca layar desktop masih terbuka karena perangkatnya tidak tersedia pada sesi cloud ini.
 
 Ketujuh skenario pohon aksesibilitas lulus. Pemindaian axe pada 92 keadaan, termasuk empat formulir yang ditolak server, selesai tanpa pelanggaran otomatis. Dua puluh pemeriksaan keyboard dan seluruh pengukuran kontras lulus. SQLite dan PostgreSQL masing-masing lulus 894 tes. Regresi Chromium untuk alur keamanan, navigasi, pengaturan billing, lokasi, paket, dan operasional juga lulus. Bukti privat tersedia di `data/evidence/accessibility-tree-20261122.json`.
+
+## Pengajuan upgrade dari portal pelanggan
+
+PostgreSQL lulus 904 tes. SQLite lulus 903 tes dengan satu tes pengiriman serentak dilewati. Sepuluh tes baru mencakup katalog lintas ISP, paket arsip dan kosong, kepemilikan akun dan tiket, batas waktu tinjauan, CSRF, perubahan harga dan paket, kirim ulang, serta retry sesudah gangguan database. Dua koneksi PostgreSQL yang memakai konfirmasi sama menghasilkan satu tiket dan satu aktivitas.
+
+Chromium memakai akun portal fiktif untuk memilih paket, meninjau harga, mengirim permintaan, dan memeriksa bahwa paket saat ini masih tercatat. Akun operator melihat tiket yang sama pada antrean. Daftar dan tinjauan paket dipindai di mobile terang dan desktop gelap. Seluruh 96 pemindaian axe, 20 pemeriksaan keyboard, dan pengukuran kontras lulus. Pemeriksaan migrasi bersih. Bukti privat tersedia di `data/evidence/portal-upgrade-20261122.json`. [Alur operator](SUPPORT-AND-INSTALLATIONS.md#pengajuan-upgrade-paket)

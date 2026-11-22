@@ -32,6 +32,12 @@ Catatan status wajib 10–2.000 karakter dan **terlihat pelanggan**. Teknisi bol
 
 Form mutasi membawa request UUID untuk idempotensi. Perubahan status/triase juga membawa versi; form lama ditolak tanpa menimpa update baru. Retry identik tidak menggandakan aktivitas. Riwayat dipaginasi, teks di-escape, dan audit umum hanya memuat metadata tindakan; isi komentar disimpan dalam WorkEvent yang scope-nya mengikuti tiket.
 
+### Pengajuan upgrade paket
+
+Di portal, pelanggan memilih paket aktif dari ISP yang sama dengan kecepatan lebih tinggi. Halaman tinjauan menampilkan harga katalog bulanan untuk paket saat ini dan paket yang diminta. Konfirmasi berlaku 15 menit dan terikat pada akun, pelanggan, riwayat akses, serta rincian paket saat ditinjau. Jika katalog atau paket pelanggan berubah, pelanggan memilih dan meninjau ulang.
+
+Konfirmasi membuat tiket **Pengajuan upgrade paket** dengan kategori **Penagihan**. Uraian tiket menyimpan harga dan kecepatan yang ditinjau. Operator menggunakan antrean dan riwayat tiket yang sama untuk menangani permintaan. Perubahan layanan dilakukan melalui pengelolaan pelanggan oleh operator yang berwenang. Pengiriman ulang konfirmasi yang sama membuka tiket awal.
+
 ## SLA
 
 **Target SLA tiket** menerima 1–720 jam per prioritas. Nilai awal development: rendah 72, normal 24, tinggi 8, mendesak 2 jam. Ini target demo yang harus disesuaikan ISP, bukan kontrak SLA produksi yang telah diverifikasi.

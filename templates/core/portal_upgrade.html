@@ -1,0 +1,26 @@
+{% extends 'base.html' %}{% load tagihnet %}
+{% block title %}Upgrade paket · TagihNet{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'portal' %}">← Kembali ke layanan saya</a>
+<div class="page-heading"><div><h1>Upgrade paket</h1>
+  <p class="muted">Paket Anda saat ini {{ customer.plan.name }} · {{ customer.plan.speed_mbps }} Mbps.</p>
+</div></div>
+{% if error %}<p class="errorlist" role="alert">{{ error }}</p>{% endif %}
+<section class="panel">
+  <div class="panel-heading"><h2>Paket yang lebih cepat</h2></div>
+  {% if page.object_list %}
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Paket yang lebih cepat">
+    <table>
+      <thead><tr><th scope="col">Paket</th><th scope="col">Kecepatan</th><th scope="col" class="numeric">Harga katalog per bulan</th><th scope="col" class="actions">Tindakan</th></tr></thead>
+      <tbody>
+        {% for plan in page %}
+        <tr><td>{{ plan.name }}</td><td>{{ plan.speed_mbps }} Mbps</td><td class="numeric amount">{{ plan.price|idr }}</td>
+          <td class="actions"><a class="button" href="{% url 'portal_upgrade_review' plan.pk %}" aria-label="Tinjau {{ plan.name }}">Tinjau</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include 'core/pagination.html' %}
+  {% else %}<p class="padded muted">Saat ini belum ada paket yang lebih cepat untuk layanan Anda.</p>{% endif %}
+</section>
+{% endblock %}

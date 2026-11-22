@@ -260,4 +260,6 @@ Lihat [OPERATIONS](docs/OPERATIONS.md), [SECURITY-AUDIT](docs/SECURITY-AUDIT.md)
 
 Buka menu **Tiket gangguan** atau **Pasang baru (PSB)**. Owner/Admin operasional mengelola pekerjaan; buat akun preset Teknisi melalui Akun & peran sebelum menugaskan. Teknisi wajib MFA dan hanya melihat tugas sendiri. Pelanggan portal dapat membuat/mengomentari tiketnya; catatan internal tidak ditampilkan.
 
+Pelanggan dapat membuka **Layanan saya → Ajukan upgrade paket** untuk memilih paket aktif yang lebih cepat dari ISP sendiri. Tinjau harga katalog dan kecepatan, lalu kirim pengajuan dalam 15 menit. Pengajuan muncul sebagai tiket penagihan untuk ditinjau operator. Harga atau paket yang berubah memerlukan tinjauan ulang. Status pengajuan dapat dilihat di **Tiket bantuan**.
+
 PSB tidak membuat pelanggan/faktur sampai tahap Terpasang dan aktivasi disetujui akun berizin dengan MFA terbaru. Status customer awal Menunggu provisioning; invoice belum otomatis lunas dan router nyata tidak diubah. `operations_smoke.py` menguji alur pada server/database sementara tanpa mengubah akun/data demo pengguna. Panduan lengkap dan batas SLA, lampiran serta integrasi: [SUPPORT-AND-INSTALLATIONS](docs/SUPPORT-AND-INSTALLATIONS.md).

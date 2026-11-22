@@ -116,8 +116,8 @@ def check_error_focus(page, field=None):
         assert inline_error and inline_error in description and properties.get('invalid') in (True, 'true'), field
 
 
-def submit_login(page, password):
-    page.get_by_label('Username', exact=True).fill('owner')
+def submit_login(page, password, username='owner'):
+    page.get_by_label('Username', exact=True).fill(username)
     page.get_by_label('Kata sandi', exact=True).fill(password)
     page.get_by_role('button', name='Masuk ke workspace').click()
 
@@ -303,6 +303,28 @@ def run(options):
                 check_error_focus(challenge, field='id_code')
                 accessibility_tree.append('mfa_challenge_error')
                 scan('mfa_challenge_error', challenge)
+
+                portal = browser.new_context(viewport={'width': 360, 'height': 900}, reduced_motion='reduce').new_page()
+                portal.goto(base + '/login/')
+                submit_login(portal, password, username='pelanggan')
+                portal.wait_for_url(base + '/portal/')
+                portal.get_by_role('link', name='Ajukan upgrade paket', exact=True).click()
+                for width, theme in ((1366, 'dark'), (360, 'light')):
+                    portal.set_viewport_size({'width': width, 'height': 900})
+                    portal.evaluate('theme => localStorage.setItem("tagihnet-theme", theme)', theme)
+                    portal.goto(base + '/portal/upgrade/')
+                    expect(portal.locator('html')).to_have_attribute('data-theme', theme)
+                    scan('portal_upgrade_options', portal)
+                    portal.get_by_role('link', name='Tinjau Rumah Nyaman', exact=True).click()
+                    expect(portal.get_by_role('heading', name='Tinjau upgrade paket')).to_be_visible()
+                    expect(portal.get_by_text(re.compile(r'225\.000 per bulan'))).to_be_visible()
+                    scan('portal_upgrade_review', portal)
+                portal.get_by_role('button', name='Kirim pengajuan', exact=True).click()
+                expect(portal.get_by_role('heading', name='Pengajuan upgrade paket', exact=True)).to_be_visible()
+                portal.goto(base + '/portal/')
+                expect(portal.get_by_role('heading', name='Rumah Hemat · 15 Mbps')).to_be_visible()
+                page.goto(base + '/operations/tickets/')
+                expect(page.get_by_text('Pengajuan upgrade paket', exact=True)).to_be_visible()
                 browser.close()
         finally:
             server.terminate()
@@ -320,6 +342,7 @@ def run(options):
         'keyboard_checks': len(keyboard),
         'keyboard_failed': [check for check in keyboard if not check['passed']],
         'accessibility_tree_checks': accessibility_tree,
+        'portal_upgrade': 'passed',
     }
     failed = (summary['violating_scans'] or summary['horizontal_overflow'] or summary['keyboard_failed']
               or contrast['flagged']['failed'] or contrast['boundaries']['failed'] or contrast['boundaries']['unresolved'])

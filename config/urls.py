@@ -19,6 +19,7 @@ from core import operation_views as operations
 from core import reminder_views as reminders
 from core import monitoring_views as monitoring
 from core import business_views as business
+from core import portal_upgrades
 
 urlpatterns = [
     path('business/cash/',business.module_page,{'module':'cash'},name='business_cash'),
@@ -111,6 +112,9 @@ urlpatterns = [
     path("settings/billing/confirm/", billing_settings.billing_settings_confirm, name="billing_settings_confirm"),
     path("audit/", audits.audit_log, name="audit"),
     path("portal/", views.portal, name="portal"),
+    path("portal/upgrade/", portal_upgrades.options, name="portal_upgrade"),
+    path("portal/upgrade/<int:pk>/", portal_upgrades.review, name="portal_upgrade_review"),
+    path("portal/upgrade/confirm/", portal_upgrades.confirm, name="portal_upgrade_confirm"),
     path("operations/tickets/", operations.ticket_list, name="ticket_list"),
     path("operations/tickets/new/", operations.ticket_create, name="ticket_create"),
     path("operations/tickets/<int:pk>/", operations.ticket_detail, name="ticket_detail"),
