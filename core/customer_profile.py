@@ -4,6 +4,7 @@ from django.db.models import BigIntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import Http404
 from .models import AuditEvent, Invoice, NetworkJob, Payment
+from .invoice_queries import INVOICE_STATUS_LABELS
 from .operations import visible_tickets
 from .locations import display
 from .permissions import capabilities
@@ -53,10 +54,9 @@ def profile_context(member, customer, selected):
 
 def invoice_rows(invoices, today):
     rows = []
-    labels = {"paid": "Lunas", "overdue": "Menunggak", "partial": "Dibayar sebagian", "issued": "Terbit"}
     for invoice in invoices:
         balance = invoice.total-invoice.ledger_paid
         status = "paid" if balance == 0 else "overdue" if invoice.due_date < today else "partial" if invoice.ledger_paid else "issued"
         rows.append({"invoice": invoice, "paid": invoice.ledger_paid, "balance": balance,
-            "status": status, "label": labels[status]})
+            "status": status, "label": INVOICE_STATUS_LABELS[status]})
     return rows

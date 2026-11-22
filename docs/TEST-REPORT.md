@@ -698,3 +698,11 @@ Ketujuh skenario pohon aksesibilitas lulus. Pemindaian axe pada 92 keadaan, term
 PostgreSQL lulus 904 tes. SQLite lulus 903 tes dengan satu tes pengiriman serentak dilewati. Sepuluh tes baru mencakup katalog lintas ISP, paket arsip dan kosong, kepemilikan akun dan tiket, batas waktu tinjauan, CSRF, perubahan harga dan paket, kirim ulang, serta retry sesudah gangguan database. Dua koneksi PostgreSQL yang memakai konfirmasi sama menghasilkan satu tiket dan satu aktivitas.
 
 Chromium memakai akun portal fiktif untuk memilih paket, meninjau harga, mengirim permintaan, dan memeriksa bahwa paket saat ini masih tercatat. Akun operator melihat tiket yang sama pada antrean. Daftar dan tinjauan paket dipindai di mobile terang dan desktop gelap. Seluruh 96 pemindaian axe, 20 pemeriksaan keyboard, dan pengukuran kontras lulus. Pemeriksaan migrasi bersih. Bukti privat tersedia di `data/evidence/portal-upgrade-20261122.json`. [Alur operator](SUPPORT-AND-INSTALLATIONS.md#pengajuan-upgrade-paket)
+
+## Daftar tagihan portal
+
+Portal memaginasi daftar dan memakai perhitungan saldo yang sama dengan daftar faktur operator. Filter status menghitung pembayaran yang belum direversal dan memakai batas jatuh tempo WIB. Empat tes baru mencakup cakupan pelanggan dan ISP, konsistensi status dan saldo, perilaku filter kosong atau parameter salah, dan jumlah kueri ketika ukuran daftar dan halaman bertambah. PostgreSQL lulus 908 tes. SQLite lulus 907 tes dengan satu tes penguncian PostgreSQL dilewati. Pemeriksaan migrasi bersih.
+
+Pada fixture SQLite, respons portal turun dari 21 kueri menjadi 13 untuk tiga faktur. Dengan 60 faktur, daftar awal turun dari 192 kueri menjadi 13 dan menampilkan 10 baris per halaman. Kueri pembayaran terpisah per baris tidak muncul pada kedua pengukuran baru. Bukti privat tersedia di `data/evidence/portal-invoices-queries-20261123.json`.
+
+Chromium menjalankan filter menunggak, halaman kedua, pembukaan detail dan reset filter. Seluruh 98 pemindaian axe, 20 pemeriksaan keyboard dan pengukuran kontras lulus. Bukti privat tersedia di `data/evidence/portal-invoices-20261123.json`.

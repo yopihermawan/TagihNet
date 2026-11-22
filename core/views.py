@@ -17,7 +17,7 @@ from .billing import audit, issue_invoice, record_payment, reverse_payment
 from .forms import CustomerForm, InvoiceForm, LoginForm, PaymentForm
 from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, with_financial_summary
 from .customer_profile import invoice_rows, profile_context
-from .invoice_queries import with_balances
+from .invoice_queries import INVOICE_STATUS_LABELS, filter_invoice_status, with_balances
 from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment, Tenant
 from .network_recovery import attention_jobs, scoped_jobs
 from .plan_selection import assignment_plan
@@ -224,17 +224,8 @@ def invoices(request):
     query = request.GET.get("q", "").strip()[:100]
     if query:
         result = result.filter(Q(customer__name__icontains=query) | Q(customer__code__icontains=query))
-    state = request.GET.get("state", "")
-    today=timezone.localdate()
-    # Derived state is never accepted as a writable invoice field.
-    if state=='paid':result=result.filter(remaining=0)
-    elif state in {'overdue','issued','partial'}:
-        result=result.exclude(remaining=0)
-        if state=='overdue':result=result.filter(due_date__lt=today)
-        else:
-            result=result.filter(due_date__gte=today)
-            result=result.filter(ledger_paid=0) if state=='issued' else result.exclude(ledger_paid=0)
-    page=paginate(request,result)
+    today = timezone.localdate()
+    page = paginate(request, filter_invoice_status(result, request.GET.get("state", ""), today))
     return render(request, "core/invoices.html", {"page":page,'invoice_rows':invoice_rows(page.object_list,today)})
 
 
@@ -344,9 +335,16 @@ def network(request):
 
 @require("portal")
 def portal(request):
-    return render(request, "core/portal.html", {"customer": request.member.customer,
-                  "invoices": Invoice.objects.filter(tenant=request.member.tenant, customer=request.member.customer),
-                  "location":location_display(request.member.customer)})
+    customer = request.member.customer
+    state = request.GET.get("state", "")
+    if state not in INVOICE_STATUS_LABELS:
+        state = ""
+    today = timezone.localdate()
+    scoped = with_balances(Invoice.objects.filter(customer=customer), request.member.tenant_id)
+    page = paginate(request, filter_invoice_status(scoped, state, today))
+    return render(request, "core/portal.html", {"customer": customer, "location": location_display(customer),
+                  "page": page, "invoice_rows": invoice_rows(page.object_list, today),
+                  "invoice_state": state, "invoice_statuses": INVOICE_STATUS_LABELS.items()})
 
 
 @require_GET

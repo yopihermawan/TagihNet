@@ -262,4 +262,6 @@ Buka menu **Tiket gangguan** atau **Pasang baru (PSB)**. Owner/Admin operasional
 
 Pelanggan dapat membuka **Layanan saya → Ajukan upgrade paket** untuk memilih paket aktif yang lebih cepat dari ISP sendiri. Tinjau harga katalog dan kecepatan, lalu kirim pengajuan dalam 15 menit. Pengajuan muncul sebagai tiket penagihan untuk ditinjau operator. Harga atau paket yang berubah memerlukan tinjauan ulang. Status pengajuan dapat dilihat di **Tiket bantuan**.
 
+Bagian **Tagihan saya** pada **Layanan saya** menampilkan periode, jatuh tempo, status, dan saldo tagihan. Gunakan **Status tagihan** untuk menyaring hasil. Perpindahan halaman membawa filter dan jumlah baris yang dipilih.
+
 PSB tidak membuat pelanggan/faktur sampai tahap Terpasang dan aktivasi disetujui akun berizin dengan MFA terbaru. Status customer awal Menunggu provisioning; invoice belum otomatis lunas dan router nyata tidak diubah. `operations_smoke.py` menguji alur pada server/database sementara tanpa mengubah akun/data demo pengguna. Panduan lengkap dan batas SLA, lampiran serta integrasi: [SUPPORT-AND-INSTALLATIONS](docs/SUPPORT-AND-INSTALLATIONS.md).
