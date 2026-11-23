@@ -1,18 +1,24 @@
-{% extends 'base.html' %}{% load tagihnet %}
+{% extends 'base.html' %}{% load tagihnet tz %}
 {% block title %}Riwayat pembayaran · TagihNet{% endblock %}
 {% block content %}
 <a class="back-link" href="{% url 'portal' %}">← Kembali ke layanan saya</a>
 <div class="page-heading"><div><h1>Riwayat pembayaran</h1></div></div>
+{% if not payment_filter.errors %}
 <section class="panel padded">
-  <h2>Ringkasan seluruh pembayaran</h2>
+  <h2>{% if payment_month %}Ringkasan pembayaran {{ payment_month|date:'F Y' }}{% else %}Ringkasan seluruh pembayaran{% endif %}</h2>
   <dl class="definition-list">
     <dt>Pembayaran berlaku</dt><dd class="amount">{{ payment_totals.valid|idr }}</dd>
     <dt>Direversal</dt><dd class="amount">{{ payment_totals.reversed|idr }}</dd>
   </dl>
+  {% if payment_month %}<p class="muted">Reversal mengikuti status terkini dari pembayaran pada bulan ini.</p>{% endif %}
 </section>
+{% endif %}
 <section class="panel">
+  {% include 'core/form_error_summary.html' with form=payment_filter only %}
   <form method="get" class="filter-bar">
     <input type="hidden" name="size" value="{{ page.paginator.per_page }}">
+    <div class="field"><label for="{{ payment_filter.month.id_for_label }}">{{ payment_filter.month.label }}</label>
+      {{ payment_filter.month }}{{ payment_filter.month.errors }}</div>
     <div class="field"><label for="state">Status pembayaran</label>
       <select name="state" id="state">
         <option value="">Semua status</option>
@@ -21,9 +27,11 @@
       </select>
     </div>
     <button class="button primary" type="submit">Terapkan</button>
-    {% if payment_state %}<a class="button" href="{% url 'portal_payments' %}?size={{ page.paginator.per_page }}">Reset filter</a>{% endif %}
+    {% if payment_state or payment_month or payment_filter.errors %}<a class="button" href="{% url 'portal_payments' %}?size={{ page.paginator.per_page }}">Reset filter</a>{% endif %}
   </form>
+  {% if not payment_filter.errors %}
   <div class="table-scroll" tabindex="0" role="region" aria-label="Riwayat pembayaran">
+    {% timezone 'Asia/Jakarta' %}
     <table>
       <thead><tr><th scope="col">Waktu</th><th scope="col">Faktur</th><th scope="col" class="numeric">Nominal</th><th scope="col">Status</th><th scope="col" class="actions">Kuitansi</th></tr></thead>
       <tbody>
@@ -38,11 +46,13 @@
           <td class="actions"><a class="button small" href="{% url 'payment_receipt' payment.invoice_id payment.pk %}" aria-label="Lihat kuitansi pembayaran {{ payment.pk }}">Lihat kuitansi</a></td>
         </tr>
       {% empty %}
-        <tr><td colspan="5" class="empty">{% if payment_state %}Belum ada pembayaran dengan status ini.{% else %}Belum ada pembayaran tercatat.{% endif %}</td></tr>
+        <tr><td colspan="5" class="empty">{% if payment_state %}Belum ada pembayaran dengan status ini.{% elif payment_month %}Belum ada pembayaran pada bulan ini.{% else %}Belum ada pembayaran tercatat.{% endif %}</td></tr>
       {% endfor %}
       </tbody>
     </table>
+    {% endtimezone %}
   </div>
   {% if page.paginator.count %}{% include 'core/pagination.html' %}{% endif %}
+  {% endif %}
 </section>
 {% endblock %}

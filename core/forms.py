@@ -54,6 +54,19 @@ class PaymentForm(forms.Form):
         super().__init__(*args,**kwargs)
         if tenant:self.fields['fund'].queryset=Fund.objects.filter(tenant=tenant,active=True)
 
+
+class PaymentMonthForm(forms.Form):
+    month = forms.DateField(label="Bulan pembayaran (WIB)", required=False, input_formats=["%Y-%m"],
+        widget=forms.DateInput(format="%Y-%m", attrs={"type": "month"}),
+        error_messages={"invalid": "Gunakan bulan yang valid dengan format YYYY-MM."})
+
+    def clean_month(self):
+        month = self.cleaned_data["month"]
+        if month and self.data.get("month") != f"{month.year:04d}-{month.month:02d}":
+            raise ValidationError(self.fields["month"].error_messages["invalid"])
+        return month
+
+
 class BillingSettingsForm(forms.Form):
     name = forms.CharField(label="Nama ISP", max_length=100, strip=False)
     address = forms.CharField(label="Alamat ISP", max_length=250, strip=False,

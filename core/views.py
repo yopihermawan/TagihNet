@@ -14,13 +14,13 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.debug import sensitive_post_parameters
 from .billing import audit, issue_invoice, record_payment, reverse_payment
-from .forms import CustomerForm, InvoiceForm, LoginForm, PaymentForm
+from .forms import CustomerForm, InvoiceForm, LoginForm, PaymentForm, PaymentMonthForm
 from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, with_financial_summary
 from .customer_profile import invoice_rows, profile_context
 from .invoice_queries import INVOICE_STATUS_LABELS, filter_invoice_status, outstanding_summary, with_balances
 from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment, Tenant
 from .network_recovery import attention_jobs, scoped_jobs
-from .payment_queries import customer_payments, payment_totals
+from .payment_queries import customer_payments, payment_totals, payments_in_month
 from .plan_selection import assignment_plan
 from .locations import display as location_display
 from .pdf import render_invoice
@@ -353,14 +353,22 @@ def portal(request):
 @require_GET
 def portal_payments(request):
     payments = customer_payments(request.member.tenant_id, request.member.customer_id)
-    totals = payment_totals(payments)
+    form = PaymentMonthForm(request.GET)
     state = request.GET.get("state", "")
+    if not form.is_valid():
+        return render(request, "core/portal_payments.html", {"payment_filter": form, "payment_state": state,
+                      "page": paginate(request, payments.none())}, status=400)
+    month = form.cleaned_data["month"]
+    if month:
+        payments = payments_in_month(payments, month)
+    totals = payment_totals(payments)
     if state in {"recorded", "reversed"}:
         payments = payments.filter(reversal__isnull=state == "recorded")
     else:
         state = ""
     page = paginate(request, payments.select_related("invoice", "reversal"))
-    return render(request, "core/portal_payments.html", {"payment_totals": totals, "payment_state": state, "page": page})
+    return render(request, "core/portal_payments.html", {"payment_totals": totals, "payment_state": state,
+                  "payment_filter": form, "payment_month": month, "page": page})
 
 
 @require_GET

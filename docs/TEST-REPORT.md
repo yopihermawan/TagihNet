@@ -720,3 +720,11 @@ Portal menampilkan sisa seluruh tagihan pelanggan, bagian yang menunggak, dan ta
 Pengukuran SQLite pada fixture 3 dan 60 faktur mencatat 14 kueri untuk kedua pembukaan daftar, naik satu dari 13 sebelum penambahan ringkasan. Agregat ringkasan memakai satu kueri dan jumlah kueri pembayaran terpisah per baris tetap nol. Bukti privat tersedia di `data/evidence/portal-billing-summary-queries-20261123.json`.
 
 Chromium membuka faktur berikutnya dari halaman yang sedang difilter, lalu kembali dengan filter yang sama. Uji pada mobile terang dan desktop gelap termasuk dalam 100 pemindaian axe tanpa pelanggaran otomatis, 20 pemeriksaan keyboard serta pengukuran kontras yang lulus. Bukti privat tersedia di `data/evidence/portal-billing-summary-20261123.json`.
+
+## Filter bulan riwayat pembayaran
+
+Empat tes baru mencakup awal dan akhir bulan berdasarkan WIB, Februari kabisat, reversal pada bulan berbeda dari pembayaran, cakupan pelanggan dan ISP, filter antarhalaman, bulan salah, serta batas tahun yang tersedia pada kalender. Ringkasan mengambil pembayaran pada bulan asli yang dipilih, dengan status reversal terkini. Pilihan status menyaring daftar dan ringkasan tetap mencakup seluruh pembayaran bulan tersebut. PostgreSQL lulus 921 tes. SQLite lulus 920 tes dengan satu tes penguncian PostgreSQL dilewati. Pemeriksaan migrasi bersih.
+
+Chromium memindahkan daftar hasil bulan dan status ke halaman kedua, membuka kuitansi direversal dari hasil tersebut, serta memeriksa fokus dan pesan kesalahan saat bulan tidak valid. Seluruh 101 pemindaian axe, 20 pemeriksaan keyboard, dan pengukuran kontras lulus. Bukti privat tersedia di `data/evidence/portal-payment-month-20261123.json`.
+
+Backup periodik staging 23 November pukul 17.09 WIB diautentikasi dan disiapkan sebagai pasangan paket dan kunci terpisah. Restore di lab PostgreSQL mencocokkan 62 tabel, 327 baris, metadata kolom, dan 57 sequence. Database uji dibersihkan. Arsip memuat nol perangkat MFA. Bukti privat tersedia di `data/evidence/monitored-restore-20261123.json`.

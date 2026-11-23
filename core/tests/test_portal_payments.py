@@ -6,6 +6,7 @@ from django.db import connection
 from django.test import Client, TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone as django_timezone
 
 from core.models import Customer, Invoice, Membership, Payment, PaymentReversal, Plan, Tenant
 from .auth_helpers import verified_login
@@ -37,10 +38,10 @@ class PortalPaymentTests(TestCase):
         verified_login(self.client, self.portal_user)
         self.url = reverse("portal_payments")
 
-    def payment(self, amount, *, invoice=None, tenant=None, reversed_at=None):
+    def payment(self, amount, *, invoice=None, tenant=None, created_at=None, reversed_at=None):
         invoice = invoice or self.invoice
         payment = Payment.objects.create(tenant=tenant or invoice.tenant, invoice=invoice, recorded_by=self.operator,
-            event_key=uuid.uuid4(), amount=amount, created_at=self.timestamp, note="Catatan uji di kuitansi")
+            event_key=uuid.uuid4(), amount=amount, created_at=created_at or self.timestamp, note="Catatan uji di kuitansi")
         if reversed_at:
             PaymentReversal.objects.create(payment=payment, recorded_by=self.operator, created_at=reversed_at,
                                            reason="Koreksi transaksi fiktif")
@@ -120,3 +121,56 @@ class PortalPaymentTests(TestCase):
         operator = Client()
         verified_login(operator, self.operator)
         self.assertEqual(operator.get(self.url).status_code, 403)
+
+    def test_month_uses_wib_boundaries_and_the_original_payment_date_for_reversals(self):
+        start = datetime(2024, 1, 31, 17, tzinfo=timezone.utc)
+        end = datetime(2024, 2, 29, 17, tzinfo=timezone.utc)
+        self.payment(60000, created_at=start - timedelta(microseconds=1))
+        valid = self.payment(40000, created_at=start)
+        corrected = self.payment(50000, created_at=end - timedelta(microseconds=1), reversed_at=end + timedelta(hours=7))
+        march = self.payment(70000, created_at=end)
+        self.payment(85000, invoice=self.same_isp, created_at=start)
+        self.payment(90000, invoice=self.foreign, created_at=start)
+
+        with django_timezone.override("UTC"):
+            response = self.client.get(self.url, {"month": "2024-02", "state": "reversed"})
+        self.assertEqual([payment.pk for payment in response.context["page"]], [corrected.pk])
+        self.assertEqual(response.context["payment_totals"], {"gross": 90000, "reversed": 50000, "valid": 40000})
+        self.assertContains(response, "Ringkasan pembayaran Februari 2024")
+        self.assertContains(response, "29 Feb 2024 23:59 WIB")
+        self.assertContains(response, "01 Mar 2024 07:00 WIB")
+        self.assertNotContains(response, self.receipt(valid))
+        next_month = self.client.get(self.url, {"month": "2024-03"})
+        self.assertEqual([payment.pk for payment in next_month.context["page"]], [march.pk])
+        self.assertEqual(next_month.context["payment_totals"]["reversed"], 0)
+
+    def test_month_and_status_are_preserved_across_pages_and_reset_keeps_size(self):
+        payments = [self.payment(100) for _ in range(11)]
+        self.payment(60000, created_at=datetime(2026, 10, 20, tzinfo=timezone.utc))
+        first = self.client.get(self.url, {"month": "2026-11", "state": "recorded", "size": 10})
+        self.assertContains(first, 'month=2026-11&amp;state=recorded&amp;size=10&amp;page=2')
+        self.assertContains(first, f'href="{self.url}?size=10"')
+        second = self.client.get(self.url, {"month": "2026-11", "state": "recorded", "size": 10, "page": 2})
+        self.assertEqual([payment.pk for payment in second.context["page"]], [payments[0].pk])
+        self.assertEqual(second.context["payment_totals"], first.context["payment_totals"])
+        self.assertEqual(second.context["payment_totals"]["valid"], 1100)
+
+    def test_malformed_month_displays_the_field_error_without_totals_or_payment_details(self):
+        payment = self.payment(45000)
+        for month in ("2026-13", "2026-2", "0000-01", "2026-02-01", "sekarang"):
+            with self.subTest(month=month):
+                response = self.client.get(self.url, {"month": month})
+                self.assertContains(response, "Gunakan bulan yang valid dengan format YYYY-MM.", status_code=400)
+                self.assertContains(response, 'href="#id_month"', status_code=400)
+                self.assertNotContains(response, self.receipt(payment), status_code=400)
+                self.assertNotContains(response, "Ringkasan seluruh pembayaran", status_code=400)
+
+    def test_month_extremes_stay_in_the_representable_wib_calendar(self):
+        first = self.payment(1000, created_at=datetime.min.replace(tzinfo=timezone.utc))
+        last = self.payment(2000, created_at=datetime(9999, 12, 31, 16, 59, 59, tzinfo=timezone.utc))
+        self.payment(3000, created_at=datetime(9999, 12, 31, 17, tzinfo=timezone.utc))
+        for month, expected in (("0001-01", first), ("9999-12", last)):
+            with self.subTest(month=month):
+                response = self.client.get(self.url, {"month": month})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual([payment.pk for payment in response.context["page"]], [expected.pk])

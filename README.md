@@ -266,6 +266,6 @@ Bagian **Tagihan saya** pada **Layanan saya** menampilkan periode, jatuh tempo, 
 
 **Ringkasan tagihan** menampilkan total yang belum lunas, tunggakan, dan faktur belum lunas dengan jatuh tempo terdekat mulai hari ini dalam WIB. Angkanya mencakup seluruh tagihan pelanggan, termasuk saat filter daftar aktif. Gunakan **Lihat faktur berikutnya** untuk membuka rinciannya.
 
-Buka **Tagihan saya → Riwayat pembayaran** untuk melihat transaksi tercatat maupun yang direversal. Ringkasan memakai seluruh riwayat pembayaran milik pelanggan. Pilih **Lihat kuitansi** pada baris transaksi untuk membuka bukti simulasi dan versi PDF.
+Buka **Tagihan saya → Riwayat pembayaran** untuk melihat transaksi tercatat atau yang direversal. Pilih **Bulan pembayaran (WIB)** jika ingin menyaring daftar dan ringkasan ke satu bulan. Kosongkan kolom untuk melihat seluruh riwayat. Ringkasan mencakup semua status dan halaman pada periode yang dipilih. Pilih **Lihat kuitansi** untuk membuka bukti simulasi dan versi PDF.
 
 PSB tidak membuat pelanggan/faktur sampai tahap Terpasang dan aktivasi disetujui akun berizin dengan MFA terbaru. Status customer awal Menunggu provisioning; invoice belum otomatis lunas dan router nyata tidak diubah. `operations_smoke.py` menguji alur pada server/database sementara tanpa mengubah akun/data demo pengguna. Panduan lengkap dan batas SLA, lampiran serta integrasi: [SUPPORT-AND-INSTALLATIONS](docs/SUPPORT-AND-INSTALLATIONS.md).

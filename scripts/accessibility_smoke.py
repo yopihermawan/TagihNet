@@ -180,11 +180,11 @@ def run(options):
         for args in (('migrate', '--noinput'), ('seed_demo',)):
             subprocess.run([sys.executable, 'manage.py', *args], cwd=ROOT, env=env, check=True, stdout=subprocess.DEVNULL)
         portal_history = '''
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone as utc_timezone
 from uuid import uuid4
 from django.utils import timezone
 from core.billing import record_payment, reverse_payment
-from core.models import Invoice, Membership
+from core.models import Invoice, Membership, Payment
 
 customer = Membership.objects.select_related('customer__tenant').get(user__username='pelanggan').customer
 today = timezone.localdate()
@@ -198,10 +198,10 @@ Invoice.objects.create(tenant=customer.tenant, customer=customer, period=date(to
     due_date=today, customer_name=customer.name, customer_address='Alamat fiktif', subtotal=150000, total=150000)
 invoice = Invoice.objects.get(customer=customer, period=date(today.year - 2, 12, 1))
 operator = Membership.objects.get(tenant=customer.tenant, user__username='owner').user
-for _ in range(12):
-    record_payment(customer.tenant, invoice.pk, 1000, uuid4(), operator)
+posted = [record_payment(customer.tenant, invoice.pk, 1000, uuid4(), operator)[0].pk for _ in range(12)]
 corrected, _ = record_payment(customer.tenant, invoice.pk, 2000, uuid4(), operator)
 reverse_payment(customer.tenant, corrected.pk, 'Koreksi pembayaran fiktif', operator)
+Payment.objects.filter(pk__in=[*posted, corrected.pk]).update(created_at=datetime(2024, 2, 29, 16, 30, tzinfo=utc_timezone.utc))
 '''
         subprocess.run([sys.executable, 'manage.py', 'shell', '-c', portal_history], cwd=ROOT, env=env,
                        check=True, stdout=subprocess.DEVNULL)
@@ -370,14 +370,18 @@ reverse_payment(customer.tenant, corrected.pk, 'Koreksi pembayaran fiktif', oper
                 portal.get_by_role('button', name='Mode gelap', exact=True).click()
                 expect(portal.locator('html')).to_have_attribute('data-theme', 'light')
                 payment_status = portal.get_by_label('Status pembayaran', exact=True)
+                payment_month = portal.get_by_label('Bulan pembayaran (WIB)', exact=True)
+                payment_month.fill('2024-02')
                 payment_status.select_option('recorded')
                 portal.get_by_role('button', name='Terapkan', exact=True).click()
+                expect(portal.get_by_role('heading', name='Ringkasan pembayaran Februari 2024')).to_be_visible()
                 payments = portal.get_by_role('region', name='Riwayat pembayaran', exact=True)
                 expect(payments.get_by_role('row')).to_have_count(11)
                 scan('portal_payments_recorded', portal)
                 portal.get_by_role('link', name='Halaman berikutnya', exact=True).click()
                 expect(portal.get_by_text('Halaman 2 / 2', exact=True)).to_be_visible()
                 expect(payment_status).to_have_value('recorded')
+                expect(payment_month).to_have_value('2024-02')
                 payment_status.select_option('reversed')
                 portal.get_by_role('button', name='Terapkan', exact=True).click()
                 expect(payments.get_by_text('Direversal', exact=True)).to_be_visible()
@@ -388,6 +392,10 @@ reverse_payment(customer.tenant, corrected.pk, 'Koreksi pembayaran fiktif', oper
                 scan('portal_payments_reversed', portal)
                 payments.get_by_role('link', name=re.compile('^Lihat kuitansi pembayaran ')).click()
                 expect(portal.get_by_role('heading', name='Direversal · transaksi tidak berlaku')).to_be_visible()
+                invalid = portal.goto(base + '/portal/payments/?month=2024-13')
+                assert invalid.status == 400
+                check_error_focus(portal, field='id_month')
+                scan('portal_payments_invalid_month', portal)
                 portal.goto(base + '/portal/')
                 portal.get_by_role('link', name='Ajukan upgrade paket', exact=True).click()
                 for width, theme in ((1366, 'dark'), (360, 'light')):
@@ -426,6 +434,7 @@ reverse_payment(customer.tenant, corrected.pk, 'Koreksi pembayaran fiktif', oper
         'portal_upgrade': 'passed',
         'portal_invoices': 'passed',
         'portal_payments': 'passed',
+        'portal_payment_month': 'passed',
         'portal_billing_summary': 'passed',
     }
     failed = (summary['violating_scans'] or summary['horizontal_overflow'] or summary['keyboard_failed']

@@ -2,6 +2,8 @@
 
 Pada detail faktur, setiap pembayaran memiliki tautan **Lihat kuitansi**, termasuk transaksi yang sudah direversal. Operator yang dapat membuka tab Pembayaran pada detail pelanggan juga menemukan tautan di sana. Pelanggan dapat membuka faktur miliknya atau memilih **Tagihan saya → Riwayat pembayaran** di portal. Halaman kuitansi menyediakan **Cetak / PDF A4** untuk cetak dari pembaca PDF.
 
+Filter bulan di portal memakai tanggal pembayaran asli dalam WIB. Pembayaran yang direversal tetap berada pada bulan pembayaran dengan status koreksi terkini. Ringkasan periode menghitung seluruh hasil bulan tersebut, termasuk jika pelanggan menyaring salah satu status pada daftarnya.
+
 Satu kuitansi mewakili satu pembayaran, termasuk pembayaran sebagian. Nomor `TN-KW-YYYYMMDD-ID` berasal dari tanggal transaksi WIB dan ID pembayaran, berbeda dari nomor faktur. Membuka atau mencetak ulang tidak menerbitkan transaksi, mengubah saldo, menambah audit bisnis atau membuat job. Pembukaan dan pencetakan tidak menulis snapshot; schema0015 menambah tabel identitas untuk pembayaran baru tanpa worker atau dependensi runtime baru.
 
 Kuitansi memuat nominal asli, terbilang integer rupiah, tanggal pembayaran WIB hingga detik, nomor/periode faktur, pelanggan, pencatat dan catatan pembayaran. Form pembayaran menjelaskan bahwa catatan tampil pada kuitansi dan portal; jangan masukkan catatan internal ke field ini. Nominal kuitansi tidak digabung dengan pembayaran lain dan tidak menyatakan faktur lunas. Buka faktur untuk saldo terbaru.
