@@ -208,6 +208,9 @@ Payment.objects.filter(pk__in=[*posted, corrected.pk]).update(created_at=datetim
         with closing(sqlite3.connect(Path(temporary) / 'tagihnet.sqlite3')) as db:
             customer = db.execute('SELECT id FROM core_customer ORDER BY id LIMIT 1').fetchone()[0]
             invoice = db.execute('SELECT id FROM core_invoice WHERE customer_id=? ORDER BY id LIMIT 1', (customer,)).fetchone()[0]
+            portal_period = db.execute('''SELECT i.period FROM core_invoice i
+                JOIN core_membership m ON m.customer_id=i.customer_id JOIN auth_user u ON u.id=m.user_id
+                WHERE u.username=? ORDER BY i.period LIMIT 1''', ('pelanggan',)).fetchone()[0][:7]
         screens = {'dashboard': '/', 'customers': '/customers/', 'customer_form': '/customers/new/',
                    'customer_detail': f'/customers/{customer}/', 'invoices': '/invoices/',
                    'invoice_detail': f'/invoices/{invoice}/', 'invoice_create': '/invoices/new/',
@@ -334,12 +337,26 @@ Payment.objects.filter(pk__in=[*posted, corrected.pk]).update(created_at=datetim
                 portal.goto(base + '/login/')
                 submit_login(portal, password, username='pelanggan')
                 portal.wait_for_url(base + '/portal/')
+                table = portal.get_by_role('region', name='Tagihan saya', exact=True)
+                billing = portal.get_by_role('region', name='Ringkasan tagihan', exact=True)
+                all_periods = billing.locator('dl').inner_text()
+                portal.get_by_label('Bulan layanan', exact=True).fill(portal_period)
+                portal.get_by_label('Status tagihan', exact=True).select_option('overdue')
+                portal.get_by_role('button', name='Terapkan', exact=True).click()
+                expect(table.get_by_role('row')).to_have_count(2)
+                expect(portal.get_by_label('Bulan layanan', exact=True)).to_have_value(portal_period)
+                expect(billing.locator('dl')).to_have_text(all_periods, use_inner_text=True)
+                scan('portal_invoices_month', portal)
+                invalid = portal.goto(base + '/portal/?month=2024-13')
+                assert invalid.status == 400
+                check_error_focus(portal, field='id_month')
+                scan('portal_invoices_invalid_month', portal)
+                portal.get_by_role('link', name='Reset filter', exact=True).click()
+                portal.wait_for_url(base + '/portal/?size=10')
                 portal.get_by_label('Status tagihan', exact=True).select_option('overdue')
                 portal.get_by_role('button', name='Terapkan', exact=True).click()
                 portal.wait_for_url(re.compile(re.escape(base) + r'/portal/\?.*state=overdue'))
-                table = portal.get_by_role('region', name='Tagihan saya', exact=True)
                 expect(table.get_by_role('row')).to_have_count(11)
-                billing = portal.get_by_role('region', name='Ringkasan tagihan', exact=True)
                 expect(billing.get_by_text('Total sisa tagihan', exact=True)).to_be_visible()
                 expect(billing.get_by_text('Tunggakan', exact=True)).to_be_visible()
                 next_invoice = billing.get_by_role('link', name='Lihat faktur berikutnya', exact=True)
@@ -435,6 +452,7 @@ Payment.objects.filter(pk__in=[*posted, corrected.pk]).update(created_at=datetim
         'portal_invoices': 'passed',
         'portal_payments': 'passed',
         'portal_payment_month': 'passed',
+        'portal_invoice_month': 'passed',
         'portal_billing_summary': 'passed',
     }
     failed = (summary['violating_scans'] or summary['horizontal_overflow'] or summary['keyboard_failed']

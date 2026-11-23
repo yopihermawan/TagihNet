@@ -728,3 +728,9 @@ Empat tes baru mencakup awal dan akhir bulan berdasarkan WIB, Februari kabisat, 
 Chromium memindahkan daftar hasil bulan dan status ke halaman kedua, membuka kuitansi direversal dari hasil tersebut, serta memeriksa fokus dan pesan kesalahan saat bulan tidak valid. Seluruh 101 pemindaian axe, 20 pemeriksaan keyboard, dan pengukuran kontras lulus. Bukti privat tersedia di `data/evidence/portal-payment-month-20261123.json`.
 
 Backup periodik staging 23 November pukul 17.09 WIB diautentikasi dan disiapkan sebagai pasangan paket dan kunci terpisah. Restore di lab PostgreSQL mencocokkan 62 tabel, 327 baris, metadata kolom, dan 57 sequence. Database uji dibersihkan. Arsip memuat nol perangkat MFA. Bukti privat tersedia di `data/evidence/monitored-restore-20261123.json`.
+
+## Filter bulan layanan pada daftar tagihan portal
+
+Tiga tes baru mencakup periode layanan sampai akhir bulan, faktur dengan tanggal periode di tengah atau akhir bulan, kombinasi dengan status tagihan terkini, cakupan akun dan ISP, serta hasil kosong dan bulan tidak valid. Ringkasan tetap mencakup seluruh tagihan pelanggan. PostgreSQL lulus 924 tes. SQLite lulus 923 tes dengan satu tes penguncian PostgreSQL dilewati. Pemeriksaan migrasi bersih. Pembukaan daftar di SQLite memakai 14 kueri pada fixture 3 maupun 60 faktur.
+
+Chromium memeriksa hasil filter gabungan, angka ringkasan, serta fokus dan pesan validasi pada respons HTTP 400 sebelum mereset filter. Seluruh 103 pemindaian axe, 20 pemeriksaan keyboard, dan pengukuran kontras lulus. Bukti privat tersedia di `data/evidence/portal-invoice-month-20261123.json`.

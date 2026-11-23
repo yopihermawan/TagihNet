@@ -262,7 +262,7 @@ Buka menu **Tiket gangguan** atau **Pasang baru (PSB)**. Owner/Admin operasional
 
 Pelanggan dapat membuka **Layanan saya → Ajukan upgrade paket** untuk memilih paket aktif yang lebih cepat dari ISP sendiri. Tinjau harga katalog dan kecepatan, lalu kirim pengajuan dalam 15 menit. Pengajuan muncul sebagai tiket penagihan untuk ditinjau operator. Harga atau paket yang berubah memerlukan tinjauan ulang. Status pengajuan dapat dilihat di **Tiket bantuan**.
 
-Bagian **Tagihan saya** pada **Layanan saya** menampilkan periode, jatuh tempo, status, dan saldo tagihan. Gunakan **Status tagihan** untuk menyaring hasil. Perpindahan halaman membawa filter dan jumlah baris yang dipilih.
+Bagian **Tagihan saya** pada **Layanan saya** menampilkan periode, jatuh tempo, status, dan saldo tagihan. Gunakan **Bulan layanan** dan **Status tagihan** untuk menyaring daftar. Perpindahan halaman membawa filter dan jumlah baris yang dipilih.
 
 **Ringkasan tagihan** menampilkan total yang belum lunas, tunggakan, dan faktur belum lunas dengan jatuh tempo terdekat mulai hari ini dalam WIB. Angkanya mencakup seluruh tagihan pelanggan, termasuk saat filter daftar aktif. Gunakan **Lihat faktur berikutnya** untuk membuka rinciannya.
 

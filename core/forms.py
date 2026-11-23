@@ -55,10 +55,14 @@ class PaymentForm(forms.Form):
         if tenant:self.fields['fund'].queryset=Fund.objects.filter(tenant=tenant,active=True)
 
 
-class PaymentMonthForm(forms.Form):
-    month = forms.DateField(label="Bulan pembayaran (WIB)", required=False, input_formats=["%Y-%m"],
+class MonthFilterForm(forms.Form):
+    month = forms.DateField(required=False, input_formats=["%Y-%m"],
         widget=forms.DateInput(format="%Y-%m", attrs={"type": "month"}),
         error_messages={"invalid": "Gunakan bulan yang valid dengan format YYYY-MM."})
+
+    def __init__(self, *args, month_label, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["month"].label = month_label
 
     def clean_month(self):
         month = self.cleaned_data["month"]

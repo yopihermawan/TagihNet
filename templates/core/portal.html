@@ -7,6 +7,7 @@
 </div>
 <section class="panel padded" aria-labelledby="billing-summary-title">
   <h2 id="billing-summary-title">Ringkasan tagihan</h2>
+  {% if invoice_month or invoice_filter.errors %}<p class="muted">Mencakup seluruh periode layanan.</p>{% endif %}
   <dl class="definition-list">
     <dt>Total sisa tagihan</dt><dd class="amount">{{ billing_summary.total|idr }}</dd>
     <dt>Tunggakan</dt><dd class="amount">{{ billing_summary.overdue|idr }}</dd>
@@ -26,8 +27,11 @@
 <section class="panel padded"><h2>Lokasi layanan saya</h2>{% include 'locations/coordinates.html' %}</section>
 <section class="panel">
   <div class="panel-heading"><h2>Tagihan saya</h2><a class="button" href="{% url 'portal_payments' %}">Riwayat pembayaran</a></div>
+  {% include 'core/form_error_summary.html' with form=invoice_filter only %}
   <form method="get" class="filter-bar">
     <input type="hidden" name="size" value="{{ page.paginator.per_page }}">
+    <div class="field"><label for="{{ invoice_filter.month.id_for_label }}">{{ invoice_filter.month.label }}</label>
+      {{ invoice_filter.month }}{{ invoice_filter.month.errors }}</div>
     <div class="field"><label for="state">Status tagihan</label>
       <select name="state" id="state">
         <option value="">Semua status</option>
@@ -37,8 +41,9 @@
       </select>
     </div>
     <button class="button primary" type="submit">Terapkan</button>
-    {% if invoice_state %}<a class="button" href="{% url 'portal' %}?size={{ page.paginator.per_page }}">Reset filter</a>{% endif %}
+    {% if invoice_state or invoice_month or invoice_filter.errors %}<a class="button" href="{% url 'portal' %}?size={{ page.paginator.per_page }}">Reset filter</a>{% endif %}
   </form>
+  {% if not invoice_filter.errors %}
   <div class="table-scroll" tabindex="0" role="region" aria-label="Tagihan saya">
     <table>
       <thead><tr><th scope="col">Faktur</th><th scope="col">Periode</th><th scope="col">Jatuh tempo</th><th scope="col">Status</th><th scope="col" class="numeric">Sisa tagihan</th><th scope="col" class="actions">Detail</th></tr></thead>
@@ -49,11 +54,12 @@
           <td class="actions"><a class="row-action" href="{% url 'invoice_detail' invoice.pk %}" aria-label="Detail {{ invoice.number }}">{% icon 'arrow' %}</a></td>
         </tr>
       {% endwith %}{% empty %}
-        <tr><td colspan="6" class="empty">{% if invoice_state %}Belum ada tagihan dengan status ini.{% else %}Belum ada tagihan.{% endif %}</td></tr>
+        <tr><td colspan="6" class="empty">{% if invoice_state %}Belum ada tagihan dengan status ini.{% elif invoice_month %}Belum ada tagihan pada bulan layanan ini.{% else %}Belum ada tagihan.{% endif %}</td></tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
   {% if page.paginator.count %}{% include 'core/pagination.html' %}{% endif %}
+  {% endif %}
 </section>
 {% endblock %}

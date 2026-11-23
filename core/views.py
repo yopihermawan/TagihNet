@@ -1,5 +1,6 @@
 import csv
 import uuid
+from calendar import monthrange
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.views import PasswordResetView
@@ -14,7 +15,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.debug import sensitive_post_parameters
 from .billing import audit, issue_invoice, record_payment, reverse_payment
-from .forms import CustomerForm, InvoiceForm, LoginForm, PaymentForm, PaymentMonthForm
+from .forms import CustomerForm, InvoiceForm, LoginForm, MonthFilterForm, PaymentForm
 from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, with_financial_summary
 from .customer_profile import invoice_rows, profile_context
 from .invoice_queries import INVOICE_STATUS_LABELS, filter_invoice_status, outstanding_summary, with_balances
@@ -337,23 +338,31 @@ def network(request):
 @require("portal")
 def portal(request):
     customer = request.member.customer
+    form = MonthFilterForm(request.GET, month_label="Bulan layanan")
+    valid = form.is_valid()
+    month = form.cleaned_data.get("month")
     state = request.GET.get("state", "")
     if state not in INVOICE_STATUS_LABELS:
         state = ""
     today = timezone.localdate()
     scoped = with_balances(Invoice.objects.filter(customer=customer), request.member.tenant_id)
-    page = paginate(request, filter_invoice_status(scoped, state, today))
+    invoices = scoped if valid else scoped.none()
+    if month:
+        last_day = month.replace(day=monthrange(month.year, month.month)[1])
+        invoices = invoices.filter(period__range=(month, last_day))
+    page = paginate(request, filter_invoice_status(invoices, state, today))
     return render(request, "core/portal.html", {"customer": customer, "location": location_display(customer),
                   "billing_summary": outstanding_summary(scoped, today),
                   "page": page, "invoice_rows": invoice_rows(page.object_list, today),
-                  "invoice_state": state, "invoice_statuses": INVOICE_STATUS_LABELS.items()})
+                  "invoice_state": state, "invoice_statuses": INVOICE_STATUS_LABELS.items(),
+                  "invoice_filter": form, "invoice_month": month}, status=200 if valid else 400)
 
 
 @require("portal")
 @require_GET
 def portal_payments(request):
     payments = customer_payments(request.member.tenant_id, request.member.customer_id)
-    form = PaymentMonthForm(request.GET)
+    form = MonthFilterForm(request.GET, month_label="Bulan pembayaran (WIB)")
     state = request.GET.get("state", "")
     if not form.is_valid():
         return render(request, "core/portal_payments.html", {"payment_filter": form, "payment_state": state,

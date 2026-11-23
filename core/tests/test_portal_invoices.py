@@ -144,3 +144,40 @@ class PortalInvoiceTests(TestCase):
             full_page = self.client.get(self.url, {"size": 50})
         self.assertEqual((len(first_page.context["invoice_rows"]), len(full_page.context["invoice_rows"])), (3, 50))
         self.assertEqual(len(small), len(large))
+
+    def test_service_month_combines_with_status_without_changing_the_full_summary(self):
+        january, february, march, legacy = self.add_invoices(0, 4)
+        Invoice.objects.filter(pk=legacy.pk).update(period=date(2020, 2, 29))
+        self.add_invoices(1, 2, customer=self.same_isp)
+        self.add_invoices(1, 2, customer=self.foreign)
+        record_payment(self.tenant, february.pk, 30000, uuid.uuid4(), self.operator)
+
+        month = self.client.get(self.url, {"month": "2020-02", "size": 25, "page": 8})
+        self.assertEqual({row["invoice"].pk for row in month.context["invoice_rows"]}, {february.pk, legacy.pk})
+        self.assertContains(month, '<input type="hidden" name="month" value="2020-02">', html=True)
+        partial = self.client.get(self.url, {"month": "2020-02", "state": "partial"})
+        row, = partial.context["invoice_rows"]
+        self.assertEqual((row["invoice"].pk, row["balance"]), (february.pk, 120000))
+        self.assertNotContains(partial, january.number)
+        self.assertNotContains(partial, march.number)
+        self.assertEqual(partial.context["billing_summary"], month.context["billing_summary"])
+        self.assertEqual(partial.context["billing_summary"]["total"], 570000)
+
+    def test_invalid_service_month_shows_a_field_error_and_keeps_the_global_summary(self):
+        invoice, = self.add_invoices(0, 1)
+        for month in ("2020-13", "2020-2", "0000-01", "2020-02-01"):
+            with self.subTest(month=month):
+                response = self.client.get(self.url, {"month": month})
+                self.assertContains(response, "Gunakan bulan yang valid dengan format YYYY-MM.", status_code=400)
+                self.assertContains(response, 'href="#id_month"', status_code=400)
+                self.assertNotContains(response, invoice.number, status_code=400)
+                self.assertEqual(response.context["billing_summary"]["total"], 150000)
+
+    def test_month_end_at_the_calendar_limit_and_empty_month_reset(self):
+        invoice, = self.add_invoices(0, 1)
+        Invoice.objects.filter(pk=invoice.pk).update(period=date(9999, 12, 31))
+        last = self.client.get(self.url, {"month": "9999-12"})
+        self.assertEqual([row["invoice"].pk for row in last.context["invoice_rows"]], [invoice.pk])
+        empty = self.client.get(self.url, {"month": "9999-11", "size": 25, "page": 2})
+        self.assertContains(empty, "Belum ada tagihan pada bulan layanan ini.")
+        self.assertContains(empty, f'href="{self.url}?size=25"')
