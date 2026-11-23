@@ -5,6 +5,18 @@
     <p class="muted">Layanan dan tagihan Anda, dalam satu tempat.</p></div>
   <a class="button primary" href="{% url 'ticket_create' %}">＋ Buat tiket bantuan</a>
 </div>
+<section class="panel padded" aria-labelledby="billing-summary-title">
+  <h2 id="billing-summary-title">Ringkasan tagihan</h2>
+  <dl class="definition-list">
+    <dt>Total sisa tagihan</dt><dd class="amount">{{ billing_summary.total|idr }}</dd>
+    <dt>Tunggakan</dt><dd class="amount">{{ billing_summary.overdue|idr }}</dd>
+    <dt>Jatuh tempo berikutnya</dt>
+    <dd>{% if billing_summary.next_invoice_id %}
+      <time datetime="{{ billing_summary.next_due|date:'Y-m-d' }}">{{ billing_summary.next_due|date:'d M Y' }}</time>
+      <small><a href="{% url 'invoice_detail' billing_summary.next_invoice_id %}">Lihat faktur berikutnya</a></small>
+      {% else %}Belum ada jatuh tempo berikutnya.{% endif %}</dd>
+  </dl>
+</section>
 <section class="panel padded">
   <h2>{{ customer.plan.name }} · {{ customer.plan.speed_mbps }} Mbps</h2>
   <p>{{ customer.code }} · {{ customer.get_service_state_display }} (simulasi)</p>

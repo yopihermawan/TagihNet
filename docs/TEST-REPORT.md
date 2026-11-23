@@ -712,3 +712,11 @@ Chromium menjalankan filter menunggak, halaman kedua, pembukaan detail dan reset
 Enam tes baru mencakup cakupan akun dan ISP pada daftar dan jumlah ringkasan, kuitansi HTML/PDF, tanggal WIB, status reversal, urutan tetap untuk waktu yang sama, filter antarhalaman, jumlah kueri tetap untuk halaman kecil dan besar, serta izin baca. Ringkasan berlaku untuk seluruh riwayat, termasuk saat filter daftar aktif. PostgreSQL lulus 914 tes. SQLite lulus 913 tes dengan satu tes penguncian PostgreSQL dilewati. Pemeriksaan migrasi bersih.
 
 Chromium dengan pelanggan fiktif menerapkan filter transaksi tercatat, membuka halaman kedua, menyaring transaksi direversal, lalu membuka kuitansi untuk transaksi tersebut. Seluruh 100 pemindaian axe, 20 pemeriksaan keyboard, dan pengukuran kontras lulus. Halaman riwayat dipindai pada mobile terang dan desktop gelap. Bukti privat tersedia di `data/evidence/portal-payments-20261123.json`.
+
+## Ringkasan tagihan portal
+
+Portal menampilkan sisa seluruh tagihan pelanggan, bagian yang menunggak, dan tautan ke faktur belum lunas dengan jatuh tempo paling awal mulai hari ini dalam WIB. Tiga tes tambahan mencakup cakupan pelanggan dan ISP, independensi terhadap filter dan halaman, jatuh tempo yang sama, tagihan hanya menunggak, dan riwayat kosong atau lunas. Tes status juga memeriksa pengaruh reversal pada ringkasan. PostgreSQL lulus 917 tes. SQLite lulus 916 tes dengan satu tes penguncian PostgreSQL dilewati.
+
+Pengukuran SQLite pada fixture 3 dan 60 faktur mencatat 14 kueri untuk kedua pembukaan daftar, naik satu dari 13 sebelum penambahan ringkasan. Agregat ringkasan memakai satu kueri dan jumlah kueri pembayaran terpisah per baris tetap nol. Bukti privat tersedia di `data/evidence/portal-billing-summary-queries-20261123.json`.
+
+Chromium membuka faktur berikutnya dari halaman yang sedang difilter, lalu kembali dengan filter yang sama. Uji pada mobile terang dan desktop gelap termasuk dalam 100 pemindaian axe tanpa pelanggaran otomatis, 20 pemeriksaan keyboard serta pengukuran kontras yang lulus. Bukti privat tersedia di `data/evidence/portal-billing-summary-20261123.json`.

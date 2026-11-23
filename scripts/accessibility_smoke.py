@@ -194,6 +194,8 @@ Invoice.objects.bulk_create([
             customer_name=customer.name, customer_address='Alamat fiktif', subtotal=150000, total=150000)
     for month in range(1, 13)
 ])
+Invoice.objects.create(tenant=customer.tenant, customer=customer, period=date(today.year - 1, 1, 1),
+    due_date=today, customer_name=customer.name, customer_address='Alamat fiktif', subtotal=150000, total=150000)
 invoice = Invoice.objects.get(customer=customer, period=date(today.year - 2, 12, 1))
 operator = Membership.objects.get(tenant=customer.tenant, user__username='owner').user
 for _ in range(12):
@@ -337,7 +339,16 @@ reverse_payment(customer.tenant, corrected.pk, 'Koreksi pembayaran fiktif', oper
                 portal.wait_for_url(re.compile(re.escape(base) + r'/portal/\?.*state=overdue'))
                 table = portal.get_by_role('region', name='Tagihan saya', exact=True)
                 expect(table.get_by_role('row')).to_have_count(11)
+                billing = portal.get_by_role('region', name='Ringkasan tagihan', exact=True)
+                expect(billing.get_by_text('Total sisa tagihan', exact=True)).to_be_visible()
+                expect(billing.get_by_text('Tunggakan', exact=True)).to_be_visible()
+                next_invoice = billing.get_by_role('link', name='Lihat faktur berikutnya', exact=True)
+                destination = next_invoice.get_attribute('href')
                 scan('portal_invoices_filtered', portal)
+                next_invoice.click()
+                portal.wait_for_url(base + destination)
+                portal.go_back()
+                expect(portal.get_by_label('Status tagihan', exact=True)).to_have_value('overdue')
                 portal.get_by_role('link', name='Halaman berikutnya', exact=True).click()
                 portal.wait_for_url(re.compile(re.escape(base) + r'/portal/\?.*state=overdue.*page=2'))
                 expect(portal.get_by_label('Status tagihan', exact=True)).to_have_value('overdue')
@@ -415,6 +426,7 @@ reverse_payment(customer.tenant, corrected.pk, 'Koreksi pembayaran fiktif', oper
         'portal_upgrade': 'passed',
         'portal_invoices': 'passed',
         'portal_payments': 'passed',
+        'portal_billing_summary': 'passed',
     }
     failed = (summary['violating_scans'] or summary['horizontal_overflow'] or summary['keyboard_failed']
               or contrast['flagged']['failed'] or contrast['boundaries']['failed'] or contrast['boundaries']['unresolved'])

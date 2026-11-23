@@ -1,5 +1,5 @@
 """Tenant-scoped, current ledger amounts for read-only lists and dashboard aggregates."""
-from django.db.models import BigIntegerField,F,OuterRef,Subquery,Sum,Value
+from django.db.models import BigIntegerField,F,Min,OuterRef,Q,Subquery,Sum,Value
 from django.db.models.functions import Coalesce
 from .models import Payment
 
@@ -24,3 +24,15 @@ def filter_invoice_status(invoices, state, today):
         unpaid = invoices.exclude(remaining=0).filter(due_date__gte=today)
         return unpaid.filter(ledger_paid=0) if state == "issued" else unpaid.exclude(ledger_paid=0)
     return invoices
+
+
+def outstanding_summary(invoices, today):
+    pending = invoices.filter(remaining__gt=0)
+    upcoming = pending.filter(due_date__gte=today).order_by("due_date", "pk")
+    # The scalar ID and the date are read in the same statement as the balances.
+    return pending.aggregate(
+        total=Sum("remaining", default=0),
+        overdue=Sum("remaining", filter=Q(due_date__lt=today), default=0),
+        next_due=Min("due_date", filter=Q(due_date__gte=today)),
+        next_invoice_id=Min(Subquery(upcoming.values("pk")[:1])),
+    )

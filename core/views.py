@@ -17,7 +17,7 @@ from .billing import audit, issue_invoice, record_payment, reverse_payment
 from .forms import CustomerForm, InvoiceForm, LoginForm, PaymentForm
 from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, with_financial_summary
 from .customer_profile import invoice_rows, profile_context
-from .invoice_queries import INVOICE_STATUS_LABELS, filter_invoice_status, with_balances
+from .invoice_queries import INVOICE_STATUS_LABELS, filter_invoice_status, outstanding_summary, with_balances
 from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment, Tenant
 from .network_recovery import attention_jobs, scoped_jobs
 from .payment_queries import customer_payments, payment_totals
@@ -344,6 +344,7 @@ def portal(request):
     scoped = with_balances(Invoice.objects.filter(customer=customer), request.member.tenant_id)
     page = paginate(request, filter_invoice_status(scoped, state, today))
     return render(request, "core/portal.html", {"customer": customer, "location": location_display(customer),
+                  "billing_summary": outstanding_summary(scoped, today),
                   "page": page, "invoice_rows": invoice_rows(page.object_list, today),
                   "invoice_state": state, "invoice_statuses": INVOICE_STATUS_LABELS.items()})
 
