@@ -742,3 +742,9 @@ Pada host VFS, image BusyBox untuk `prepare` menurunkan estimasi ruang dari seki
 Kandidat `16b2f7c` berhasil memulihkan backup terpantau 23 November pada proyek Compose terpisah dengan BusyBox dan image aplikasi hasil build. Preflight mode recovery lulus. Seluruh 62 tabel, 327 baris, metadata kolom, dan 57 sequence cocok dengan staging sumber. Worker recovery tertahan. Proyek sementara dibersihkan dan kedua proyek staging tersimpan sehat. Bukti privat tersedia di `data/evidence/vfs-candidate-recovery-20261123.json`.
 
 Ruang tersedia turun ke nol ketika pemulihan berjalan bersamaan dengan suite PostgreSQL. Jalankan keduanya secara bergantian di host ini. Ukuran image dan volume adalah estimasi, sehingga rencana kapasitas juga perlu memperhitungkan ruang sementara PostgreSQL dan pekerjaan paralel. [Panduan estimasi](STAGING-OPERATIONS.md#estimasi-ruang-pemulihan-docker)
+
+## Pembaruan image staging utama
+
+Pada 23 November 2026 WIB, staging simulasi utama beralih ke image `sha256:c8e675f36f5af60bd3e4256dfa3ca1bfb3661b79c93fd6cd9c65962b16c905d8` yang sudah lulus uji pemulihan terisolasi. Restore ulang backup terpantau di lab dan pemeriksaan migrasi baca-saja mengonfirmasi kecocokan sebelum perubahan. Container penyiap secret, migrasi, web, dan worker diganti satu per satu. Container dan volume PostgreSQL, arsip backup, serta image rollback dipertahankan.
+
+Preflight aktif lulus, halaman login merespons HTTP 200 melalui HTTPS tervalidasi, dan watcher kembali memantau tiga worker dengan antrean kosong. Sebelum dan sesudah pembaruan, 62 tabel, 327 baris, metadata kolom, 57 sequence, dan daftar migrasi cocok. Clone pemulihan sehat dengan worker tertahan. Pemeriksaan sambungan ulang kedua proyek selesai tanpa restart tambahan. Ruang kosong Docker setelah pembaruan sekitar 1,85 GiB, dengan estimasi pemulihan 0,90 GiB. Bukti privat tersedia di `data/evidence/staging-active-rollout-20261123.json`.
