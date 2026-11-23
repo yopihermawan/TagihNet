@@ -38,7 +38,7 @@ Pada host yang memakai driver Docker `vfs`, jalankan pemeriksaan berikut dari st
 .venv/bin/python scripts/staging_ops.py storage --directory data/staging --recovery-plan
 ```
 
-Laporan `recovery_plan` membandingkan ruang yang tersedia pada filesystem Docker dengan dua kali ukuran image PostgreSQL untuk `prepare` dan `db`, dua kali ukuran image aplikasi untuk `migrate` dan `web`, serta byte terpakai pada volume PostgreSQL sumber. Nilai negatif pada `remaining_after_estimate_bytes` menghasilkan `warning` dan exit 1. Driver lain atau pengukuran yang tidak tersedia menghasilkan `unknown` untuk estimasi.
+Laporan `recovery_plan` membandingkan ruang yang tersedia pada filesystem Docker dengan ukuran image BusyBox untuk `prepare`, image PostgreSQL untuk `db`, dua kali ukuran image aplikasi untuk `migrate` dan `web`, serta byte terpakai pada volume PostgreSQL sumber. Nilai negatif pada `remaining_after_estimate_bytes` menghasilkan `warning` dan exit 1. Driver lain atau pengukuran yang tidak tersedia menghasilkan `unknown` untuk estimasi. Pada host baru, pull image yang dipin terlebih dahulu agar ukurannya dapat diukur. Sisakan ruang tambahan untuk build atau pull image, operasi PostgreSQL, dan proses lain pada host.
 
 Sisakan ruang tambahan untuk file sementara, WAL, log, dan overhead driver. Besarnya bisa berbeda menurut ukuran arsip, kondisi volume dan host. Estimasi yang muat masih perlu dibuktikan dengan latihan restore. Perintah hanya membaca kapasitas dan tidak memulai container atau mengubah jadwal backup.
 

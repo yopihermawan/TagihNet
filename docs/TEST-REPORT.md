@@ -734,3 +734,9 @@ Backup periodik staging 23 November pukul 17.09 WIB diautentikasi dan disiapkan 
 Tiga tes baru mencakup periode layanan sampai akhir bulan, faktur dengan tanggal periode di tengah atau akhir bulan, kombinasi dengan status tagihan terkini, cakupan akun dan ISP, serta hasil kosong dan bulan tidak valid. Ringkasan tetap mencakup seluruh tagihan pelanggan. PostgreSQL lulus 924 tes. SQLite lulus 923 tes dengan satu tes penguncian PostgreSQL dilewati. Pemeriksaan migrasi bersih. Pembukaan daftar di SQLite memakai 14 kueri pada fixture 3 maupun 60 faktur.
 
 Chromium memeriksa hasil filter gabungan, angka ringkasan, serta fokus dan pesan validasi pada respons HTTP 400 sebelum mereset filter. Seluruh 103 pemindaian axe, 20 pemeriksaan keyboard, dan pengukuran kontras lulus. Bukti privat tersedia di `data/evidence/portal-invoice-month-20261123.json`.
+
+## Penggunaan ruang pemulihan Compose
+
+Pada host VFS, image BusyBox untuk `prepare` menurunkan estimasi ruang dari sekitar 1,31 menjadi 0,90 GiB dengan snapshot yang sama. Uji file fiktif memverifikasi bahwa BusyBox `install` mempertahankan isi file, kepemilikan UID/GID 999 dan 10001, serta mode direktori 0700 dan file 0400. Dockerfile staging menyalin source dan menjalankan `collectstatic` dalam satu langkah BuildKit untuk mengurangi penyalinan filesystem saat membangun image.
+
+Percobaan awal dengan image aplikasi yang dipakai staging utama memulihkan backup terpantau 23 November pada proyek Compose terpisah. Isi tabel, metadata kolom, dan sequence cocok dengan staging sumber. HTTPS sehat, worker recovery tertahan, dan proyek sementara dibersihkan. [Panduan estimasi](STAGING-OPERATIONS.md#estimasi-ruang-pemulihan-docker)

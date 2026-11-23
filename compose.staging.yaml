@@ -44,7 +44,7 @@ x-app: &app
 
 services:
   prepare:
-    image: postgres:16-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938
+    image: busybox:1.37.0-glibc@sha256:42a9ff19af33811ee466b24c66384461d37c32dcc28d1d27d49b8aca816bd5ee
     user: "0:0"
     entrypoint: [/bin/sh, /prepare-secrets.sh]
     read_only: true

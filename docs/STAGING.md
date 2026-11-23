@@ -4,7 +4,7 @@ Checkpoint15 November2026 menyediakan staging Linux/Docker yang terpisah dari de
 
 ## Menjalankan
 
-Pasang Docker Engine/Compose v2 dan Python3.12. Dari root repositori:
+Pasang Docker Engine dengan BuildKit, Compose v2, dan Python 3.12. Dari root repositori:
 
 ```bash
 python3 -m venv .venv
@@ -44,7 +44,7 @@ Untuk instalasi target yang benar-benar baru, command `bootstrap_isp` juga mener
 
 ## Secret dan hak database
 
-Initializer prepare dipercaya hanya untuk menyalin file ke volume khusus dengan ownership/mode tepat, lalu keluar. App/worker non-root UID10001, filesystem read-only, capability dibuang dan no-new-privileges. Direktori sumber secret host tidak di-mount ke aplikasi. Root CA private key dan credential bootstrap/migrator tidak ada pada volume runtime.
+Initializer `prepare` memakai image BusyBox yang dipin. Ia menyalin file ke volume khusus dengan ownership dan mode yang diperlukan, lalu keluar. App dan worker berjalan sebagai UID 10001 dengan filesystem read-only, capability dibuang, dan no-new-privileges. Direktori sumber secret host hanya di-mount ke initializer. Root CA private key dan credential bootstrap/migrator tidak ada pada volume runtime.
 
 - Role migrator non-superuser memiliki database/schema dan dipakai job migrasi sekali jalan.
 - Role runtime non-superuser tidak memiliki CREATEDB/CREATEROLE atau CREATE schema/tabel. Hak tabel/sequence diberikan melalui default privileges migrator.

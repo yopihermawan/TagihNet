@@ -23,7 +23,7 @@ sys.path.insert(0,str(ROOT))
 from cryptography import x509
 from core.backup_archive import read_key,verify_archive
 from scripts.staging_backup import backup,database_container
-from scripts.staging_lab import PG_IMAGE,compose,docker,manifest
+from scripts.staging_lab import PG_IMAGE, PREPARE_IMAGE, compose, docker, manifest
 
 WORKERS={'network-worker':'network','billing-worker':'billing','reminder-worker':'reminder'}
 LEVELS={'ok':0,'warning':1,'unknown':2,'critical':3}
@@ -208,22 +208,23 @@ def recovery_storage_plan(image_id, container):
         if not image_id or not container:
             return plan
 
-        images = docker('image', 'inspect', PG_IMAGE, image_id, '--format', '{{.Size}}', capture=True, timeout=15)
-        postgres_image, app_image = map(int, images.stdout.split())
+        images = docker('image', 'inspect', PREPARE_IMAGE, PG_IMAGE, image_id, '--format', '{{.Size}}',
+                        capture=True, timeout=15)
+        prepare_image, postgres_image, app_image = map(int, images.stdout.split())
         volume = '/var/lib/postgresql/data'
         usage = docker('exec', '--user', '999:999', container, 'du', '-sx', '-B1', '--', volume,
                        capture=True, timeout=20)
         size, path = usage.stdout.split()
         postgres_used = int(size)
-        if path != volume or min(postgres_image, app_image, postgres_used) <= 0:
+        if path != volume or min(prepare_image, postgres_image, app_image, postgres_used) <= 0:
             return plan
     except (OSError, subprocess.SubprocessError, TypeError, ValueError):
         return plan
 
     # Count prepare and db separately, and count migrate and web separately.
-    estimated = 2 * postgres_image + 2 * app_image + postgres_used
+    estimated = prepare_image + postgres_image + 2 * app_image + postgres_used
     remaining = capacity['available_bytes'] - estimated
-    plan.update(postgres_image_bytes=postgres_image, application_image_bytes=app_image,
+    plan.update(prepare_image_bytes=prepare_image, postgres_image_bytes=postgres_image, application_image_bytes=app_image,
                 source_postgres_volume_bytes=postgres_used, estimated_bytes=estimated,
                 remaining_after_estimate_bytes=remaining)
     if remaining < 0:

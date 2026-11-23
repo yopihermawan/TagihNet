@@ -3,13 +3,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY requirements.txt requirements-postgres.txt requirements-staging.txt ./
 RUN pip install --no-cache-dir -r requirements-staging.txt && useradd --uid 10001 --no-create-home app
-COPY config ./config
-COPY core ./core
-COPY templates ./templates
-COPY static ./static
-COPY deploy ./deploy
-COPY manage.py ./
-RUN chmod -R a+rX /app && TAGIHNET_DEBUG=1 TAGIHNET_DATA_DIR=/tmp/static-build python manage.py collectstatic --settings=config.static_build_settings --noinput && rm -rf /tmp/static-build
+RUN --mount=type=bind,target=/source \
+    cp -R /source/config /source/core /source/templates /source/static /source/deploy /source/manage.py /app/ \
+    && chmod -R a+rX /app \
+    && TAGIHNET_DEBUG=1 TAGIHNET_DATA_DIR=/tmp/static-build python manage.py collectstatic --settings=config.static_build_settings --noinput \
+    && rm -rf /tmp/static-build
 USER 10001:10001
 EXPOSE 8443
 HEALTHCHECK --interval=20s --timeout=7s --start-period=20s --retries=3 CMD ["python", "deploy/healthcheck.py"]

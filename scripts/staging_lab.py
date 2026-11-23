@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parent.parent
+PREPARE_IMAGE = "busybox:1.37.0-glibc@sha256:42a9ff19af33811ee466b24c66384461d37c32dcc28d1d27d49b8aca816bd5ee"
 PG_IMAGE = "postgres:16-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938"
 
 
