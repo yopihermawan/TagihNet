@@ -56,3 +56,17 @@ Worker menyelesaikan500 faktur baru:1500 faktur total,250 pembayaran/25 reversal
 Workflow manual `.github/workflows/staging-load.yml` melakukan build/probe dan mengunggah JSON agregat selama7hari. Tidak dijalankan pada setiap push dan belum diklaim lulus di GitHub. Runner berbeda akan memberi hasil berbeda. Backend/PG/browser CI biasa tetap tersedia.
 
 Ini belum menguji peak traffic dengan laju tetap, ribuan sesi/tenant, banyak pembayaran POST serentak, data bertahun-tahun, PDF besar, external WAN, soak panjang, failover, restore di server lain, atau performa real adapter. Infrastruktur produksi masih memerlukan pengujian dengan hardware/data/traffic target, retensi/offsite dan integrasi nyata.
+
+## Portal pelanggan pada rilis 23 November 2026 WIB
+
+Image staging aktif lulus pemeriksaan HTTPS fungsional di proyek Compose sementara dengan dua ISP, 500 pelanggan, 2.000 faktur, 8.500 pembayaran, dan 500 reversal. Dua akun fiktif memeriksa daftar faktur, filter bulan layanan dan status, halaman kedua pembayaran bulan WIB, serta kuitansi yang direversal. Delapan permintaan lintas pelanggan atau ISP menerima HTTP 404. Empat permintaan dengan bulan tidak valid menerima HTTP 400. Ruang Docker mencapai nol sebelum pengukuran beban. Proyek uji dibersihkan dan kedua proyek staging tersimpan tetap sehat. Bukti privat tersedia di `data/evidence/staging-portal-load-20261123.json`.
+
+Pengukuran alternatif memakai Gunicorn HTTPS pada host dan database sementara di lab PostgreSQL loopback yang sudah berjalan. Fixture berisi dua ISP, 200 pelanggan, 800 faktur, 3.400 pembayaran, dan 200 reversal. Dua akun pelanggan bergantian pada empat endpoint yang sama. Klien menunggu respons sebelum mengirim permintaan berikutnya. Setiap tahap berlangsung 20 detik dan p95 per endpoint dibatasi 2.000 ms.
+
+| Klien bersamaan | Permintaan | Gagal | Permintaan/detik | P95 keseluruhan (ms) | P95 endpoint terburuk (ms) |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 644 | 0 | 32,20 | 42,76 | 45,96 |
+| 4 | 1.144 | 0 | 57,07 | 89,71 | 93,08 |
+| 8 | 1.172 | 0 | 58,21 | 193,54 | 210,44 |
+
+Database sementara berukuran sekitar 13 MiB dan dibersihkan setelah tes. Isi tabel bisnis, metadata kolom, dan sequence cocok sebelum dan sesudah pengukuran. Pengukuran host memakai profil lab PostgreSQL dan sumber daya host. Kapasitas Compose dengan batas resource container, PostgreSQL verify-full, serta worker bersamaan masih perlu diukur pada host dengan ruang Docker memadai. Bukti privat tersedia di `data/evidence/portal-pg-lab-load-20261123.json`.

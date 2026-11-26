@@ -748,3 +748,9 @@ Ruang tersedia turun ke nol ketika pemulihan berjalan bersamaan dengan suite Pos
 Pada 23 November 2026 WIB, staging simulasi utama beralih ke image `sha256:c8e675f36f5af60bd3e4256dfa3ca1bfb3661b79c93fd6cd9c65962b16c905d8` yang sudah lulus uji pemulihan terisolasi. Restore ulang backup terpantau di lab dan pemeriksaan migrasi baca-saja mengonfirmasi kecocokan sebelum perubahan. Container penyiap secret, migrasi, web, dan worker diganti satu per satu. Container dan volume PostgreSQL, arsip backup, serta image rollback dipertahankan.
 
 Preflight aktif lulus, halaman login merespons HTTP 200 melalui HTTPS tervalidasi, dan watcher kembali memantau tiga worker dengan antrean kosong. Sebelum dan sesudah pembaruan, 62 tabel, 327 baris, metadata kolom, 57 sequence, dan daftar migrasi cocok. Clone pemulihan sehat dengan worker tertahan. Pemeriksaan sambungan ulang kedua proyek selesai tanpa restart tambahan. Ruang kosong Docker setelah pembaruan sekitar 1,85 GiB, dengan estimasi pemulihan 0,90 GiB. Bukti privat tersedia di `data/evidence/staging-active-rollout-20261123.json`.
+
+## Beban portal pelanggan dan backup terpantau terbaru
+
+Pengujian fungsional pada image Compose yang dipin lulus sebelum ruang Docker habis. Gunicorn HTTPS dengan database sementara pada lab PostgreSQL kemudian melayani 2.960 permintaan dengan nol kegagalan pada 1, 4, dan 8 klien bersamaan. P95 keseluruhan pada 8 klien sebesar 193,54 ms dan p95 endpoint terburuk 210,44 ms. Data bisnis dan sequence cocok sebelum dan sesudah pengujian. [Profil dan hasil](STAGING-LOAD.md#portal-pelanggan-pada-rilis-23-november-2026-wib)
+
+Backup terpantau 26 November pukul 17.10 WIB diautentikasi dan dipulihkan ke database terpisah di lab PostgreSQL. Seluruh 62 tabel, 327 baris, metadata kolom, dan 57 sequence cocok. Database uji dibersihkan. Bukti privat tersedia di `data/evidence/monitored-restore-20261126.json`.
