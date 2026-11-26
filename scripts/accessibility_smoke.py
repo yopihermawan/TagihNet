@@ -208,9 +208,10 @@ Payment.objects.filter(pk__in=[*posted, corrected.pk]).update(created_at=datetim
         with closing(sqlite3.connect(Path(temporary) / 'tagihnet.sqlite3')) as db:
             customer = db.execute('SELECT id FROM core_customer ORDER BY id LIMIT 1').fetchone()[0]
             invoice = db.execute('SELECT id FROM core_invoice WHERE customer_id=? ORDER BY id LIMIT 1', (customer,)).fetchone()[0]
-            portal_period = db.execute('''SELECT i.period FROM core_invoice i
-                JOIN core_membership m ON m.customer_id=i.customer_id JOIN auth_user u ON u.id=m.user_id
-                WHERE u.username=? ORDER BY i.period LIMIT 1''', ('pelanggan',)).fetchone()[0][:7]
+            portal_period, portal_code = db.execute('''SELECT i.period, c.code FROM core_invoice i
+                JOIN core_customer c ON c.id=i.customer_id JOIN core_membership m ON m.customer_id=c.id
+                JOIN auth_user u ON u.id=m.user_id WHERE u.username=? ORDER BY i.period LIMIT 1''', ('pelanggan',)).fetchone()
+            portal_period = portal_period[:7]
         screens = {'dashboard': '/', 'customers': '/customers/', 'customer_form': '/customers/new/',
                    'customer_detail': f'/customers/{customer}/', 'invoices': '/invoices/',
                    'invoice_detail': f'/invoices/{invoice}/', 'invoice_create': '/invoices/new/',
@@ -312,6 +313,26 @@ Payment.objects.filter(pk__in=[*posted, corrected.pk]).update(created_at=datetim
                                          'passed': link.evaluate('el => el === document.activeElement') and not dialog.is_visible()})
                 chromium_version = browser.version
                 axe_version = page.evaluate('axe.version')
+                page.set_viewport_size({'width': 360, 'height': 900})
+                visit('/?period=' + portal_period, 'light')
+                page.get_by_role('link', name='Lihat faktur periode ini').click()
+                page.wait_for_url(base + '/invoices/?month=' + portal_period)
+                expect(page.get_by_label('Bulan layanan', exact=True)).to_have_value(portal_period)
+                page.get_by_label('Cari pelanggan').fill(portal_code)
+                page.get_by_label('Status faktur', exact=True).select_option('overdue')
+                page.get_by_role('button', name='Terapkan', exact=True).click()
+                invoices = page.get_by_role('region', name='Daftar faktur, geser untuk kolom lain', exact=True)
+                expect(invoices.get_by_role('row')).to_have_count(2)
+                expect(page.get_by_label('Bulan layanan', exact=True)).to_have_value(portal_period)
+                scan('operator_invoice_month')
+                invalid = page.goto(base + '/invoices/?month=2024-13&size=25')
+                assert invalid.status == 400
+                check_error_focus(page, field='id_month')
+                scan('operator_invoice_invalid_month')
+                page.get_by_role('link', name='Reset', exact=True).click()
+                page.wait_for_url(base + '/invoices/?size=25')
+                expect(page.get_by_label('Bulan layanan', exact=True)).to_have_value('')
+                page.set_viewport_size({'width': options.widths[-1], 'height': 900})
                 visit('/customers/new/', 'light')
                 page.locator('form.stack-form').evaluate('form => form.noValidate = true')
                 page.get_by_role('button', name='Simpan', exact=True).click()
@@ -454,6 +475,7 @@ Payment.objects.filter(pk__in=[*posted, corrected.pk]).update(created_at=datetim
         'portal_payment_month': 'passed',
         'portal_invoice_month': 'passed',
         'portal_billing_summary': 'passed',
+        'operator_invoice_month': 'passed',
     }
     failed = (summary['violating_scans'] or summary['horizontal_overflow'] or summary['keyboard_failed']
               or contrast['flagged']['failed'] or contrast['boundaries']['failed'] or contrast['boundaries']['unresolved'])

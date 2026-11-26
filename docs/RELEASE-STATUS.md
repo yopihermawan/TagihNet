@@ -23,13 +23,13 @@ Nomor kriteria mengikuti brief awal. Istilah **Simulasi** menunjukkan alur yang 
 | 13. Validasi upload, impor, dan ekspor | Lulus lokal | Foto privat, CSV preview, scope tenant, batas ukuran, formula safe |
 | 14. Aksi demo dibatasi pada simulasi | Lulus simulasi | Profil staging fail-closed, worker sintetis, dan guard server |
 | 15. Metrik dashboard memiliki sumber dan penanda data lama | Lulus simulasi | Fixtures dashboard billing dan snapshot monitoring |
-| 16. Tampilan desktop/mobile, keyboard, dan kondisi gagal | Terverifikasi sebagian | 103 pemindaian axe, 20 pemeriksaan keyboard, dan tujuh skenario pohon aksesibilitas Chromium lulus. Uji ucapan pembaca layar desktop masih terbuka |
+| 16. Tampilan desktop/mobile, keyboard, dan kondisi gagal | Terverifikasi sebagian | 105 pemindaian axe, 20 pemeriksaan keyboard, dan tujuh skenario pohon aksesibilitas Chromium lulus. Uji ucapan pembaca layar desktop masih terbuka |
 | 17. PDF A4 multipage, isi dan batas izin | Lulus lokal | Faktur panjang, kuitansi/reversal, readback nominal, dan tes lintas tenant |
 | 18. Restore terenkripsi ke target kosong | Lulus lokal | SQLite dengan login MFA ulang, PostgreSQL dengan rekonsiliasi tabel, dan pemeriksaan paket clone staging |
 
 ## Bukti yang dijalankan ulang
 
-- PostgreSQL lulus 927 tes. SQLite lulus 926 tes dengan satu tes penguncian PostgreSQL dilewati. Pada pengujian 22 November, lab PostgreSQL juga lulus 17 skenario lintas proses dan dua latihan pemulihan pada database terpisah. [Laporan pengujian](TEST-REPORT.md)
+- PostgreSQL lulus 930 tes. SQLite lulus 929 tes dengan satu tes penguncian PostgreSQL dilewati. Pada pengujian 22 November, lab PostgreSQL juga lulus 17 skenario lintas proses dan dua latihan pemulihan pada database terpisah. [Laporan pengujian](TEST-REPORT.md)
 - Sepuluh alur Chromium memakai akun fiktif. Alur utama mencakup login TOTP, pelanggan, faktur, pembayaran simulasi, reversal, dan logout. `collectstatic`, faktur multipage dan kuitansi A4 lulus.
 - Metadata PyPI untuk 16 versi runtime terkunci berhasil diperiksa. Tidak ada advisory aktif yang tercantum pada saat pemeriksaan. [Cakupan audit keamanan](SECURITY-AUDIT.md)
 - Pemeriksaan 347 file teks terlacak pada snapshot aplikasi mencakup format kunci privat PEM dan pola token GitHub, AWS, serta Slack. Hasilnya nol kecocokan pada pola yang diperiksa.

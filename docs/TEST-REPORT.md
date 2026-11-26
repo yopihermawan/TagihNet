@@ -758,3 +758,11 @@ Backup terpantau 26 November pukul 17.10 WIB diautentikasi dan dipulihkan ke dat
 ## Peringatan kapasitas pada watcher staging
 
 Tiga tes baru memeriksa konfigurasi lama, peringatan dan pemulihan tanpa duplikasi log, serta pelaporan filesystem yang penuh atau tidak terukur. PostgreSQL lulus 927 tes. SQLite lulus 926 tes dengan satu tes penguncian PostgreSQL dilewati. Pemeriksaan Django dan migrasi bersih. [Panduan konfigurasi](STAGING-OPERATIONS.md#peringatan-ruang-kosong-watcher)
+
+## Filter bulan layanan untuk operator
+
+Tautan dari kartu **Faktur terbit** membuka daftar faktur ISP untuk bulan layanan yang dipilih di dasbor. Dasbor dan daftar memakai batas bulan yang sama, termasuk faktur lama dengan tanggal periode di akhir bulan. Operator dapat menggabungkan bulan dengan pencarian pelanggan dan status faktur. Filter dan ukuran halaman terbawa dalam paginasi. Query daftar tetap dibatasi maksimal 12 saat fixture bertambah 25 faktur.
+
+Tiga tes tambahan memeriksa kesesuaian angka dasbor dengan daftar faktur, cakupan ISP, pencarian dan status pada halaman berikutnya, serta validasi bulan. PostgreSQL lulus 930 tes. SQLite lulus 929 tes dengan satu tes penguncian PostgreSQL dilewati. Pemeriksaan migrasi bersih.
+
+Chromium mengikuti tautan dasbor, menerapkan pencarian dan status, memeriksa fokus pada respons bulan tidak valid, lalu mereset filter. Pengujian termasuk 105 pemindaian axe dan 20 pemeriksaan keyboard yang lulus, serta pemeriksaan lebar 360 piksel untuk filter dan validasi. Bukti privat tersedia di `data/evidence/operator-invoice-month-20261127.json`.

@@ -1,10 +1,17 @@
 """Tenant-scoped, current ledger amounts for read-only lists and dashboard aggregates."""
+from calendar import monthrange
+
 from django.db.models import BigIntegerField,F,Min,OuterRef,Q,Subquery,Sum,Value
 from django.db.models.functions import Coalesce
 from .models import Payment
 
 
 INVOICE_STATUS_LABELS = {"issued": "Terbit", "partial": "Dibayar sebagian", "overdue": "Menunggak", "paid": "Lunas"}
+
+
+def service_month_bounds(month):
+    last_day = monthrange(month.year, month.month)[1]
+    return month.replace(day=1), month.replace(day=last_day)
 
 
 def with_balances(invoices,tenant):

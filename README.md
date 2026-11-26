@@ -33,6 +33,7 @@ Staging Linux/Docker dengan Gunicorn HTTPS, PostgreSQL TLS, secret file terpisah
 - [Pengelolaan paket](docs/PLANS.md): buat/ubah, arsip/aktifkan kembali dengan tinjauan, MFA dan audit; paket lama tetap melayani pelanggan/PSB dan billing.
 - Setelan billing dengan tenggang isolir simulasi 0–30 hari untuk faktur baru. Pilih bulan contoh dan lihat perubahan tanggal sebelum konfirmasi MFA. [Panduan setelan billing](docs/BILLING-SETTINGS.md)
 - Satu layanan/paket per pelanggan; faktur bulanan idempoten, snapshot harga/pajak, diskon, pembayaran sebagian, penolakan lebih bayar, dan reversal penuh dengan histori.
+- Daftar faktur operator menyaring bulan layanan, status terkini, dan pencarian pelanggan. Kartu **Faktur terbit** membuka daftar pada bulan yang dipilih di dasbor.
 - Faktur massal: pratinjau maksimal 500 pelanggan, MFA konfirmasi, snapshot disetujui, worker resumable, duplikat dilewati, serta pembatalan sisa pekerjaan.
 - [Identitas penerbit historis](docs/DOCUMENT-ISSUERS.md): nama/alamat ISP disimpan terpisah saat faktur diterbitkan dan pembayaran dicatat; cetak ulang konsisten, dokumen lama diberi penjelasan tanpa backfill.
 - Detail faktur, cetak/PDF A4 multipage dengan footer teks aman, serta portal untuk faktur milik pelanggan sendiri.

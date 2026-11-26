@@ -1,6 +1,5 @@
 import csv
 import uuid
-from calendar import monthrange
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.views import PasswordResetView
@@ -18,7 +17,7 @@ from .billing import audit, issue_invoice, record_payment, reverse_payment
 from .forms import CustomerForm, InvoiceForm, LoginForm, MonthFilterForm, PaymentForm
 from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, with_financial_summary
 from .customer_profile import invoice_rows, profile_context
-from .invoice_queries import INVOICE_STATUS_LABELS, filter_invoice_status, outstanding_summary, with_balances
+from .invoice_queries import INVOICE_STATUS_LABELS, filter_invoice_status, outstanding_summary, service_month_bounds, with_balances
 from .models import AuditEvent, Customer, Invoice, MFADevice, NetworkJob, Payment, Tenant
 from .network_recovery import attention_jobs, scoped_jobs
 from .payment_queries import customer_payments, payment_totals, payments_in_month
@@ -83,14 +82,15 @@ def dashboard(request):
     except ValueError:
         first = today.replace(day=1)
     invoices = with_balances(Invoice.objects.all(),request.member.tenant)
+    service_period = Q(period__range=service_month_bounds(first))
     amounts=invoices.aggregate(receivable=Sum('remaining'),overdue=Sum('remaining',filter=Q(due_date__lt=today)),
-        issued=Sum('total',filter=Q(period=first)),issued_count=Count('pk',filter=Q(period=first)))
+        issued=Sum('total',filter=service_period),issued_count=Count('pk',filter=service_period))
     payments = Payment.objects.filter(tenant=request.member.tenant, reversal__isnull=True,
         created_at__date__year=first.year, created_at__date__month=first.month)
     payments=payments.aggregate(received=Sum('amount'),payment_count=Count('pk'))
     customers=Customer.objects.filter(tenant=request.member.tenant).aggregate(customer_count=Count('pk'),
         active_customers=Count('pk',filter=Q(service_state='active')))
-    context = {"period": first.strftime("%Y-%m"), "today": today, "updated_at": timezone.now(),
+    context = {"period": f"{first.year:04d}-{first.month:02d}", "today": today, "updated_at": timezone.now(),
         **{key:value or 0 for key,value in amounts.items()},**{key:value or 0 for key,value in payments.items()},**customers,
         "overdue_invoices": invoices.exclude(remaining=0).filter(due_date__lt=today).select_related('customer')[:5],
         "recent_payments": Payment.objects.filter(tenant=request.member.tenant).select_related("invoice", "invoice__customer", "reversal")[:5],
@@ -222,13 +222,26 @@ def customer_export(request):
 
 @require("invoices")
 def invoices(request):
-    result = with_balances(Invoice.objects.select_related('customer'),request.member.tenant)
+    form = MonthFilterForm(request.GET, month_label="Bulan layanan")
+    valid = form.is_valid()
+    month = form.cleaned_data.get("month")
     query = request.GET.get("q", "").strip()[:100]
+    state = request.GET.get("state", "")
+    if state not in INVOICE_STATUS_LABELS:
+        state = ""
+    result = with_balances(Invoice.objects.select_related("customer"), request.member.tenant_id)
+    if not valid:
+        result = result.none()
+    if month:
+        result = result.filter(period__range=service_month_bounds(month))
     if query:
         result = result.filter(Q(customer__name__icontains=query) | Q(customer__code__icontains=query))
     today = timezone.localdate()
-    page = paginate(request, filter_invoice_status(result, request.GET.get("state", ""), today))
-    return render(request, "core/invoices.html", {"page":page,'invoice_rows':invoice_rows(page.object_list,today)})
+    page = paginate(request, filter_invoice_status(result, state, today))
+    return render(request, "core/invoices.html", {
+        "page": page, "invoice_rows": invoice_rows(page.object_list, today), "invoice_filter": form,
+        "invoice_search": query, "invoice_state": state, "invoice_statuses": INVOICE_STATUS_LABELS.items(),
+    }, status=200 if valid else 400)
 
 
 @require("issue")
@@ -348,8 +361,7 @@ def portal(request):
     scoped = with_balances(Invoice.objects.filter(customer=customer), request.member.tenant_id)
     invoices = scoped if valid else scoped.none()
     if month:
-        last_day = month.replace(day=monthrange(month.year, month.month)[1])
-        invoices = invoices.filter(period__range=(month, last_day))
+        invoices = invoices.filter(period__range=service_month_bounds(month))
     page = paginate(request, filter_invoice_status(invoices, state, today))
     return render(request, "core/portal.html", {"customer": customer, "location": location_display(customer),
                   "billing_summary": outstanding_summary(scoped, today),
