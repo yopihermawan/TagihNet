@@ -70,10 +70,11 @@ def read_json(path,default=None):
 def policy(directory):
     state=manifest(directory)
     default={'version':1,'project':state['project'],'check_interval':60,'heartbeat_max_age':120,
-             'queue_max_age':900,'backup_enabled':False,'backup_interval':86400,
+             'queue_max_age':900,'storage_min_free_mib':None,'backup_enabled':False,'backup_interval':86400,
              'backup_directory':str(Path(directory).resolve()/'backups/automated'),
              'backup_key_file':str(Path(directory).resolve()/'secrets/backup-key.json')}
     config=read_json(Path(directory)/'ops/config.json',default)
+    config.setdefault('storage_min_free_mib', None)
     return validate_policy(config,default)
 
 
@@ -82,6 +83,9 @@ def validate_policy(config,default):
         raise ValueError('Konfigurasi operasi tidak sesuai proyek.')
     for name,low,high in (('check_interval',5,3600),('heartbeat_max_age',15,3600),('queue_max_age',30,86400),('backup_interval',3600,604800)):
         if type(config[name]) is not int or not low<=config[name]<=high:raise ValueError('Interval operasi tidak valid.')
+    minimum = config['storage_min_free_mib']
+    if minimum is not None and (type(minimum) is not int or minimum < 1):
+        raise ValueError('Ambang penyimpanan harus bilangan bulat positif dalam MiB.')
     if type(config['backup_enabled']) is not bool:raise ValueError('Status backup harus boolean.')
     for name in ('backup_directory','backup_key_file'):
         if not isinstance(config[name],str) or not Path(config[name]).is_absolute():raise ValueError('Path operasi harus absolut.')
@@ -106,7 +110,10 @@ def configure(directory,**changes):
         config.update(changes)
         validate_policy(config,original)
         if config['backup_enabled']:read_key(Path(config['backup_key_file']))
-        write_json(Path(directory)/'ops/config.json',config)
+        stored = config.copy()
+        if stored['storage_min_free_mib'] is None:
+            del stored['storage_min_free_mib']
+        write_json(Path(directory)/'ops/config.json',stored)
     return config
 
 
@@ -168,6 +175,8 @@ def database_filesystems(container):
 
 
 def storage_snapshot(directory, config, container, min_free_mib=None):
+    if min_free_mib is None:
+        min_free_mib = config.get('storage_min_free_mib')
     minimum = min_free_mib * 1024**2 if min_free_mib is not None else None
     filesystems = {'checkout': host_filesystem(ROOT), 'staging_directory': host_filesystem(directory)}
     if config['backup_enabled']:
@@ -385,6 +394,8 @@ def tick(directory,now=None,*,force_backup=False):
             write_json(directory/'ops/backup.json',job)
         checked_at = clock()
         report=check(directory,config,checked_at)
+        if config['storage_min_free_mib'] is not None:
+            report['issues'].extend(report.get('storage', {}).get('issues', ()))
         report['backup']={'enabled':config['backup_enabled'],'last_success_at':job.get('last_success_at'),
                           'last_archive':job.get('last_archive'),'last_attempt_at':job.get('last_attempt_at'),
                           'next_attempt_at':job.get('next_attempt_at'),'failed':bool(job.get('failed'))}
@@ -478,11 +489,15 @@ def main():
     parser.add_argument('--check-interval',type=int)
     parser.add_argument('--heartbeat-max-age',type=int)
     parser.add_argument('--min-free-mib',type=int,help='Ruang kosong minimum per filesystem untuk pemeriksaan storage.')
+    parser.add_argument('--storage-min-free-mib', type=int,
+                        help='Ambang ruang kosong watcher dalam MiB. Gunakan 0 untuk menonaktifkan.')
     parser.add_argument('--recovery-plan', action='store_true', help='Taksir penggunaan ruang recovery baru pada Docker VFS.')
     parser.add_argument('--watch-token',default='',help=argparse.SUPPRESS)
     args=parser.parse_args();directory=args.directory.resolve()
     if args.min_free_mib is not None and args.action != 'storage':
         parser.error('--min-free-mib hanya untuk pemeriksaan storage.')
+    if args.storage_min_free_mib is not None and args.action != 'configure':
+        parser.error('--storage-min-free-mib hanya untuk konfigurasi watcher.')
     if args.recovery_plan and args.action != 'storage':
         parser.error('--recovery-plan hanya untuk pemeriksaan storage.')
     try:
@@ -493,6 +508,8 @@ def main():
             for arg,key in (('check_interval','check_interval'),('heartbeat_max_age','heartbeat_max_age')):
                 if getattr(args,arg) is not None:values[key]=getattr(args,arg)
             if args.backup_interval_hours is not None:values['backup_interval']=args.backup_interval_hours*3600
+            if args.storage_min_free_mib is not None:
+                values['storage_min_free_mib'] = args.storage_min_free_mib or None
             for arg in ('backup_key_file','backup_directory'):
                 if getattr(args,arg):values[arg]=str(getattr(args,arg).resolve())
             configure(directory,**values);print('Konfigurasi operasi lokal tersimpan; tidak ada pesan eksternal dikirim.')

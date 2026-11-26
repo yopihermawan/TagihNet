@@ -754,3 +754,7 @@ Preflight aktif lulus, halaman login merespons HTTP 200 melalui HTTPS tervalidas
 Pengujian fungsional pada image Compose yang dipin lulus sebelum ruang Docker habis. Gunicorn HTTPS dengan database sementara pada lab PostgreSQL kemudian melayani 2.960 permintaan dengan nol kegagalan pada 1, 4, dan 8 klien bersamaan. P95 keseluruhan pada 8 klien sebesar 193,54 ms dan p95 endpoint terburuk 210,44 ms. Data bisnis dan sequence cocok sebelum dan sesudah pengujian. [Profil dan hasil](STAGING-LOAD.md#portal-pelanggan-pada-rilis-23-november-2026-wib)
 
 Backup terpantau 26 November pukul 17.10 WIB diautentikasi dan dipulihkan ke database terpisah di lab PostgreSQL. Seluruh 62 tabel, 327 baris, metadata kolom, dan 57 sequence cocok. Database uji dibersihkan. Bukti privat tersedia di `data/evidence/monitored-restore-20261126.json`.
+
+## Peringatan kapasitas pada watcher staging
+
+Tiga tes baru memeriksa konfigurasi lama, peringatan dan pemulihan tanpa duplikasi log, serta pelaporan filesystem yang penuh atau tidak terukur. PostgreSQL lulus 927 tes. SQLite lulus 926 tes dengan satu tes penguncian PostgreSQL dilewati. Pemeriksaan Django dan migrasi bersih. [Panduan konfigurasi](STAGING-OPERATIONS.md#peringatan-ruang-kosong-watcher)

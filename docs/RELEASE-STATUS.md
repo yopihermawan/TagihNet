@@ -29,7 +29,7 @@ Nomor kriteria mengikuti brief awal. Istilah **Simulasi** menunjukkan alur yang 
 
 ## Bukti yang dijalankan ulang
 
-- PostgreSQL lulus 924 tes. SQLite lulus 923 tes dengan satu tes penguncian PostgreSQL dilewati. Pada pengujian 22 November, lab PostgreSQL juga lulus 17 skenario lintas proses dan dua latihan pemulihan pada database terpisah. [Laporan pengujian](TEST-REPORT.md)
+- PostgreSQL lulus 927 tes. SQLite lulus 926 tes dengan satu tes penguncian PostgreSQL dilewati. Pada pengujian 22 November, lab PostgreSQL juga lulus 17 skenario lintas proses dan dua latihan pemulihan pada database terpisah. [Laporan pengujian](TEST-REPORT.md)
 - Sepuluh alur Chromium memakai akun fiktif. Alur utama mencakup login TOTP, pelanggan, faktur, pembayaran simulasi, reversal, dan logout. `collectstatic`, faktur multipage dan kuitansi A4 lulus.
 - Metadata PyPI untuk 16 versi runtime terkunci berhasil diperiksa. Tidak ada advisory aktif yang tercantum pada saat pemeriksaan. [Cakupan audit keamanan](SECURITY-AUDIT.md)
 - Pemeriksaan 347 file teks terlacak pada snapshot aplikasi mencakup format kunci privat PEM dan pola token GitHub, AWS, serta Slack. Hasilnya nol kecocokan pada pola yang diperiksa.

@@ -28,7 +28,20 @@ Perintah `storage` mengambil sampel baru secara baca-saja. Pemeriksaan di bawah 
 .venv/bin/python scripts/staging_ops.py storage --directory data/staging --min-free-mib 2048
 ```
 
-Gunakan ambang sesuai kebutuhan build, backup, atau pemulihan. Argumen ini hanya berlaku pada pemanggilan tersebut. Exit 0 berarti semua filesystem terukur dan lolos pemeriksaan. Exit 1 menghasilkan `warning` jika ruang di bawah ambang, `critical` jika byte atau inode habis, atau `unknown` jika pengukuran tidak lengkap. Folder tujuan backup yang belum tersedia dilaporkan `unknown`. Bagian penyimpanan memiliki status tersendiri. Jadwal backup dan pemeriksaan kesehatan layanan tetap mengikuti konfigurasi operasi.
+Gunakan ambang sesuai kebutuhan build, backup, atau pemulihan. `storage` memakai ambang proyek bila tersedia. `--min-free-mib` menggantinya untuk satu pemeriksaan. Exit 0 berarti semua filesystem terukur dan lolos pemeriksaan. Exit 1 menghasilkan `warning` jika ruang di bawah ambang, `critical` jika byte atau inode habis, atau `unknown` jika pengukuran tidak lengkap. Folder tujuan backup yang belum tersedia dilaporkan `unknown`.
+
+### Peringatan ruang kosong watcher
+
+Setel ambang per proyek dalam MiB. Nilai `0` menonaktifkan peringatan pada putaran berikutnya.
+
+```bash
+.venv/bin/python scripts/staging_ops.py configure --directory data/staging --storage-min-free-mib 1536
+.venv/bin/python scripts/staging_ops.py status --directory data/staging
+```
+
+Saat ambang aktif, `once` dan watcher memasukkan kondisi penyimpanan pada status operasi dan mencatat transisi `raised` atau `resolved` di `ops/events.jsonl`. Ambang berlaku pada tiap filesystem yang dilaporkan. Pemeriksaan langsung `check()` dan preflight tetap menilai layanan secara tersendiri. Peringatan dapat terlihat saat backup periodik tetap berjalan sesuai jadwal.
+
+Konfigurasi lama memulai dengan peringatan nonaktif. Setelah memperbarui script, hentikan watcher yang masih menjalankan kode lama dan tunggu prosesnya selesai sebelum menyimpan ambang. Mulai kembali watcher untuk memuat versi terbaru. [Perintah watcher](#watcher-dan-restart)
 
 ### Estimasi ruang pemulihan Docker
 

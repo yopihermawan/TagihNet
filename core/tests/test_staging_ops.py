@@ -91,7 +91,13 @@ class StagingOperationsTests(SimpleTestCase):
         self.assertFalse((self.root/'ops/config.json').exists())
 
     def test_policy_rejects_invalid_intervals_and_paths_before_publish(self):
-        for changes in ({'check_interval':True},{'heartbeat_max_age':14},{'backup_interval':0},{'backup_directory':'relative'},{'backup_enabled':'yes'},{'unknown':1}):
+        invalid_changes = (
+            {'check_interval': True}, {'heartbeat_max_age': 14}, {'backup_interval': 0},
+            {'backup_directory': 'relative'}, {'backup_enabled': 'yes'}, {'unknown': 1},
+            {'storage_min_free_mib': False}, {'storage_min_free_mib': 0},
+            {'storage_min_free_mib': -1}, {'storage_min_free_mib': '1536'},
+        )
+        for changes in invalid_changes:
             with self.subTest(changes=changes),self.assertRaises(ValueError):ops.configure(self.root,**changes)
         self.assertFalse((self.root/'ops/config.json').exists())
 
@@ -100,6 +106,20 @@ class StagingOperationsTests(SimpleTestCase):
         config=self.enable()
         self.assertTrue(config['backup_enabled'])
         self.assertEqual((self.root/'ops/config.json').stat().st_mode&0o777,0o600)
+
+    def test_configure_storage_alert_reads_legacy_policy_and_zero_restores_its_format(self):
+        config = self.enable()
+        path = self.root / 'ops/config.json'
+        previous = path.read_bytes()
+        self.assertNotIn('storage_min_free_mib', json.loads(previous))
+        self.assertIsNone(ops.policy(self.root)['storage_min_free_mib'])
+
+        argv = ['staging_ops', 'configure', '--directory', str(self.root), '--storage-min-free-mib']
+        for supplied, expected in (('1536', 1536), ('0', None)):
+            with patch.object(ops.sys, 'argv', [*argv, supplied]), redirect_stdout(io.StringIO()):
+                self.assertEqual(ops.main(), 0)
+            self.assertEqual(ops.policy(self.root), {**config, 'storage_min_free_mib': expected})
+        self.assertEqual(path.read_bytes(), previous)
 
     def test_check_healthy_and_read_only_counter_query(self):
         with self.checks():report=ops.check(self.root,now=self.now)
@@ -131,6 +151,40 @@ class StagingOperationsTests(SimpleTestCase):
         self.assertNotIn('backup_destination', report['filesystems'])
         self.assertEqual(docker.call_args.args[:5], ('exec', '--user', '999:999', 'db', 'stat'))
         self.assertFalse((self.root/'ops').exists())
+
+    def test_configured_storage_warning_reaches_watcher_status_once_and_resolves(self):
+        ops.configure(self.root, storage_min_free_mib=1)
+        high = ops.filesystem_capacity(4096, 4000, 500, 800, 200)
+        issue = {'code': 'filesystem_below_minimum', 'severity': 'warning', 'component': 'postgres_volume'}
+        with self.checks(), patch.object(ops, 'host_filesystem', return_value=high):
+            self.assertEqual(ops.check(self.root, now=self.now)['status'], 'ok')
+            self.assertEqual(ops.storage(self.root)['issues'], [issue])
+            self.assertEqual(ops.tick(self.root, self.now)['issues'], [issue])
+            repeated = ops.tick(self.root, self.now + 1)
+            self.assertEqual(ops.status(self.root, self.now + 1)['status'], 'warning')
+            with patch.object(ops, 'database_filesystems', return_value={'container_root': high, 'postgres_volume': high}):
+                self.assertEqual(ops.tick(self.root, self.now + 2)['status'], 'ok')
+        self.assertEqual(repeated['storage']['issues'], [issue])
+        events = (self.root / 'ops/events.jsonl').read_text().splitlines()
+        self.assertEqual([json.loads(line) for line in events], [
+            {'event': 'raised', 'at': self.now, **issue},
+            {'event': 'resolved', 'at': self.now + 2, **issue},
+        ])
+
+    def test_alert_opt_in_propagates_unavailable_and_exhausted_capacity(self):
+        high = ops.filesystem_capacity(4096, 4000, 500, 800, 200)
+        exhausted = ops.filesystem_capacity(4096, 4000, 0, 800, 200)
+        capacities = {'container_root': None, 'postgres_volume': exhausted}
+        with (self.checks(), patch.object(ops, 'host_filesystem', return_value=high),
+              patch.object(ops, 'database_filesystems', return_value=capacities)):
+            self.assertEqual(ops.tick(self.root, self.now)['status'], 'ok')
+            ops.configure(self.root, storage_min_free_mib=1)
+            report = ops.tick(self.root, self.now + 1)
+        self.assertEqual(report['status'], 'critical')
+        self.assertEqual(report['issues'], [
+            {'code': 'filesystem_unavailable', 'severity': 'unknown', 'component': 'container_root'},
+            {'code': 'filesystem_exhausted', 'severity': 'critical', 'component': 'postgres_volume'},
+        ])
 
     def test_known_inode_exhaustion_is_critical_without_byte_threshold(self):
         capacity = ops.filesystem_capacity(4096, 4000, 500, 800, 0)
