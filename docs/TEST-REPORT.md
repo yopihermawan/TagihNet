@@ -766,3 +766,9 @@ Tautan dari kartu **Faktur terbit** membuka daftar faktur ISP untuk bulan layana
 Tiga tes tambahan memeriksa kesesuaian angka dasbor dengan daftar faktur, cakupan ISP, pencarian dan status pada halaman berikutnya, serta validasi bulan. PostgreSQL lulus 930 tes. SQLite lulus 929 tes dengan satu tes penguncian PostgreSQL dilewati. Pemeriksaan migrasi bersih.
 
 Chromium mengikuti tautan dasbor, menerapkan pencarian dan status, memeriksa fokus pada respons bulan tidak valid, lalu mereset filter. Pengujian termasuk 105 pemindaian axe dan 20 pemeriksaan keyboard yang lulus, serta pemeriksaan lebar 360 piksel untuk filter dan validasi. Bukti privat tersedia di `data/evidence/operator-invoice-month-20261127.json`.
+
+## Penerapan filter faktur operator di staging
+
+Pada 27 November 2026 WIB, image dari commit `e0708ed` lulus pemeriksaan isi aplikasi, dependensi, dan kecocokan skema lewat koneksi TLS dengan transaksi baca-saja. Backup terpantau 26 November dipulihkan ulang di lab saat worker staging dijeda. Seluruh 62 tabel, 327 baris, metadata kolom, serta 57 sequence cocok.
+
+Staging utama kemudian memakai image `sha256:0ef87addb24f754c14cfa03055372592e26c5c3fd627b2e4e139f9e781d5f923`. Container migrasi, web, dan ketiga worker diganti satu per satu. Data, skema, container PostgreSQL, volume, paket pemulihan, dan jadwal backup terverifikasi. Preflight aktif lulus, halaman login dan aset statis merespons HTTP 200 melalui HTTPS, dan watcher kembali sehat. Clone pemulihan sehat dengan worker tertahan. Ruang kosong Docker sekitar 1,60 GiB setelah build dan penerapan. Bukti privat tersedia di `data/evidence/staging-operator-month-rollout-20261127.json`.

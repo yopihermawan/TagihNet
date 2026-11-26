@@ -1,6 +1,6 @@
 # Status rilis TagihNet
 
-Pada 23 November 2026 WIB, **staging lokal simulasi** menjalankan image yang telah lulus pemulihan Compose dan preflight aktif. Skema tetap `0018_network_recovery`. Digest aplikasi aktif adalah `372809b8aae7b9b5c0612824ea8e5243956c9ed29eac85e2b8895e7acadf48ff`. Clone pemulihan sehat dengan image sebelumnya dan worker tertahan. [Bukti pembaruan staging](TEST-REPORT.md#pembaruan-image-staging-utama)
+Pada 27 November 2026 WIB, **staging lokal simulasi** menjalankan rilis filter bulan layanan operator. Preflight aktif lulus pada skema `0018_network_recovery`. Digest aplikasi aktif adalah `71fac4cdef05019ce1b865a8a12fa4c09a239eb7b283cc3870e3809916bd7d60`. Clone pemulihan sehat dengan worker tertahan. [Bukti pembaruan staging](TEST-REPORT.md#penerapan-filter-faktur-operator-di-staging)
 
 ## Hasil pengujian penerimaan
 
