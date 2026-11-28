@@ -1,7 +1,33 @@
-"""Fail-closed staging configuration, before base settings can create development keys."""
+"""Deployment setting validation without importing Django settings."""
+import base64
 import ipaddress
 import re
 from django.core.exceptions import ImproperlyConfigured
+
+
+def valid_dns_name(host):
+    return 0 < len(host) <= 253 and all(
+        re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", label)
+        for label in host.split(".")
+    )
+
+
+def valid_session_key(value):
+    return len(value) >= 50 and len(set(value)) >= 20 and not value.startswith("django-insecure-")
+
+
+def valid_mfa_key(value):
+    try:
+        return len(base64.b64decode(value, altchars=b"-_", validate=True)) == 32
+    except (ValueError, TypeError):
+        return False
+
+
+def smtp_port(environ):
+    value = environ.get("TAGIHNET_EMAIL_PORT", "587")
+    if not (value.isascii() and value.isdecimal() and len(value) <= 5 and 1 <= int(value) <= 65535):
+        raise ImproperlyConfigured("TAGIHNET_EMAIL_PORT harus berupa nomor port 1–65535.")
+    return int(value)
 
 
 def validate_staging(environ):
@@ -19,7 +45,7 @@ def validate_staging(environ):
         try:
             ipaddress.ip_address(host.strip("[]"))
         except ValueError:
-            if len(host)>253 or not all(re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?",label) for label in host.split(".")):
+            if not valid_dns_name(host):
                 raise ImproperlyConfigured("Host staging tidak valid; gunakan nama host tanpa URL/port.")
     if not environ.get("TAGIHNET_DB_SSLROOTCERT"):
         raise ImproperlyConfigured("CA PostgreSQL staging wajib dikonfigurasi.")

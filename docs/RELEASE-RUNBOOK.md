@@ -4,6 +4,20 @@ Diperbarui 22 November 2026 WIB. Alat ini menyiapkan bukti untuk **staging lokal
 
 Panduan terkait: [STAGING](STAGING.md), [STAGING-RECOVERY](STAGING-RECOVERY.md), [RECOVERY-HANDOFF](RECOVERY-HANDOFF.md), [STAGING-LOAD](STAGING-LOAD.md), [FEATURE-MATRIX](FEATURE-MATRIX.md).
 
+## Pemeriksaan konfigurasi target produksi
+
+Jalankan pemeriksaan offline pada lingkungan proses yang disiapkan untuk target. Gunakan hostname publik yang direncanakan.
+
+```bash
+.venv/bin/python scripts/check_deployment_config.py --hostname "$TAGIHNET_PUBLIC_HOST"
+```
+
+Siapkan `config.settings`, `TAGIHNET_DEBUG=0`, `TAGIHNET_SIMULATION=0`, dan cookie Secure. Cantumkan hostname target pada `TAGIHNET_ALLOWED_HOSTS` dengan daftar host eksplisit. Sediakan kunci sesi dan MFA terpisah. Setiap secret memakai satu sumber melalui variabel atau berkas `_FILE`.
+
+Atur endpoint PostgreSQL, identitas role aplikasi, password, dan TLS `verify-full`. Pemeriksaan membaca CA dari `TAGIHNET_DB_SSLROOTCERT`, dari penyimpanan CA sistem saat bernilai `system`, atau dari lokasi bawaan libpq di Linux `~/.postgresql/root.crt`. Atur host dan alamat pengirim SMTP. Port bawaan 587, dan username serta password diisi bersama bila relay memerlukan autentikasi. [Konfigurasi SMTP](AUTHENTICATION.md#pemulihan)
+
+Exit 0 berarti konfigurasi yang diperiksa lulus. Exit 1 menampilkan kode pemeriksaan yang perlu diperbaiki. Keluaran JSON hanya memuat status dan kode. Pemeriksaan membaca konfigurasi dan berkas, dengan `production_ready` bernilai false. Verifikasi target berikutnya mencakup TLS publik, koneksi dan privilege PostgreSQL, pengiriman lewat penyedia SMTP, pemulihan backup, dan integrasi pada lingkungan tujuan. [Prasyarat rilis produksi](RELEASE-STATUS.md#prasyarat-rilis-produksi)
+
 ## Pilih image untuk satu proyek
 
 Build memakai versi kode/dependency yang ingin diuji. Catat commit/working tree dan image ID hasil build. Dari root checkout:

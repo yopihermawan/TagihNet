@@ -40,11 +40,13 @@ Nomor kriteria mengikuti brief awal. Istilah **Simulasi** menunjukkan alur yang 
 
 | Bagian | Dependensi yang perlu tersedia | Bukti penutupan |
 | --- | --- | --- |
-| Infrastruktur | Server staging/produksi dan domain, sertifikat TLS publik, PostgreSQL privat dan penyimpanan secret | Verifikasi target nyata, konfigurasi HSTS, isolasi jaringan, migrasi dan cutover yang direkonsiliasi |
+| Infrastruktur | Server staging/produksi dan domain, sertifikat TLS publik, PostgreSQL privat dan penyimpanan secret | Pemeriksaan konfigurasi offline tersedia. Verifikasi target mencakup HSTS, isolasi jaringan, migrasi dan cutover yang direkonsiliasi |
 | Pembayaran | Penyedia gateway, akun sandbox, identitas merchant dan webhook sesuai dokumentasi resmi | Tanda tangan, order dan nominal benar, replay dan kejadian tidak berurutan aman, ledger serta aktivasi cocok |
 | Jaringan | Lab MikroTik/RADIUS yang diizinkan, akses privat dan akun dengan hak minimum | Sesi sebelum/sesudah isolir dan aktivasi, polling, IPv4/IPv6 laboratorium dan rekonsiliasi antrean |
 | Pengiriman | Penyedia SMTP dan kanal pemberitahuan yang dipilih | Reset lewat STARTTLS loopback lulus. Verifikasi penyedia memerlukan akun sandbox, domain pengirim, dan pengujian kanal nyata |
 | Operasi | Penyimpanan backup terpisah, aturan retensi, pemantauan dari host lain, dan anggaran kapasitas | Restore dari media penerima, hasil waktu pemulihan, beban dan failover terukur, audit keamanan independen |
+
+[Pemeriksaan konfigurasi target produksi](RELEASE-RUNBOOK.md#pemeriksaan-konfigurasi-target-produksi)
 
 Pemulihan Compose dari backup terpantau 23 November mencocokkan 62 tabel, 327 baris, metadata kolom, dan 57 sequence. Setelah image kandidat diterapkan pada staging utama, ruang Docker yang tersedia sekitar 1,85 GiB dan estimasi pemulihan 0,90 GiB. Matriks fitur mencatat pengembangan tersisa, termasuk siklus penagihan fleksibel, cakupan wilayah, dan portal lanjutan. [Prosedur estimasi ruang](STAGING-OPERATIONS.md#estimasi-ruang-pemulihan-docker) · [Matriks fitur](FEATURE-MATRIX.md)
 

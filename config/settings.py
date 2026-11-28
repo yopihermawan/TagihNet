@@ -2,8 +2,8 @@ import os
 import base64
 import secrets
 from pathlib import Path
-from django.core.exceptions import ImproperlyConfigured
 from .database import database_config
+from .deployment import smtp_port, valid_mfa_key
 from .secret_files import read_secret
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -35,11 +35,8 @@ if not MFA_ENCRYPTION_KEY:
     except FileExistsError:
         pass
     MFA_ENCRYPTION_KEY = mfa_key_path.read_text().strip()
-try:
-    if len(base64.b64decode(MFA_ENCRYPTION_KEY, altchars=b"-_", validate=True)) != 32:
-        raise ValueError
-except (ValueError, TypeError):
-    raise RuntimeError("TAGIHNET_MFA_KEY harus berupa kunci Fernet base64 32-byte yang valid.") from None
+if not valid_mfa_key(MFA_ENCRYPTION_KEY):
+    raise RuntimeError("TAGIHNET_MFA_KEY harus berupa kunci Fernet base64 32-byte yang valid.")
 ALLOWED_HOSTS = os.getenv("TAGIHNET_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
 INSTALLED_APPS = [
     "django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions",
@@ -96,10 +93,7 @@ EMAIL_FILE_PATH = DATA_DIR / "emails"
 EMAIL_HOST = os.getenv("TAGIHNET_EMAIL_HOST", "localhost")
 EMAIL_HOST_USER = os.getenv("TAGIHNET_EMAIL_USER", "")
 EMAIL_HOST_PASSWORD = read_secret(os.environ, "TAGIHNET_EMAIL_PASSWORD")
-_smtp_port = os.getenv("TAGIHNET_EMAIL_PORT", "587")
-if not (_smtp_port.isascii() and _smtp_port.isdecimal() and len(_smtp_port) <= 5 and 1 <= int(_smtp_port) <= 65535):
-    raise ImproperlyConfigured("TAGIHNET_EMAIL_PORT harus berupa nomor port 1–65535.")
-EMAIL_PORT = int(_smtp_port)
+EMAIL_PORT = smtp_port(os.environ)
 EMAIL_USE_TLS = True
 EMAIL_TIMEOUT = 5
 DEFAULT_FROM_EMAIL = os.getenv("TAGIHNET_FROM_EMAIL", "TagihNet <noreply@example.invalid>")

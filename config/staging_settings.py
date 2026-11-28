@@ -1,12 +1,12 @@
 """Production-style, isolated simulation. This profile never enables real integrations."""
 import os
 from django.core.exceptions import ImproperlyConfigured
-from .deployment import validate_staging
+from .deployment import valid_session_key, validate_staging
 
 validate_staging(os.environ)
 from .settings import *  # noqa: E402,F403
 
-if len(SECRET_KEY)<50 or len(set(SECRET_KEY))<20 or SECRET_KEY.startswith("django-insecure-"):
+if not valid_session_key(SECRET_KEY):
     raise ImproperlyConfigured("Kunci sesi staging harus acak dan minimal 50 karakter.")
 STAGING = True
 MIDDLEWARE = list(MIDDLEWARE)
