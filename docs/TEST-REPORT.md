@@ -780,3 +780,9 @@ Tautan dari daftar operator membawa bulan layanan, pencarian, status, ukuran hal
 PostgreSQL lulus 932 tes. SQLite lulus 931 tes dengan satu tes penguncian khusus PostgreSQL dilewati. Chromium lulus 106 pemindaian axe dan 20 pemeriksaan keyboard. Pemeriksaan migrasi bersih.
 
 Setelah cloud kembali aktif pada 28 November WIB, koneksi probe melalui proxy menghasilkan HTTP 403. Probe baru langsung terhubung ke port loopback dan memverifikasi sertifikat staging. Kedua proyek berhasil disambungkan ulang tanpa restart container. Watcher staging aktif lagi, memproses backup terjadwal pukul 18.47 WIB, dan tetap memakai ambang penyimpanan 1.536 MiB. Pemulihan backup pada lab PostgreSQL mencocokkan 62 tabel, 327 baris, metadata kolom, serta 57 sequence. Bukti privat tersedia di `data/evidence/monitored-restore-20261128.json`.
+
+## Penerapan alur kembali ke faktur di staging
+
+Pada 28 November 2026 WIB, image dari commit `8e12fa9` lulus pemeriksaan isi, dependensi, kecocokan skema, dan fungsi penerus konteks daftar dalam probe baca-saja melalui TLS. Backup terpantau 28 November dipulihkan ulang saat worker dijeda. Seluruh 62 tabel, 327 baris, metadata kolom, dan 57 sequence cocok sebelum dan sesudah penerapan.
+
+Staging utama memakai image `sha256:bd9cc62300370ef3adf2529900e9de67e07c120ca7b43f8661405a35ccef2c94` setelah pergantian container aplikasi satu per satu. Preflight lulus. Halaman login, aset statis, database, dan ketiga worker lolos pemeriksaan. Clone pemulihan sehat dengan worker tertahan dan image rollback tersedia. Watcher kembali aktif dan mencatat peringatan penyimpanan pada sekitar 1.380 MiB tersedia. Ambang yang dipakai 1.536 MiB. Bukti privat tersedia di `data/evidence/staging-invoice-return-rollout-20261128.json`.
