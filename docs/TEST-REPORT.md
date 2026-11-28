@@ -804,3 +804,9 @@ Mode baca-saja memakai ID yang sedang aktif di staging dan memperkirakan sekitar
 Pada 28 November 2026 WIB, job portal dan operator menguji commit `a45cbc6` pada runner GitHub terpisah. Profil portal lulus 1.945 permintaan pada 1, 4, dan 8 klien. Enam belas akses dokumen lintas pelanggan atau ISP menerima HTTP 404. Empat permintaan bulan tidak valid menerima HTTP 400. Isi ledger cocok sebelum dan sesudah pengukuran, dan kedua proyek uji dibersihkan. Bukti privat tersedia di `data/evidence/staging-portal-load-github-20261128.json`. [Hasil dan profil uji beban](STAGING-LOAD.md#hasil-portal-pada-runner-github)
 
 Suite SQLite lokal lulus 939 tes dengan satu tes penguncian PostgreSQL dilewati. CI pada commit yang sama lulus untuk backend, PostgreSQL, browser, dan pemulihan staging. [Hasil CI](https://github.com/yopihermawan/TagihNet/actions/runs/46154489406)
+
+## Reset sandi melalui SMTP STARTTLS
+
+Pada 29 November 2026 WIB, pengujian commit `0b6d650` mengirim satu email reset melalui server STARTTLS loopback dengan CA sementara dan autentikasi SMTP. Tautan dari email berhasil dipakai sekali. Reset mencabut sesi lama dan login dengan sandi baru tetap meminta faktor kedua.
+
+Alamat yang tidak terdaftar tidak mengirim email. Sertifikat tak tepercaya, penolakan penerima, dan timeout menghasilkan konfirmasi web generik. Log hanya mencatat kegagalan pengiriman. Bukti lokal tersimpan di `data/evidence/reset-smtp-loopback-20261129.json`. Langkah STARTTLS dan suite SQLite lulus di GitHub. [Job backend](https://github.com/yopihermawan/TagihNet/actions/runs/46177716583/job/141080087261#step:9:1)
