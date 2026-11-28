@@ -19,7 +19,9 @@ Default: tahap20detik pada1,4,8 klien. Opsi `--seconds`5–60, `--levels`1–16 
 .venv/bin/python scripts/staging_load.py --capacity-only --output data/evidence/staging-load-capacity-baru.json
 ```
 
-Mode ini mengukur filesystem Docker tanpa memilih port atau membuat proyek uji. Pada driver VFS, estimasi memakai satu image BusyBox, satu image PostgreSQL, dan enam salinan `tagihnet-staging:local`. Enam salinan itu mencakup web, migrasi, tiga worker, dan satu container bootstrap sementara. Sisakan ruang tambahan untuk database, WAL, build, dan aktivitas host lainnya.
+Mode ini mengukur filesystem Docker tanpa memilih port atau membuat proyek uji. Pada driver VFS, estimasi memakai satu image BusyBox, satu image PostgreSQL, dan enam salinan image aplikasi terpilih. Enam salinan itu mencakup web, migrasi, tiga worker, dan satu container bootstrap sementara. Sisakan ruang tambahan untuk database, WAL, build, dan aktivitas host lainnya.
+
+Gunakan `--image-id` dengan ID SHA-256 lengkap dari `docker image inspect`. Tanpa opsi tersebut, script menyelesaikan tag lokal `tagihnet-staging:local` sekali. Laporan mencatat `image_reference` dan `image_id`. ID lokal yang sama dipakai untuk estimasi dan disimpan pada manifest proyek uji. Jika image hilang sebelum proyek berjalan, proses berhenti. Sebelum fase beban, script juga memeriksa ID image aktual web dan ketiga worker.
 
 Uji beban biasa berhenti sebelum provisioning jika byte atau inode habis, estimasi image VFS menyamai atau melebihi ruang tersedia, atau ruang di bawah `--min-free-mib` yang diminta. Saat hasil ukur `unknown`, mode `--capacity-only` dan uji dengan `--min-free-mib` keluar dengan status gagal. Uji biasa tanpa ambang tambahan tetap mencatat hasil `unknown` di laporan. Laporan memberi nilai `not_needed` pada `cleanup` ketika belum ada proyek uji. Hasil `passed` pada profil `local-docker-capacity` menunjukkan pemeriksaan ruang lulus.
 

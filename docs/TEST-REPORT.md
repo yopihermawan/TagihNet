@@ -792,3 +792,9 @@ Staging utama memakai image `sha256:bd9cc62300370ef3adf2529900e9de67e07c120ca7b4
 Tiga tes baru memeriksa estimasi VFS pada puncak provisioning, penolakan sebelum memilih port atau membuat proyek, mode baca-saja pada filesystem yang cukup, serta kondisi kapasitas tidak terukur. PostgreSQL lulus 935 tes. SQLite lulus 934 tes dengan satu tes penguncian PostgreSQL dilewati. Pemeriksaan Django dan migrasi bersih.
 
 Pada host cloud, `--capacity-only` melaporkan sekitar 1.380 MiB tersedia dan estimasi image sekitar 1.741 MiB. Perintah selesai dengan kode 1 dan `cleanup` bernilai `not_needed`. Proyek aktif dan clone lolos pemeriksaan layanan. Bukti privat tersedia di `data/evidence/staging-load-capacity-20261128.json`. [Cara menjalankan pemeriksaan](STAGING-LOAD.md#periksa-kapasitas-sebelum-uji)
+
+## ID image tetap untuk estimasi dan uji beban
+
+`--image-id` memilih image lokal dengan ID SHA-256 lengkap. Tag bawaan diselesaikan sekali saat opsi dikosongkan. Estimasi dan manifest proyek uji memakai ID yang sama. Tiga tes tambahan memeriksa ID yang hilang atau berbeda, image yang hilang sebelum pin, dan worker dengan image yang berbeda. PostgreSQL lulus 938 tes. SQLite lulus 937 tes dengan satu tes penguncian PostgreSQL dilewati.
+
+Mode baca-saja memakai ID yang sedang aktif di staging dan memperkirakan sekitar 1.731 MiB untuk image dengan sekitar 1.380 MiB tersedia. Konfigurasi Compose sementara mengonfirmasi web, migrasi, dan ketiga worker memakai ID yang dipilih. Daftar container, volume, dan jaringan Docker cocok sebelum dan sesudah, dan staging lolos pemeriksaan layanan. Bukti privat tersedia di `data/evidence/staging-load-selected-image-20261128.json`.

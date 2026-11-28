@@ -6,6 +6,10 @@ from django.test import SimpleTestCase
 from scripts import staging_load as load
 
 
+TEST_IMAGE = 'sha256:' + 'a' * 64
+OTHER_IMAGE = 'sha256:' + 'b' * 64
+
+
 class LoadProbeTests(SimpleTestCase):
     def test_percentiles_use_nearest_rank_and_empty_is_unavailable(self):
         values=list(range(100,0,-1))
@@ -51,10 +55,13 @@ class LoadProbeTests(SimpleTestCase):
 
     def test_duration_and_concurrency_are_bounded_before_docker(self):
         invalid=[(0,[1],2000),(61,[1],2000),(20,[],2000),(20,[17],2000),(20,[4,1],2000),(20,[1,1],2000),(20,[1,2,3,4,5],2000),(20,[1],0)]
-        with patch.object(load,'prepare') as prepare:
+        with patch.object(load,'prepare') as prepare, patch.object(load, 'docker') as docker:
             for seconds,levels,p95 in invalid:
                 with self.subTest(seconds=seconds,levels=levels),self.assertRaises(ValueError):load.probe('/tmp/never-created-load-report',seconds,levels,p95)
+            with self.assertRaises(ValueError):
+                load.probe('/tmp/never-created-load-report', image_id='tagihnet-staging:local')
         prepare.assert_not_called()
+        docker.assert_not_called()
 
     def test_existing_report_and_broken_symlink_refuse_before_docker(self):
         with tempfile.TemporaryDirectory() as folder,patch.object(load,'prepare') as prepare:
@@ -69,19 +76,22 @@ class LoadProbeTests(SimpleTestCase):
         capacity = load.ops.filesystem_capacity(1, 7000, 900, 70, 20)
         with (tempfile.TemporaryDirectory() as folder,
               patch.object(load.ops, 'docker_filesystem', return_value=('vfs', capacity)),
-              patch.object(load, 'docker', return_value=Mock(stdout='10\n100\n150\n')) as docker,
+              patch.object(load, 'docker', side_effect=[Mock(stdout=TEST_IMAGE), Mock(stdout='10\n100\n150\n')]) as docker,
               patch.object(load, 'available_port') as port,
               patch.object(load, 'prepare') as prepare,
               patch.object(load, 'compose') as compose):
             output = Path(folder) / 'report.json'
-            result = load.probe(output)
+            result = load.probe(output, image_id=TEST_IMAGE)
             self.assertEqual(output.stat().st_mode & 0o777, 0o600)
         self.assertEqual((result['status'], result['cleanup'], result['stages']), ('failed', 'not_needed', []))
         self.assertEqual(result['failures'], ['load_image_estimate_no_headroom'])
         self.assertEqual(result['capacity']['vfs_app_copies'], 6)
         self.assertEqual(result['capacity']['vfs_image_estimate_bytes'], 1010)
-        docker.assert_called_once_with('image', 'inspect', load.PREPARE_IMAGE, load.PG_IMAGE, load.LOAD_IMAGE,
-                                       '--format', '{{.Size}}', capture=True, timeout=15)
+        self.assertEqual(result['image_id'], TEST_IMAGE)
+        self.assertEqual(docker.call_count, 2)
+        self.assertEqual(docker.call_args_list[0].args[:3], ('image', 'inspect', TEST_IMAGE))
+        docker.assert_called_with('image', 'inspect', load.PREPARE_IMAGE, load.PG_IMAGE, TEST_IMAGE,
+                                  '--format', '{{.Size}}', capture=True, timeout=15)
         port.assert_not_called()
         prepare.assert_not_called()
         compose.assert_not_called()
@@ -91,7 +101,7 @@ class LoadProbeTests(SimpleTestCase):
         with (tempfile.TemporaryDirectory() as folder,
               patch.object(load.ops, 'docker_filesystem', return_value=('overlay2', capacity)),
               patch.object(load, 'prepare') as prepare,
-              patch.object(load, 'docker') as docker):
+              patch.object(load, 'docker', return_value=Mock(stdout=TEST_IMAGE)) as docker):
             result = load.probe(Path(folder) / 'read-only.json', capacity_only=True)
             self.assertEqual((result['profile'], result['status'], result['cleanup']),
                              ('local-docker-capacity', 'passed', 'not_needed'))
@@ -99,11 +109,14 @@ class LoadProbeTests(SimpleTestCase):
             refused = load.probe(Path(folder) / 'min-free.json', min_free_mib=1100)
             self.assertEqual(refused['failures'], ['filesystem_below_minimum'])
         prepare.assert_not_called()
-        docker.assert_not_called()
+        self.assertEqual(docker.call_count, 2)
+        for call in docker.call_args_list:
+            self.assertEqual(call.args, ('image', 'inspect', load.LOAD_IMAGE, '--format', '{{.Id}}'))
 
     def test_requested_capacity_guard_refuses_unknown_storage_without_diagnostics(self):
         with (tempfile.TemporaryDirectory() as folder,
               patch.object(load.ops, 'docker_filesystem', side_effect=OSError('private diagnostic')),
+              patch.object(load, 'docker', return_value=Mock(stdout=TEST_IMAGE)),
               patch.object(load, 'prepare') as prepare):
             path = Path(folder) / 'report.json'
             result = load.probe(path, min_free_mib=1536)
@@ -111,6 +124,43 @@ class LoadProbeTests(SimpleTestCase):
         self.assertEqual((result['status'], result['capacity']['status']), ('failed', 'unknown'))
         self.assertEqual(result['failures'], ['docker_filesystem_unavailable'])
         prepare.assert_not_called()
+
+    def test_missing_or_mismatched_image_refuses_before_provisioning(self):
+        for error in (OSError('private diagnostic'), Mock(stdout=OTHER_IMAGE)):
+            with (self.subTest(response=type(error).__name__), tempfile.TemporaryDirectory() as folder,
+                  patch.object(load, 'docker', side_effect=[error]) as docker,
+                  patch.object(load.ops, 'docker_filesystem') as filesystem,
+                  patch.object(load, 'prepare') as prepare):
+                path = Path(folder) / 'report.json'
+                report = load.probe(path, image_id=TEST_IMAGE)
+                self.assertEqual((report['image_id'], report['cleanup']), (None, 'not_needed'))
+                self.assertEqual(report['failures'], ['load_image_unavailable'])
+                self.assertNotIn('private diagnostic', path.read_text())
+                docker.assert_called_once_with('image', 'inspect', TEST_IMAGE, '--format', '{{.Id}}',
+                                               capture=True, timeout=15)
+                filesystem.assert_not_called()
+                prepare.assert_not_called()
+
+    def test_image_lost_before_pin_never_starts_compose(self):
+        with (tempfile.TemporaryDirectory() as folder,
+              patch.object(load, 'capacity_report', return_value={'status': 'ok'}),
+              patch.object(load, 'docker', return_value=Mock(stdout=TEST_IMAGE)),
+              patch.object(load, 'available_port', return_value=18443),
+              patch.object(load, 'prepare'),
+              patch.object(load, 'pin_image', side_effect=RuntimeError),
+              patch.object(load, 'verify') as verify,
+              patch.object(load, 'compose') as compose):
+            report = load.probe(Path(folder) / 'report.json')
+        self.assertEqual(report['failures'], ['load_image_pin_failed'])
+        self.assertEqual(report['cleanup'], 'not_needed')
+        verify.assert_not_called()
+        compose.assert_not_called()
+
+    def test_monitor_refuses_a_worker_with_an_unexpected_image(self):
+        containers = {name: {'Image': TEST_IMAGE} for name in ('web', *load.ops.WORKERS)}
+        containers['billing-worker']['Image'] = OTHER_IMAGE
+        with patch.object(load, 'containers', return_value=containers), self.assertRaises(ValueError):
+            load.Monitor(Path('/tmp/load-fixture'), TEST_IMAGE)
 
     def test_resource_units_and_invalid_values(self):
         self.assertEqual(load.resource_bytes('1.5MiB'),1572864)
@@ -141,9 +191,17 @@ class LoadProbeTests(SimpleTestCase):
             output=Path(folder)/'report.json'
             with (patch.object(load, 'capacity_report', return_value={'status': 'unknown'}),
                   patch.object(load,'available_port',return_value=18443),patch.object(load,'prepare'),
-                  patch.object(load,'docker',return_value=Mock(stdout='image-id')),
-                  patch.object(load,'verify',side_effect=ValueError('private secret')),patch.object(load,'compose') as compose):
-                result=load.probe(output)
+                  patch.object(load,'docker',return_value=Mock(stdout=TEST_IMAGE)) as docker,
+                  patch.object(load, 'pin_image') as pin, patch.object(load,'compose') as compose):
+                def verify(directory):
+                    pin.assert_called_once_with(directory, TEST_IMAGE)
+                    raise ValueError('private secret')
+
+                with patch.object(load, 'verify', side_effect=verify):
+                    result=load.probe(output)
+            docker.assert_called_once_with('image', 'inspect', load.LOAD_IMAGE, '--format', '{{.Id}}',
+                                           capture=True, timeout=15)
+            self.assertEqual(result['image_id'], TEST_IMAGE)
             self.assertEqual(result['status'],'failed');self.assertEqual(result['cleanup'],'passed')
             self.assertEqual(output.stat().st_mode&0o777,0o600)
             self.assertNotIn('private secret',output.read_text())
@@ -154,7 +212,7 @@ class LoadProbeTests(SimpleTestCase):
             output=Path(folder)/'report.json'
             with (patch.object(load, 'capacity_report', return_value={'status': 'ok'}),
                   patch.object(load,'available_port',return_value=18443),patch.object(load,'prepare'),
-                  patch.object(load,'docker',return_value=Mock(stdout='image-id')),
+                  patch.object(load,'docker',return_value=Mock(stdout=TEST_IMAGE)),patch.object(load,'pin_image'),
                   patch.object(load,'verify',side_effect=ValueError),patch.object(load,'compose',side_effect=OSError)):
                 result=load.probe(output)
             self.assertEqual(result['cleanup'],'failed');self.assertEqual(result['status'],'failed')
