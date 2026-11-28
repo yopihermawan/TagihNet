@@ -798,3 +798,9 @@ Pada host cloud, `--capacity-only` melaporkan sekitar 1.380 MiB tersedia dan est
 `--image-id` memilih image lokal dengan ID SHA-256 lengkap. Tag bawaan diselesaikan sekali saat opsi dikosongkan. Estimasi dan manifest proyek uji memakai ID yang sama. Tiga tes tambahan memeriksa ID yang hilang atau berbeda, image yang hilang sebelum pin, dan worker dengan image yang berbeda. PostgreSQL lulus 938 tes. SQLite lulus 937 tes dengan satu tes penguncian PostgreSQL dilewati.
 
 Mode baca-saja memakai ID yang sedang aktif di staging dan memperkirakan sekitar 1.731 MiB untuk image dengan sekitar 1.380 MiB tersedia. Konfigurasi Compose sementara mengonfirmasi web, migrasi, dan ketiga worker memakai ID yang dipilih. Daftar container, volume, dan jaringan Docker cocok sebelum dan sesudah, dan staging lolos pemeriksaan layanan. Bukti privat tersedia di `data/evidence/staging-load-selected-image-20261128.json`.
+
+## Uji beban portal pada Compose
+
+Pada 28 November 2026 WIB, job portal dan operator menguji commit `a45cbc6` pada runner GitHub terpisah. Profil portal lulus 1.945 permintaan pada 1, 4, dan 8 klien. Enam belas akses dokumen lintas pelanggan atau ISP menerima HTTP 404. Empat permintaan bulan tidak valid menerima HTTP 400. Isi ledger cocok sebelum dan sesudah pengukuran, dan kedua proyek uji dibersihkan. Bukti privat tersedia di `data/evidence/staging-portal-load-github-20261128.json`. [Hasil dan profil uji beban](STAGING-LOAD.md#hasil-portal-pada-runner-github)
+
+Suite SQLite lokal lulus 939 tes dengan satu tes penguncian PostgreSQL dilewati. CI pada commit yang sama lulus untuk backend, PostgreSQL, browser, dan pemulihan staging. [Hasil CI](https://github.com/yopihermawan/TagihNet/actions/runs/46154489406)

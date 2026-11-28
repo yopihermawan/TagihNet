@@ -34,7 +34,7 @@ Nomor kriteria mengikuti brief awal. Istilah **Simulasi** menunjukkan alur yang 
 - Metadata PyPI untuk 16 versi runtime terkunci berhasil diperiksa. Tidak ada advisory aktif yang tercantum pada saat pemeriksaan. [Cakupan audit keamanan](SECURITY-AUDIT.md)
 - Pemeriksaan 347 file teks terlacak pada snapshot aplikasi mencakup format kunci privat PEM dan pola token GitHub, AWS, serta Slack. Hasilnya nol kecocokan pada pola yang diperiksa.
 - Laporan dan log privat tersedia di `data/evidence/local-release-20261122/`. Gunakan perintah pada runbook untuk membuat laporan baru ketika kode, image, atau backup berganti. [Runbook rilis staging](RELEASE-RUNBOOK.md)
-- Pengujian portal Compose memverifikasi filter periode, paginasi, kuitansi reversal, dan isolasi akun. Pengukuran alternatif di lab PostgreSQL lulus 2.960 permintaan HTTPS dengan nol kegagalan. Ruang Docker mencapai nol sebelum pengukuran beban Compose. [Uji beban portal](STAGING-LOAD.md#portal-pelanggan-pada-rilis-23-november-2026-wib)
+- Pengujian portal Compose pada runner GitHub memverifikasi filter periode, paginasi, kuitansi reversal, dan isolasi akun. Seluruh 1.945 permintaan berhasil. P95 endpoint terburuk mencapai 285,42 ms pada 8 klien. Isi ledger cocok dan proyek uji dibersihkan. [Uji beban portal](STAGING-LOAD.md#hasil-portal-pada-runner-github)
 
 ## Prasyarat rilis produksi
 

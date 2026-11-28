@@ -93,7 +93,7 @@ Pengukuran alternatif memakai Gunicorn HTTPS pada host dan database sementara di
 | 4 | 1.144 | 0 | 57,07 | 89,71 | 93,08 |
 | 8 | 1.172 | 0 | 58,21 | 193,54 | 210,44 |
 
-Database sementara berukuran sekitar 13 MiB dan dibersihkan setelah tes. Isi tabel bisnis, metadata kolom, dan sequence cocok sebelum dan sesudah pengukuran. Pengukuran host memakai profil lab PostgreSQL dan sumber daya host. Kapasitas Compose dengan batas resource container, PostgreSQL verify-full, serta worker bersamaan masih perlu diukur pada host dengan ruang Docker memadai. Bukti privat tersedia di `data/evidence/portal-pg-lab-load-20261123.json`.
+Database sementara berukuran sekitar 13 MiB dan dibersihkan setelah tes. Isi tabel bisnis, metadata kolom, dan sequence cocok sebelum dan sesudah pengukuran. Pengukuran 23 November memakai profil lab PostgreSQL dan sumber daya host. Bukti privat tersedia di `data/evidence/portal-pg-lab-load-20261123.json`.
 
 ### Profil portal pada Compose
 
@@ -104,3 +104,13 @@ Database sementara berukuran sekitar 13 MiB dan dibersihkan setelah tes. Isi tab
 Profil ini membuat 500 pelanggan di dua ISP fiktif, 2.000 faktur, 8.500 pembayaran, dan 500 reversal. Dua akun pelanggan masuk melalui HTTPS. Klien bergantian memakai akun pada tahap dengan beberapa klien. Empat rute mengukur daftar tagihan, filter bulan dan tunggakan, halaman kedua pembayaran pada bulan WIB, serta kuitansi yang direversal. Permintaan berjalan dengan worker aktif dan tanpa membuat batch faktur baru.
 
 Sebelum uji, 16 akses dokumen lintas pelanggan atau ISP harus menerima HTTP 404 dan empat permintaan bulan tidak valid harus menerima HTTP 400. Isi tabel pelanggan, faktur, baris faktur, pembayaran, dan reversal dicocokkan sebelum dan sesudah pengukuran. Standar sampel, p95, kesehatan dan pembersihan sama dengan profil operator.
+
+### Hasil portal pada runner GitHub
+
+Pada 28 November 2026 WIB, profil portal pada commit `a45cbc6` lulus dengan 1.945 permintaan dan nol kegagalan. Seluruh pemeriksaan dokumen dan bulan tidak valid lulus. Isi lima tabel yang diperiksa cocok, dan proyek uji dibersihkan. Job operator pada run yang sama juga lulus 1.173 permintaan tanpa kegagalan. [Hasil GitHub Actions](https://github.com/yopihermawan/TagihNet/actions/runs/46154489407)
+
+| Klien bersamaan | Permintaan | Gagal | P95 keseluruhan (ms) | P95 endpoint terburuk (ms) |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 534 | 0 | 48,98 | 51,59 |
+| 4 | 709 | 0 | 141,98 | 165,97 |
+| 8 | 702 | 0 | 277,32 | 285,42 |
