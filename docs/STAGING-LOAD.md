@@ -65,9 +65,21 @@ Worker menyelesaikan500 faktur baru:1500 faktur total,250 pembayaran/25 reversal
 
 ## CI dan batas
 
-Workflow `.github/workflows/staging-load.yml` berjalan pada push ke `main` yang mengubah workflow, tool uji, atau konfigurasi build staging. Workflow juga menerima `workflow_dispatch`. Runner `ubuntu-latest` membangun image dari commit yang diuji dan memakai ID lengkap hasil build untuk `staging_load.py`. Ringkasan Actions menampilkan hasil dan latensi per tingkat klien. Laporan JSON agregat tersimpan selama tujuh hari. Angka antarhost dapat berbeda.
+Workflow `.github/workflows/staging-load.yml` berjalan pada push ke `main` yang mengubah workflow, tool uji, atau konfigurasi build staging. Workflow juga menerima `workflow_dispatch`. Runner `ubuntu-latest` membangun image dari commit yang diuji dan memakai ID lengkap hasil build untuk `staging_load.py`. Anotasi Actions menampilkan status pembersihan, hasil per tingkat klien, dan kode pemeriksaan yang gagal. Laporan JSON agregat tersimpan selama tujuh hari. Angka antarhost dapat berbeda.
 
 Ini belum menguji peak traffic dengan laju tetap, ribuan sesi/tenant, banyak pembayaran POST serentak, data bertahun-tahun, PDF besar, external WAN, soak panjang, failover, restore di server lain, atau performa real adapter. Infrastruktur produksi masih memerlukan pengujian dengan hardware/data/traffic target, retensi/offsite dan integrasi nyata.
+
+## Uji beban Compose di runner GitHub
+
+Pada 28 November 2026 WIB, run kedua untuk commit `83e54ae` lulus dengan 1.120 permintaan dan nol kegagalan. Masing-masing tahap memakai durasi 20 detik dan batas p95 2.000 ms per endpoint. Verifikasi batch 500 faktur, sampler kesehatan, dan pembersihan proyek uji lulus. [Hasil GitHub Actions](https://github.com/yopihermawan/TagihNet/actions/runs/46150068237)
+
+| Klien bersamaan | Permintaan | Gagal | P95 keseluruhan (ms) | P95 endpoint terburuk (ms) |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 290 | 0 | 110,45 | 135,49 |
+| 4 | 429 | 0 | 283,34 | 307,39 |
+| 8 | 401 | 0 | 628,48 | 690,01 |
+
+Run pertama gagal pada langkah pengukuran. Halaman publik run pertama mencatat kode keluar 1 tanpa penyebab spesifik. Run kedua memakai gate, fixture, dan durasi yang sama setelah penambahan diagnostik. [Run pertama](https://github.com/yopihermawan/TagihNet/actions/runs/46149613625)
 
 ## Portal pelanggan pada rilis 23 November 2026 WIB
 

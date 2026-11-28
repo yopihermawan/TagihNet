@@ -51,3 +51,5 @@ Pemulihan Compose dari backup terpantau 23 November mencocokkan 62 tabel, 327 ba
 Backup terpantau 28 November pukul 18.47 WIB lulus pemulihan ulang pada lab PostgreSQL. Jumlah baris, isi tabel, kolom, dan sequence cocok dengan staging sumber. Bukti privat tersedia di `data/evidence/monitored-restore-20261128.json`.
 
 Pemeriksaan baca-saja untuk ID image staging aktif memperkirakan sekitar 1.731 MiB untuk image uji beban Compose, dengan sekitar 1.380 MiB tersedia pada Docker VFS. Selisih perkiraan sekitar 351 MiB sebelum ruang untuk volume database dan overhead. [Pemeriksaan kapasitas uji beban](STAGING-LOAD.md#periksa-kapasitas-sebelum-uji)
+
+Uji beban Compose pada runner GitHub lulus pada 28 November 2026 WIB. Seluruh 1.120 permintaan berhasil, p95 endpoint terburuk mencapai 690,01 ms pada 8 klien, dan proyek pengujian dibersihkan. Pengukuran kapasitas produksi tetap memakai infrastruktur dan integrasi target. [Hasil uji beban](STAGING-LOAD.md#uji-beban-compose-di-runner-github)
