@@ -65,7 +65,7 @@ Worker menyelesaikan500 faktur baru:1500 faktur total,250 pembayaran/25 reversal
 
 ## CI dan batas
 
-Workflow manual `.github/workflows/staging-load.yml` melakukan build/probe dan mengunggah JSON agregat selama7hari. Tidak dijalankan pada setiap push dan belum diklaim lulus di GitHub. Runner berbeda akan memberi hasil berbeda. Backend/PG/browser CI biasa tetap tersedia.
+Workflow `.github/workflows/staging-load.yml` berjalan pada push ke `main` yang mengubah workflow, tool uji, atau konfigurasi build staging. Workflow juga menerima `workflow_dispatch`. Runner `ubuntu-latest` membangun image dari commit yang diuji dan memakai ID lengkap hasil build untuk `staging_load.py`. Ringkasan Actions menampilkan hasil dan latensi per tingkat klien. Laporan JSON agregat tersimpan selama tujuh hari. Angka antarhost dapat berbeda.
 
 Ini belum menguji peak traffic dengan laju tetap, ribuan sesi/tenant, banyak pembayaran POST serentak, data bertahun-tahun, PDF besar, external WAN, soak panjang, failover, restore di server lain, atau performa real adapter. Infrastruktur produksi masih memerlukan pengujian dengan hardware/data/traffic target, retensi/offsite dan integrasi nyata.
 

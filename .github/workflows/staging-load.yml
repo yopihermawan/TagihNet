@@ -1,6 +1,23 @@
 name: Measure local staging load
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/staging-load.yml'
+      - 'scripts/staging_load.py'
+      - 'scripts/staging_lab.py'
+      - 'scripts/staging_ops.py'
+      - 'scripts/verify_staging.py'
+      - 'scripts/verify_staging_backup.py'
+      - 'scripts/ops_smoke.py'
+      - 'Dockerfile.staging'
+      - 'Dockerfile.staging.dockerignore'
+      - 'compose.staging.yaml'
+      - 'deploy/**'
+      - 'requirements.txt'
+      - 'requirements-postgres.txt'
+      - 'requirements-staging.txt'
 permissions:
   contents: read
 jobs:
@@ -15,11 +32,45 @@ jobs:
           cache: pip
       - run: python -m pip install -r requirements-staging.txt
       - run: python -m pip check
-      - run: python scripts/staging_lab.py build
-      - run: python scripts/staging_load.py --output data/evidence/staging-load-ci.json
+      - name: Build and identify the staging image
+        id: staging_image
+        shell: bash
+        run: |
+          python scripts/staging_lab.py build
+          image_id=$(docker --host=unix:///var/run/docker.sock image inspect tagihnet-staging:local --format '{{.Id}}')
+          [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf 'id=%s\n' "$image_id" >> "$GITHUB_OUTPUT"
+      - name: Measure the pinned staging image
+        env:
+          TAGIHNET_LOAD_IMAGE_ID: ${{ steps.staging_image.outputs.id }}
+        run: python scripts/staging_load.py --image-id "$TAGIHNET_LOAD_IMAGE_ID" --output data/evidence/staging-load-ci.json
+      - name: Summarize the load report
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path('data/evidence/staging-load-ci.json')
+          if not path.is_file():
+              raise SystemExit(0)
+          report = json.loads(path.read_text())
+          rows = ['## Staging load', '', f"Result **{report['status']}** with cleanup **{report['cleanup']}**.", '']
+          if report.get('failures'):
+              rows.extend(['Checks that failed', '', *[f'- {code}' for code in report['failures']], ''])
+          if report['stages']:
+              rows.extend(['| Clients | Requests | Failures | P95 (ms) |', '| ---: | ---: | ---: | ---: |'])
+              for stage in report['stages']:
+                  stats = stage['overall']
+                  rows.append(f"| {stage['concurrency']} | {stats['attempts']} | {stats['failures']} | {stats['p95_ms']} |")
+          with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a', encoding='utf-8') as summary:
+              summary.write('\n'.join(rows) + '\n')
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: local-staging-load
           path: data/evidence/staging-load-ci.json
           retention-days: 7
+          if-no-files-found: ignore
