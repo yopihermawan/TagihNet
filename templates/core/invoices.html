@@ -38,13 +38,13 @@
       <tbody>
       {% for row in invoice_rows %}{% with invoice=row.invoice %}
         <tr>
-          <td><a href="{% url 'invoice_detail' invoice.pk %}"><strong>{{ invoice.number }}</strong><small>{{ invoice.customer_name }}</small></a></td>
+          <td><a href="{% url 'invoice_detail' invoice.pk %}{{ invoice_list_suffix }}"><strong>{{ invoice.number }}</strong><small>{{ invoice.customer_name }}</small></a></td>
           <td>{{ invoice.period|date:'M Y' }}</td>
           <td>{{ invoice.due_date|date:'d M Y' }}</td>
           <td><span class="pill {{ row.status }}">{{ row.label }}</span></td>
           <td class="numeric amount">{{ invoice.total|idr }}</td>
           <td class="numeric amount">{{ row.balance|idr }}</td>
-          <td class="actions"><a class="row-action" href="{% url 'invoice_detail' invoice.pk %}" aria-label="Detail {{ invoice.number }}">{% icon 'arrow' %}</a></td>
+          <td class="actions"><a class="row-action" href="{% url 'invoice_detail' invoice.pk %}{{ invoice_list_suffix }}" aria-label="Detail {{ invoice.number }}">{% icon 'arrow' %}</a></td>
         </tr>
       {% endwith %}{% empty %}
         <tr><td colspan="7" class="empty"><h3>Belum ada faktur yang sesuai</h3><p>Ubah filter atau terbitkan faktur baru.</p></td></tr>

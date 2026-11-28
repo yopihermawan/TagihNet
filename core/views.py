@@ -1,5 +1,6 @@
 import csv
 import uuid
+from urllib.parse import urlencode
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.views import PasswordResetView
@@ -9,7 +10,7 @@ from django.db import IntegrityError, OperationalError, transaction
 from django.db.models import Count,Q,Sum
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.debug import sensitive_post_parameters
@@ -220,6 +221,12 @@ def customer_export(request):
     return response
 
 
+def invoice_list_suffix(params):
+    fields = ("q", "month", "state", "size", "page")
+    query = urlencode({key: params[key] for key in fields if params.get(key)})
+    return f"?{query}" if query else ""
+
+
 @require("invoices")
 def invoices(request):
     form = MonthFilterForm(request.GET, month_label="Bulan layanan")
@@ -241,6 +248,7 @@ def invoices(request):
     return render(request, "core/invoices.html", {
         "page": page, "invoice_rows": invoice_rows(page.object_list, today), "invoice_filter": form,
         "invoice_search": query, "invoice_state": state, "invoice_statuses": INVOICE_STATUS_LABELS.items(),
+        "invoice_list_suffix": invoice_list_suffix(request.GET),
     }, status=200 if valid else 400)
 
 
@@ -283,6 +291,7 @@ def invoice_detail(request, pk):
     return render(request, "core/invoice_detail.html", {"invoice": invoice, "issuer": document_issuer(invoice),
         "grace_days": invoice_grace_days(invoice),
         "payments": invoice.payments.select_related("recorded_by", "reversal"),
+        "invoice_list_suffix": invoice_list_suffix(request.GET),
         "payment_form": PaymentForm(tenant=invoice.tenant,initial={"amount": invoice.balance, "event_key": uuid.uuid4()})})
 
 
@@ -298,6 +307,7 @@ def invoice_pdf(request, pk):
 @require_POST
 def payment_create(request, pk):
     invoice = get_object_or_404(Invoice, tenant=request.member.tenant, pk=pk)
+    detail = reverse("invoice_detail", args=[pk]) + invoice_list_suffix(request.GET)
     form = PaymentForm(request.POST,tenant=request.member.tenant)
     if form.is_valid():
         try:
@@ -305,12 +315,12 @@ def payment_create(request, pk):
                 form.cleaned_data["event_key"], request.user, form.cleaned_data["note"], request.correlation_id,
                 fund_id=form.cleaned_data['fund'].pk if form.cleaned_data['fund'] else None)
             messages.success(request, "Pembayaran simulasi tercatat. Rekonsiliasi jaringan masuk antrean." if created else "Pembayaran sudah tercatat; duplikat diabaikan.")
-            return redirect("invoice_detail", pk=pk)
+            return redirect(detail)
         except ValidationError as exc:
             form.add_error(None, exc)
         except OperationalError:
             form.add_error(None, "Database sedang sibuk. Kirim ulang formulir yang sama agar tetap idempoten.")
-    return render(request, "core/form.html", {"form": form, "title": "Periksa pembayaran", "back": f"/invoices/{pk}/"}, status=400)
+    return render(request, "core/form.html", {"form": form, "title": "Periksa pembayaran", "back": detail}, status=400)
 
 
 @require("reverse")
@@ -322,7 +332,8 @@ def payment_reverse(request, pk):
         messages.success(request, "Reversal tercatat. Pembayaran asli tetap tersimpan dalam riwayat.")
     except ValidationError:
         messages.error(request, "Isi alasan koreksi sepanjang 10–250 karakter.")
-    return redirect("invoice_detail", pk=payment.invoice_id)
+    detail = reverse("invoice_detail", args=[payment.invoice_id]) + invoice_list_suffix(request.GET)
+    return redirect(detail)
 
 
 @require("network")

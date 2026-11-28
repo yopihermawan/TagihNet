@@ -11,9 +11,9 @@ import tempfile
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
+from http.client import HTTPException, HTTPSConnection
 from pathlib import Path
-from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parent.parent
 PREPARE_IMAGE = "busybox:1.37.0-glibc@sha256:42a9ff19af33811ee466b24c66384461d37c32dcc28d1d27d49b8aca816bd5ee"
@@ -158,15 +158,25 @@ def build(proxy_ca=None):
         docker("build","--file",ROOT/"Dockerfile.staging","--tag","tagihnet-staging:local",ROOT)
 
 
+def https_health(directory, port):
+    if type(port) is not int or not 1024 <= port <= 65535:
+        raise ValueError('Port staging tidak valid.')
+    context = ssl.create_default_context(cafile=str(Path(directory) / 'secrets/ca.crt'))
+    with closing(HTTPSConnection('localhost', port, context=context, timeout=5)) as connection:
+        connection.request('GET', '/health/')
+        response = connection.getresponse()
+        return response.status == 200 and json.loads(response.read(4096)) == {'status': 'ok', 'mode': 'simulation'}
+
+
 def wait_ready(directory,timeout=120):
     data=manifest(directory)
-    context=ssl.create_default_context(cafile=str(Path(directory)/"secrets/ca.crt"))
     deadline=time.monotonic()+timeout
     while time.monotonic()<deadline:
         try:
-            with urlopen(f"https://localhost:{data['port']}/health/",context=context,timeout=5) as response:
-                if response.status==200 and json.load(response)=={"status":"ok","mode":"simulation"}: return
-        except (OSError,ValueError): pass
+            if https_health(directory, data['port']):
+                return
+        except (OSError, ValueError, HTTPException):
+            pass
         time.sleep(.5)
     raise RuntimeError("HTTPS/database health belum siap; periksa compose logs tanpa mencetak secret.")
 

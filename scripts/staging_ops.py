@@ -6,7 +6,6 @@ import math
 import os
 import signal
 import re
-import ssl
 import subprocess
 import sys
 import tempfile
@@ -16,14 +15,13 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime,timezone
 from pathlib import Path
-from urllib.request import urlopen
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
 from cryptography import x509
 from core.backup_archive import read_key,verify_archive
 from scripts.staging_backup import backup,database_container
-from scripts.staging_lab import PG_IMAGE, PREPARE_IMAGE, compose, docker, manifest
+from scripts.staging_lab import PG_IMAGE, PREPARE_IMAGE, compose, docker, https_health, manifest
 
 WORKERS={'network-worker':'network','billing-worker':'billing','reminder-worker':'reminder'}
 LEVELS={'ok':0,'warning':1,'unknown':2,'critical':3}
@@ -306,9 +304,7 @@ def check(directory,config=None,now=None):
     except Exception:
         services={};issue('docker_unavailable','unknown','docker')
     try:
-        if type(state['port']) is not int or not 1024<=state['port']<=65535:raise ValueError('Port invalid')
-        with urlopen(f"https://localhost:{state['port']}/health/",context=ssl.create_default_context(cafile=str(directory/'secrets/ca.crt')),timeout=5) as response:
-            valid=response.status==200 and json.loads(response.read(4096))=={'status':'ok','mode':'simulation'}
+        valid = https_health(directory, state['port'])
         checks['https']={'status':'ok' if valid else 'failed'}
         if not valid:issue('https_unhealthy','critical','https')
     except Exception:checks['https']={'status':'unknown'};issue('https_unverified','critical','https')

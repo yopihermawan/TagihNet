@@ -3,7 +3,9 @@ from datetime import date, timedelta
 from django.db import connection
 from django.test import TestCase,override_settings
 from django.test.utils import CaptureQueriesContext
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import escape
 from core.billing import issue_invoice,record_payment,reverse_payment
 from core.models import Customer,Invoice
 from .auth_helpers import verified_login
@@ -100,6 +102,11 @@ class InvoiceQueryBudgetTests(TestCase):
         self.assertEqual((page.number, page.paginator.count, len(page.object_list)), (2, 25, 10))
         self.assertTrue(all(invoice.customer.code.startswith('GROW-') for invoice in page))
         self.assertContains(response, f'q=GROW&amp;month={month}&amp;state=overdue&amp;size=10&amp;page=3')
+        invoice = page.object_list[0]
+        detail = reverse('invoice_detail', args=[invoice.pk], query=filters)
+        self.assertContains(response, f'href="{escape(detail)}"', count=2)
+        back = reverse('invoices', query=filters)
+        self.assertContains(self.client.get(detail), f'href="{escape(back)}"')
         empty = self.client.get('/invoices/', {**filters, 'month': '2020-02', 'size': '25'})
         self.assertContains(empty, 'Belum ada faktur yang sesuai')
         self.assertContains(empty, 'href="/invoices/?size=25"')

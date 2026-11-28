@@ -772,3 +772,11 @@ Chromium mengikuti tautan dasbor, menerapkan pencarian dan status, memeriksa fok
 Pada 27 November 2026 WIB, image dari commit `e0708ed` lulus pemeriksaan isi aplikasi, dependensi, dan kecocokan skema lewat koneksi TLS dengan transaksi baca-saja. Backup terpantau 26 November dipulihkan ulang di lab saat worker staging dijeda. Seluruh 62 tabel, 327 baris, metadata kolom, serta 57 sequence cocok.
 
 Staging utama kemudian memakai image `sha256:0ef87addb24f754c14cfa03055372592e26c5c3fd627b2e4e139f9e781d5f923`. Container migrasi, web, dan ketiga worker diganti satu per satu. Data, skema, container PostgreSQL, volume, paket pemulihan, dan jadwal backup terverifikasi. Preflight aktif lulus, halaman login dan aset statis merespons HTTP 200 melalui HTTPS, dan watcher kembali sehat. Clone pemulihan sehat dengan worker tertahan. Ruang kosong Docker sekitar 1,60 GiB setelah build dan penerapan. Bukti privat tersedia di `data/evidence/staging-operator-month-rollout-20261127.json`.
+
+## Kembali ke daftar faktur dan pemulihan watcher
+
+Tautan dari daftar operator membawa bulan layanan, pencarian, status, ukuran halaman, dan nomor halaman ke detail faktur. Pencatatan pembayaran, kesalahan formulir, kuitansi, dan reversal tetap membawa konteks itu. Tes backend memeriksa tautan pada halaman dua dan tujuan pengalihan lokal. Chromium membuka detail lalu kembali ke daftar dengan filter dan ukuran halaman yang sama. Bukti privat tersedia di `data/evidence/operator-invoice-return-20261128.json`.
+
+PostgreSQL lulus 932 tes. SQLite lulus 931 tes dengan satu tes penguncian khusus PostgreSQL dilewati. Chromium lulus 106 pemindaian axe dan 20 pemeriksaan keyboard. Pemeriksaan migrasi bersih.
+
+Setelah cloud kembali aktif pada 28 November WIB, koneksi probe melalui proxy menghasilkan HTTP 403. Probe baru langsung terhubung ke port loopback dan memverifikasi sertifikat staging. Kedua proyek berhasil disambungkan ulang tanpa restart container. Watcher staging aktif lagi, memproses backup terjadwal pukul 18.47 WIB, dan tetap memakai ambang penyimpanan 1.536 MiB. Pemulihan backup pada lab PostgreSQL mencocokkan 62 tabel, 327 baris, metadata kolom, serta 57 sequence. Bukti privat tersedia di `data/evidence/monitored-restore-20261128.json`.

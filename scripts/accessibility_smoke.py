@@ -2,6 +2,7 @@
 import argparse
 from collections import Counter
 from contextlib import closing
+from http.client import HTTPConnection, HTTPException
 import json
 import os
 from pathlib import Path
@@ -13,7 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from urllib.request import urlopen
+from urllib.parse import parse_qs, urlsplit
 
 from playwright.sync_api import expect, sync_playwright
 import pyotp
@@ -184,18 +185,22 @@ from datetime import date, datetime, timedelta, timezone as utc_timezone
 from uuid import uuid4
 from django.utils import timezone
 from core.billing import record_payment, reverse_payment
-from core.models import Invoice, Membership, Payment
+from core.models import Invoice, InvoiceLine, Membership, Payment
 
 customer = Membership.objects.select_related('customer__tenant').get(user__username='pelanggan').customer
 today = timezone.localdate()
 due = today - timedelta(days=1)
-Invoice.objects.bulk_create([
+previous = Invoice.objects.bulk_create([
     Invoice(tenant=customer.tenant, customer=customer, period=date(today.year - 2, month, 1), due_date=due,
             customer_name=customer.name, customer_address='Alamat fiktif', subtotal=150000, total=150000)
     for month in range(1, 13)
 ])
-Invoice.objects.create(tenant=customer.tenant, customer=customer, period=date(today.year - 1, 1, 1),
+upcoming = Invoice.objects.create(tenant=customer.tenant, customer=customer, period=date(today.year - 1, 1, 1),
     due_date=today, customer_name=customer.name, customer_address='Alamat fiktif', subtotal=150000, total=150000)
+InvoiceLine.objects.bulk_create([
+    InvoiceLine(invoice=item, description='Layanan fiktif', quantity=1, unit_price=item.total)
+    for item in [*previous, upcoming]
+])
 invoice = Invoice.objects.get(customer=customer, period=date(today.year - 2, 12, 1))
 operator = Membership.objects.get(tenant=customer.tenant, user__username='owner').user
 posted = [record_payment(customer.tenant, invoice.pk, 1000, uuid4(), operator)[0].pk for _ in range(12)]
@@ -222,10 +227,11 @@ Payment.objects.filter(pk__in=[*posted, corrected.pk]).update(created_at=datetim
         try:
             for _ in range(100):
                 try:
-                    with urlopen(base + '/health/', timeout=.5) as reply:
-                        if reply.status == 200:
+                    with closing(HTTPConnection('127.0.0.1', port, timeout=.5)) as connection:
+                        connection.request('GET', '/health/')
+                        if connection.getresponse().status == 200:
                             break
-                except OSError:
+                except (OSError, HTTPException):
                     time.sleep(.1)
             else:
                 raise RuntimeError('Temporary application failed to start')
@@ -325,6 +331,21 @@ Payment.objects.filter(pk__in=[*posted, corrected.pk]).update(created_at=datetim
                 expect(invoices.get_by_role('row')).to_have_count(2)
                 expect(page.get_by_label('Bulan layanan', exact=True)).to_have_value(portal_period)
                 scan('operator_invoice_month')
+                page.get_by_label('Baris per halaman').select_option('25')
+                page.get_by_role('button', name='Atur', exact=True).click()
+                expect(page.get_by_label('Baris per halaman')).to_have_value('25')
+                saved_filters = parse_qs(urlsplit(page.url).query)
+                invoices.get_by_role('link', name=re.compile('^TN-')).first.click()
+                expect(page.get_by_role('heading', name=re.compile('^TN-'))).to_be_visible()
+                assert parse_qs(urlsplit(page.url).query) == saved_filters
+                scan('operator_invoice_detail_return')
+                page.get_by_role('link', name='Kembali ke faktur').click()
+                assert urlsplit(page.url).path == '/invoices/'
+                assert parse_qs(urlsplit(page.url).query) == saved_filters
+                expect(page.get_by_label('Bulan layanan', exact=True)).to_have_value(portal_period)
+                expect(page.get_by_label('Cari pelanggan')).to_have_value(portal_code)
+                expect(page.get_by_label('Status faktur', exact=True)).to_have_value('overdue')
+                expect(page.get_by_label('Baris per halaman')).to_have_value('25')
                 invalid = page.goto(base + '/invoices/?month=2024-13&size=25')
                 assert invalid.status == 400
                 check_error_focus(page, field='id_month')
@@ -476,6 +497,7 @@ Payment.objects.filter(pk__in=[*posted, corrected.pk]).update(created_at=datetim
         'portal_invoice_month': 'passed',
         'portal_billing_summary': 'passed',
         'operator_invoice_month': 'passed',
+        'operator_invoice_detail_return': 'passed',
     }
     failed = (summary['violating_scans'] or summary['horizontal_overflow'] or summary['keyboard_failed']
               or contrast['flagged']['failed'] or contrast['boundaries']['failed'] or contrast['boundaries']['unresolved'])

@@ -7,7 +7,7 @@ from django.views.decorators.http import require_GET
 
 from .models import Payment
 from .receipts import receipt_context, render_receipt
-from .views import allowed_invoice
+from .views import allowed_invoice, invoice_list_suffix
 
 
 @login_required
@@ -20,6 +20,7 @@ def payment_receipt(request, invoice_pk, payment_pk, pdf=False):
     payment.invoice = invoice
     context = receipt_context(payment, timezone.now())
     if not pdf:
+        context["invoice_list_suffix"] = invoice_list_suffix(request.GET)
         return render(request, "core/payment_receipt.html", context)
     response = HttpResponse(render_receipt(context), content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="{context["receipt_number"]}.pdf"'

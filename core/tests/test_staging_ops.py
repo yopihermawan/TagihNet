@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 from django.test import SimpleTestCase
 from core.backup_archive import encrypt_stream, generate_key
 from core.worker_heartbeat import heartbeat
+from scripts import staging_lab as lab
 from scripts import staging_ops as ops
 
 
@@ -56,11 +57,15 @@ class StagingOperationsTests(SimpleTestCase):
         certificate=SimpleNamespace(not_valid_after_utc=datetime.fromtimestamp(self.now+30*86400,timezone.utc),not_valid_before_utc=datetime.fromtimestamp(self.now-60,timezone.utc))
         for name in ('https.crt','postgres.crt','ca.crt'):
             target=self.root/'secrets'/name;target.parent.mkdir(exist_ok=True);target.write_bytes(b'fixture')
-        response=Mock();response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False)
+        response=Mock()
         response.status=200;response.read.return_value=b'{"status":"ok","mode":"simulation"}'
         with ExitStack() as stack:
-            for name,value in (('compose',compose),('docker',docker),('database_container',Mock(return_value='db')),('urlopen',Mock(return_value=response)),('ssl.create_default_context',Mock(return_value=object())),('x509.load_pem_x509_certificate',Mock(return_value=certificate))):
+            for name,value in (('compose',compose),('docker',docker),('database_container',Mock(return_value='db')),('x509.load_pem_x509_certificate',Mock(return_value=certificate))):
                 stack.enter_context(patch.object(ops,name,value) if '.' not in name else patch('scripts.staging_ops.'+name,value))
+            connection = Mock()
+            connection.getresponse.return_value = response
+            stack.enter_context(patch.object(lab, 'HTTPSConnection', return_value=connection))
+            stack.enter_context(patch.object(lab.ssl, 'create_default_context', return_value=object()))
             yield response,certificate
 
     def test_optional_heartbeat_does_not_write_when_unconfigured(self):
@@ -127,6 +132,21 @@ class StagingOperationsTests(SimpleTestCase):
         self.assertEqual(report['metrics']['billing_due'],0)
         self.assertEqual(report['storage']['filesystems']['postgres_volume']['available_bytes'],819200)
         self.assertIn('BEGIN TRANSACTION READ ONLY',ops.METRICS_SQL)
+
+    def test_https_health_uses_the_fixed_local_target_and_does_not_follow_redirects(self):
+        context = object()
+        connection = Mock()
+        response = connection.getresponse.return_value
+        response.status = 302
+        with (patch.dict(os.environ, {'HTTPS_PROXY': 'http://example.invalid:3128'}),
+              patch.object(lab.ssl, 'create_default_context', return_value=context) as create_context,
+              patch.object(lab, 'HTTPSConnection', return_value=connection) as connect):
+            self.assertFalse(lab.https_health(self.root, 18443))
+        create_context.assert_called_once_with(cafile=str(self.root / 'secrets/ca.crt'))
+        connect.assert_called_once_with('localhost', 18443, context=context, timeout=5)
+        connection.request.assert_called_once_with('GET', '/health/')
+        response.read.assert_not_called()
+        connection.close.assert_called_once()
 
     def test_filesystem_counts_space_available_to_unprivileged_processes(self):
         counters = SimpleNamespace(f_frsize=4096, f_blocks=1000, f_bfree=200, f_bavail=91,

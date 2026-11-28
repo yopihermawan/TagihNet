@@ -12,6 +12,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes
+from django.utils.html import escape
 from django.utils.http import urlsafe_base64_encode
 from core.billing import issue_invoice, record_payment, reverse_payment, totals
 from core.models import AuditEvent, Customer, Invoice, InvoiceLine, Membership, NetworkJob, Payment, Plan, Tenant, month_due
@@ -233,6 +234,31 @@ class WorkflowTests(TestCase):
         self.payment(1000, key)
         with self.assertRaises(ValidationError):
             self.payment(2000, key)
+
+    def test_invoice_list_context_survives_payment_receipt_and_reversal(self):
+        filters = {"q": "Nama & kode", "month": "2026-02", "state": "overdue", "size": "25", "page": "2"}
+        supplied = {**filters, "next": "https://example.invalid/", "tenant_id": self.tenants[1].pk}
+        detail = reverse("invoice_detail", args=[self.invoice.pk], query=filters)
+        payment_form = reverse("payment_create", args=[self.invoice.pk], query=filters)
+        opened = self.client.get(reverse("invoice_detail", args=[self.invoice.pk], query=supplied))
+        self.assertContains(opened, f'action="{escape(payment_form)}"')
+        self.assertNotContains(opened, "https://example.invalid/")
+
+        invalid = self.client.post(payment_form, {"amount": 0, "event_key": uuid.uuid4()})
+        self.assertContains(invalid, f'href="{escape(detail)}"', status_code=400)
+        paid = self.client.post(payment_form, {"amount": 20000, "event_key": uuid.uuid4()})
+        self.assertRedirects(paid, detail)
+        payment = self.invoice.payments.get()
+
+        receipt = reverse("payment_receipt", args=[self.invoice.pk, payment.pk], query=filters)
+        self.assertContains(self.client.get(detail), f'href="{escape(receipt)}"')
+        self.assertContains(self.client.get(receipt), f'href="{escape(detail)}"', count=2)
+
+        reversal = reverse("payment_reverse", args=[payment.pk], query=filters)
+        self.assertContains(self.client.get(detail), f'action="{escape(reversal)}"')
+        reverted = self.client.post(reversal, {"reason": "Koreksi pencatatan uji"})
+        self.assertRedirects(reverted, detail)
+        self.assertTrue(self.invoice.payments.filter(pk=payment.pk, reversal__isnull=False).exists())
 
     def test_browser_cannot_set_price_or_paid_status(self):
         response = self.client.post("/invoices/new/", {"customer": self.customers[0].pk, "period": "2026-03",
