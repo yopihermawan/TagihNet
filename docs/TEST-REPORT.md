@@ -810,3 +810,9 @@ Suite SQLite lokal lulus 939 tes dengan satu tes penguncian PostgreSQL dilewati.
 Pada 29 November 2026 WIB, pengujian commit `0b6d650` mengirim satu email reset melalui server STARTTLS loopback dengan CA sementara dan autentikasi SMTP. Tautan dari email berhasil dipakai sekali. Reset mencabut sesi lama dan login dengan sandi baru tetap meminta faktor kedua.
 
 Alamat yang tidak terdaftar tidak mengirim email. Sertifikat tak tepercaya, penolakan penerima, dan timeout menghasilkan konfirmasi web generik. Log hanya mencatat kegagalan pengiriman. Bukti lokal tersimpan di `data/evidence/reset-smtp-loopback-20261129.json`. Langkah STARTTLS dan suite SQLite lulus di GitHub. [Job backend](https://github.com/yopihermawan/TagihNet/actions/runs/46177716583/job/141080087261#step:9:1)
+
+## Pemeriksaan offline konfigurasi target
+
+Pada 29 November 2026 WIB, CLI pada commit `cdd07bf` menerima konfigurasi fiktif lengkap dan menolak konfigurasi pengembangan. Empat tes mencakup profil yang salah, bentuk host, Secure cookies, kunci, PostgreSQL verify-full, CA rusak atau hilang, port SMTP, autentikasi, dan alamat pengirim. Tes CLI memeriksa kode keluar serta keluaran tanpa nilai atau jalur sensitif. Bukti lokal tersimpan di `data/evidence/deployment-config-20261129.json`. [Cara menjalankan pemeriksaan](RELEASE-RUNBOOK.md#pemeriksaan-konfigurasi-target-produksi)
+
+Suite SQLite lokal lulus 943 tes dengan satu tes khusus PostgreSQL dilewati. Pemeriksaan Django, migrasi, dan STARTTLS loopback juga lulus. CI pada commit yang sama lulus untuk backend, PostgreSQL, browser, dan pemulihan staging. [Hasil CI](https://github.com/yopihermawan/TagihNet/actions/runs/46179028517)
