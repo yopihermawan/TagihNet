@@ -336,11 +336,15 @@ def probe(output,seconds=20,levels=(1,4,8),p95=2000,*,min_free_mib=None,capacity
         port=available_port()
         prepare(directory,port)
         cleanup_needed = False
+        phase = 'image_pin'
         try:
             pin_image(directory, selected_image)
             cleanup_needed = True
+            phase = 'staging_verification'
             identity=verify(directory)
+            phase = 'fixture'
             data=fixture(directory,FIXTURE)
+            phase = 'scope_and_warmup'
             context=ssl.create_default_context(cafile=str(directory/'secrets/ca.crt'))
             cookies={cookie.name:cookie.value for cookie in identity.cookies}
             endpoints=[('dashboard','/',b'Ringkasan billing'),('customers','/customers/?size=50&due=unpaid',b'LOAD-'),
@@ -356,27 +360,35 @@ def probe(output,seconds=20,levels=(1,4,8),p95=2000,*,min_free_mib=None,capacity
                 finally:conn.close()
             warm=Client(port,context,cookies)
             report['warmup']={label:warm.request(path,marker) for label,path,marker in endpoints}
+            phase = 'monitor_start'
             wait_ok(directory)
             monitor=Monitor(directory, selected_image);monitor.thread.start();batch_started=None
             for level in levels:
-                if level==levels[-1]:fixture(directory,START_BATCH);batch_started=time.monotonic()
+                if level==levels[-1]:
+                    phase = 'billing_start'
+                    fixture(directory,START_BATCH);batch_started=time.monotonic()
+                phase = 'load_stage'
                 stage=run_stage([Client(port,context,cookies) for _ in range(level)],endpoints,seconds)
                 report['stages'].append(stage)
                 print('LOAD: '+json.dumps({'concurrency':level,**stage['overall']}),flush=True)
+            phase = 'billing_completion'
             deadline=time.monotonic()+120
             while time.monotonic()<deadline:
                 health=ops.check(directory)
                 if health['metrics'] is not None and health['metrics']['billing_due']==0:break
                 time.sleep(1)
             else:raise RuntimeError('Billing completion timeout')
+            phase = 'billing_integrity'
             report['integrity']=fixture(directory,INTEGRITY)
             report['batch_seconds_to_observation']=round(time.monotonic()-batch_started,2)
+            phase = 'monitor_finish'
             wait_ok(directory)
             report['monitoring']=monitor.finish();monitor=None
             report['failures']=problems(report,p95)
             if any(row['error'] for row in report['warmup'].values()):report['failures'].append('warmup_failed')
             report['status']='passed' if not report['failures'] else 'failed'
         except Exception as error:
+            report['failed_phase'] = phase
             report['failures'].append('probe_'+type(error).__name__ if cleanup_needed else 'load_image_pin_failed')
         finally:
             try:

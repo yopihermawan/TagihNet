@@ -203,6 +203,7 @@ class LoadProbeTests(SimpleTestCase):
                                            capture=True, timeout=15)
             self.assertEqual(result['image_id'], TEST_IMAGE)
             self.assertEqual(result['status'],'failed');self.assertEqual(result['cleanup'],'passed')
+            self.assertEqual(result['failed_phase'], 'staging_verification')
             self.assertEqual(output.stat().st_mode&0o777,0o600)
             self.assertNotIn('private secret',output.read_text())
             self.assertEqual(compose.call_args.args[1:],('down','--volumes','--remove-orphans'))

@@ -56,14 +56,40 @@ jobs:
           if not path.is_file():
               raise SystemExit(0)
           report = json.loads(path.read_text())
-          rows = ['## Staging load', '', f"Result **{report['status']}** with cleanup **{report['cleanup']}**.", '']
-          if report.get('failures'):
-              rows.extend(['Checks that failed', '', *[f'- {code}' for code in report['failures']], ''])
+          result = f"Result {report['status']} with cleanup {report['cleanup']}."
+          level = 'notice' if report['status'] == 'passed' else 'error'
+          failures = ', '.join(report['failures'])
+          phase = report.get('failed_phase')
+          monitor_issues = sorted({issue['code'] for sample in report.get('monitoring', {}).get('samples', [])
+                                   for issue in sample['issues']})
+          details = [result]
+          if failures:
+              details.append(f'Failed checks: {failures}.')
+          if phase:
+              details.append(f'Phase: {phase}.')
+          if monitor_issues:
+              details.append(f"Monitor: {', '.join(monitor_issues)}.")
+          print(f"::{level} title=Staging load result::{' '.join(details)}")
+          rows = ['## Staging load', '', *details, '']
           if report['stages']:
-              rows.extend(['| Clients | Requests | Failures | P95 (ms) |', '| ---: | ---: | ---: | ---: |'])
+              rows.extend(['| Clients | Requests | Failures | P95 (ms) | Worst endpoint P95 (ms) |',
+                           '| ---: | ---: | ---: | ---: | ---: |'])
               for stage in report['stages']:
                   stats = stage['overall']
-                  rows.append(f"| {stage['concurrency']} | {stats['attempts']} | {stats['failures']} | {stats['p95_ms']} |")
+                  endpoints = stage['endpoints']
+                  worst_p95 = max((value['p95_ms'] for value in endpoints.values()
+                                   if value['p95_ms'] is not None), default=None)
+                  print(f"::notice title=Load with {stage['concurrency']} clients::"
+                        f"{stats['attempts']} requests, {stats['failures']} failed, "
+                        f"P95 {stats['p95_ms']} ms, worst endpoint P95 {worst_p95} ms.")
+                  rows.append(f"| {stage['concurrency']} | {stats['attempts']} | {stats['failures']} | "
+                              f"{stats['p95_ms']} | {worst_p95} |")
+                  for name, values in endpoints.items():
+                      p95 = values['p95_ms']
+                      if values['attempts'] < 3 or values['failures'] or p95 is None or p95 > report['p95_limit_ms']:
+                          errors = ', '.join(f'{code}={count}' for code, count in values['errors'].items())
+                          print(f"::warning title=Load check for {name} with {stage['concurrency']} clients::"
+                                f"{values['failures']}/{values['attempts']} failed, P95 {p95} ms. {errors}")
           with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a', encoding='utf-8') as summary:
               summary.write('\n'.join(rows) + '\n')
           PY
