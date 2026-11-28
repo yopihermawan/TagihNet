@@ -6,6 +6,7 @@ import math
 import os
 import socket
 import ssl
+import subprocess
 import sys
 import tempfile
 import threading
@@ -19,7 +20,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT));sys.path.insert(0,str(ROOT/'scripts'))
 from core.backup_archive import atomic_output
-from scripts.staging_lab import compose, docker, manifest, prepare
+from scripts.staging_lab import PG_IMAGE, PREPARE_IMAGE, compose, docker, manifest, prepare
 from scripts import staging_ops as ops
 from scripts.ops_smoke import wait_ok
 from verify_staging import verify
@@ -28,6 +29,7 @@ from verify_staging_backup import shell
 MAX_BODY=2*1024*1024
 CANARY=b'SECOND-TENANT-CANARY'
 LABELS=('dashboard','customers','invoices','profile','report','pdf')
+LOAD_IMAGE = 'tagihnet-staging:local'
 
 FIXTURE='''
 import json,uuid
@@ -245,20 +247,73 @@ def available_port():
         return listener.getsockname()[1]
 
 
-def probe(output,seconds=20,levels=(1,4,8),p95=2000):
+def capacity_report(min_free_mib):
+    if min_free_mib is not None and (type(min_free_mib) is not int or min_free_mib < 1):
+        raise ValueError('Minimum ruang kosong harus bilangan bulat positif dalam MiB.')
+    minimum = min_free_mib * 1024**2 if min_free_mib is not None else None
+    report = {'status': 'unknown', 'issue': 'docker_filesystem_unavailable', 'driver': None,
+              'docker_filesystem': None, 'minimum_free_bytes': minimum}
+    try:
+        driver, capacity = ops.docker_filesystem()
+    except (OSError, subprocess.SubprocessError, TypeError, ValueError):
+        return report
+    report.update(driver=driver, docker_filesystem=capacity)
+    if capacity is None:
+        return report
+    available = capacity['available_bytes']
+    if available == 0 or capacity['available_inodes'] == 0:
+        return {**report, 'status': 'critical', 'issue': 'filesystem_exhausted'}
+    if minimum is not None and available < minimum:
+        return {**report, 'status': 'warning', 'issue': 'filesystem_below_minimum'}
+
+    if driver == 'vfs':
+        try:
+            images = docker('image', 'inspect', PREPARE_IMAGE, PG_IMAGE, LOAD_IMAGE, '--format', '{{.Size}}',
+                            capture=True, timeout=15)
+            prepare_bytes, pg_bytes, app_bytes = map(int, images.stdout.split())
+            if min(prepare_bytes, pg_bytes, app_bytes) <= 0:
+                raise ValueError('Invalid image sizes')
+        except (OSError, subprocess.SubprocessError, TypeError, ValueError):
+            return {**report, 'issue': 'load_image_estimate_unavailable'}
+        # Web, migrate and a transient bootstrap container in addition to the workers.
+        app_copies = len(ops.WORKERS) + 3
+        estimate = prepare_bytes + pg_bytes + app_copies * app_bytes
+        report.update(vfs_app_copies=app_copies, vfs_image_estimate_bytes=estimate,
+                      image_sizes_bytes={'prepare': prepare_bytes, 'postgres': pg_bytes, 'application': app_bytes})
+        if estimate >= available:
+            return {**report, 'status': 'warning', 'issue': 'load_image_estimate_no_headroom'}
+    return {**report, 'status': 'ok', 'issue': None}
+
+
+def probe(output,seconds=20,levels=(1,4,8),p95=2000,*,min_free_mib=None,capacity_only=False):
     levels=list(levels);validate_options(seconds,levels,p95)
     output=Path(output)
     if os.path.lexists(output):raise ValueError('Report already exists; choose a new file')
     report={'version':1,'started_at':datetime.now(timezone.utc).isoformat(),'profile':'local-https-closed-loop',
             'seconds_per_stage':seconds,'levels':levels,'p95_limit_ms':p95,'fixture':{'customers':500,'initial_invoices':1000,'payments':250,'reversals':25,'other_tenants':1},
             'stages':[],'status':'failed','failures':[],'cleanup':'pending'}
+    capacity = capacity_report(min_free_mib)
+    report['capacity'] = capacity
+    refused = (capacity['status'] in {'warning', 'critical'}
+               or (capacity['status'] == 'unknown' and min_free_mib is not None))
+    if capacity_only or refused:
+        if capacity_only:
+            report['profile'] = 'local-docker-capacity'
+        report['cleanup'] = 'not_needed'
+        if capacity['status'] == 'ok':
+            report['status'] = 'passed'
+        else:
+            report['failures'].append(capacity['issue'])
+        with atomic_output(output) as stream:
+            stream.write(json.dumps(report, indent=2, sort_keys=True).encode())
+        return report
     monitor=None
     with tempfile.TemporaryDirectory(prefix='tagihnet-load-') as folder:
         directory=Path(folder)/'stack'
         port=available_port()
         prepare(directory,port)
         try:
-            report['image_id']=docker('image','inspect','tagihnet-staging:local','--format','{{.Id}}',capture=True,timeout=15).stdout.strip()
+            report['image_id']=docker('image','inspect',LOAD_IMAGE,'--format','{{.Id}}',capture=True,timeout=15).stdout.strip()
             identity=verify(directory)
             data=fixture(directory,FIXTURE)
             context=ssl.create_default_context(cafile=str(directory/'secrets/ca.crt'))
@@ -316,10 +371,15 @@ def main():
     parser.add_argument('--seconds',type=int,default=20)
     parser.add_argument('--levels',type=int,nargs='+',default=[1,4,8])
     parser.add_argument('--p95-ms',type=int,default=2000)
+    parser.add_argument('--min-free-mib', type=int, help='Ambang tambahan ruang kosong Docker dalam MiB.')
+    parser.add_argument('--capacity-only', action='store_true', help='Ukur ruang Docker tanpa membuat proyek uji.')
     args=parser.parse_args()
     try:
-        result=probe(args.output,args.seconds,args.levels,args.p95_ms)
-        print('LOAD RESULT: '+json.dumps({'status':result['status'],'failures':result['failures'],'cleanup':result['cleanup'],'output':str(args.output)}))
+        result=probe(args.output,args.seconds,args.levels,args.p95_ms,
+                     min_free_mib=args.min_free_mib,capacity_only=args.capacity_only)
+        print('LOAD RESULT: '+json.dumps({'profile':result['profile'],'status':result['status'],
+            'capacity_status':result['capacity']['status'],'failures':result['failures'],
+            'cleanup':result['cleanup'],'output':str(args.output)}))
         return 0 if result['status']=='passed' else 1
     except Exception as error:parser.exit(1,'Load probe refused: '+type(error).__name__+'; no credentials/diagnostics printed.\n')
 

@@ -786,3 +786,9 @@ Setelah cloud kembali aktif pada 28 November WIB, koneksi probe melalui proxy me
 Pada 28 November 2026 WIB, image dari commit `8e12fa9` lulus pemeriksaan isi, dependensi, kecocokan skema, dan fungsi penerus konteks daftar dalam probe baca-saja melalui TLS. Backup terpantau 28 November dipulihkan ulang saat worker dijeda. Seluruh 62 tabel, 327 baris, metadata kolom, dan 57 sequence cocok sebelum dan sesudah penerapan.
 
 Staging utama memakai image `sha256:bd9cc62300370ef3adf2529900e9de67e07c120ca7b43f8661405a35ccef2c94` setelah pergantian container aplikasi satu per satu. Preflight lulus. Halaman login, aset statis, database, dan ketiga worker lolos pemeriksaan. Clone pemulihan sehat dengan worker tertahan dan image rollback tersedia. Watcher kembali aktif dan mencatat peringatan penyimpanan pada sekitar 1.380 MiB tersedia. Ambang yang dipakai 1.536 MiB. Bukti privat tersedia di `data/evidence/staging-invoice-return-rollout-20261128.json`.
+
+## Pemeriksaan ruang sebelum uji beban staging
+
+Tiga tes baru memeriksa estimasi VFS pada puncak provisioning, penolakan sebelum memilih port atau membuat proyek, mode baca-saja pada filesystem yang cukup, serta kondisi kapasitas tidak terukur. PostgreSQL lulus 935 tes. SQLite lulus 934 tes dengan satu tes penguncian PostgreSQL dilewati. Pemeriksaan Django dan migrasi bersih.
+
+Pada host cloud, `--capacity-only` melaporkan sekitar 1.380 MiB tersedia dan estimasi image sekitar 1.741 MiB. Perintah selesai dengan kode 1 dan `cleanup` bernilai `not_needed`. Proyek aktif dan clone lolos pemeriksaan layanan. Bukti privat tersedia di `data/evidence/staging-load-capacity-20261128.json`. [Cara menjalankan pemeriksaan](STAGING-LOAD.md#periksa-kapasitas-sebelum-uji)

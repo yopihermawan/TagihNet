@@ -29,7 +29,7 @@ Nomor kriteria mengikuti brief awal. Istilah **Simulasi** menunjukkan alur yang 
 
 ## Bukti yang dijalankan ulang
 
-- PostgreSQL lulus 932 tes. SQLite lulus 931 tes dengan satu tes penguncian PostgreSQL dilewati. Pada pengujian 22 November, lab PostgreSQL juga lulus 17 skenario lintas proses dan dua latihan pemulihan pada database terpisah. [Laporan pengujian](TEST-REPORT.md)
+- PostgreSQL lulus 935 tes. SQLite lulus 934 tes dengan satu tes penguncian PostgreSQL dilewati. Pada pengujian 22 November, lab PostgreSQL juga lulus 17 skenario lintas proses dan dua latihan pemulihan pada database terpisah. [Laporan pengujian](TEST-REPORT.md)
 - Sepuluh alur Chromium memakai akun fiktif. Alur utama mencakup login TOTP, pelanggan, faktur, pembayaran simulasi, reversal, dan logout. `collectstatic`, faktur multipage dan kuitansi A4 lulus.
 - Metadata PyPI untuk 16 versi runtime terkunci berhasil diperiksa. Tidak ada advisory aktif yang tercantum pada saat pemeriksaan. [Cakupan audit keamanan](SECURITY-AUDIT.md)
 - Pemeriksaan 347 file teks terlacak pada snapshot aplikasi mencakup format kunci privat PEM dan pola token GitHub, AWS, serta Slack. Hasilnya nol kecocokan pada pola yang diperiksa.
@@ -49,3 +49,5 @@ Nomor kriteria mengikuti brief awal. Istilah **Simulasi** menunjukkan alur yang 
 Pemulihan Compose dari backup terpantau 23 November mencocokkan 62 tabel, 327 baris, metadata kolom, dan 57 sequence. Setelah image kandidat diterapkan pada staging utama, ruang Docker yang tersedia sekitar 1,85 GiB dan estimasi pemulihan 0,90 GiB. Matriks fitur mencatat pengembangan tersisa, termasuk siklus penagihan fleksibel, cakupan wilayah, dan portal lanjutan. [Prosedur estimasi ruang](STAGING-OPERATIONS.md#estimasi-ruang-pemulihan-docker) · [Matriks fitur](FEATURE-MATRIX.md)
 
 Backup terpantau 28 November pukul 18.47 WIB lulus pemulihan ulang pada lab PostgreSQL. Jumlah baris, isi tabel, kolom, dan sequence cocok dengan staging sumber. Bukti privat tersedia di `data/evidence/monitored-restore-20261128.json`.
+
+Pemeriksaan baca-saja uji beban Compose memperkirakan sekitar 1.741 MiB untuk image dengan sekitar 1.380 MiB tersedia pada Docker VFS. Selisih perkiraan sekitar 361 MiB sebelum ruang untuk volume database dan overhead. [Pemeriksaan kapasitas uji beban](STAGING-LOAD.md#periksa-kapasitas-sebelum-uji)

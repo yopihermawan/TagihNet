@@ -9,9 +9,19 @@ Checkpoint 15 November 2026 WIB. Ini pengukuran singkat pada data fiktif dan mes
 .venv/bin/python scripts/staging_load.py --output data/evidence/staging-load-baru.json
 ```
 
-Pada cloud dengan proxy CA, opsi build yang sudah diuji tetap `--proxy-ca-file /etc/ssl/certs/ca-certificates.crt`. TLS tidak dinonaktifkan. Script selalu membuat direktori/proyek/CA/password/volume baru di temporary directory, memilih port loopback dan membersihkan hanya stack itu. Tidak ada argumen URL atau direktori staging tujuan; source `data/staging`, clone recovery dan default SQLite tidak dipakai sebagai target beban. File laporan yang sudah ada atau symlink ditolak sebelum provisioning.
+Pada cloud dengan proxy CA, opsi build yang sudah diuji tetap `--proxy-ca-file /etc/ssl/certs/ca-certificates.crt`. Saat uji berjalan, script membuat direktori, proyek, CA, password, dan volume baru di temporary directory. Script memilih port loopback dan membersihkan hanya stack uji itu. Target uji selalu proyek sementara ini. File laporan yang sudah ada atau symlink ditolak sebelum provisioning.
 
 Default: tahap20detik pada1,4,8 klien. Opsi `--seconds`5–60, `--levels`1–16 dengan maksimal4 level unik/urut, `--p95-ms`100–10000. Jangan memakai batas baru untuk mengubah hasil gagal menjadi lulus; hasil pembanding perlu menyebut konfigurasi. Budget awal yang dipakai checkpoint ini adalah p95 maksimal2000ms **pada setiap endpoint di setiap tahap**, nol kegagalan dan minimal3 sampel per endpoint. Latensi seluruh percobaan termasuk timeout/kegagalan dihitung; sampel kosong bernilai null, bukan nol. Exit0 hanya jika seluruh gate dan cleanup lulus.
+
+### Periksa kapasitas sebelum uji
+
+```bash
+.venv/bin/python scripts/staging_load.py --capacity-only --output data/evidence/staging-load-capacity-baru.json
+```
+
+Mode ini mengukur filesystem Docker tanpa memilih port atau membuat proyek uji. Pada driver VFS, estimasi memakai satu image BusyBox, satu image PostgreSQL, dan enam salinan `tagihnet-staging:local`. Enam salinan itu mencakup web, migrasi, tiga worker, dan satu container bootstrap sementara. Sisakan ruang tambahan untuk database, WAL, build, dan aktivitas host lainnya.
+
+Uji beban biasa berhenti sebelum provisioning jika byte atau inode habis, estimasi image VFS menyamai atau melebihi ruang tersedia, atau ruang di bawah `--min-free-mib` yang diminta. Saat hasil ukur `unknown`, mode `--capacity-only` dan uji dengan `--min-free-mib` keluar dengan status gagal. Uji biasa tanpa ambang tambahan tetap mencatat hasil `unknown` di laporan. Laporan memberi nilai `not_needed` pada `cleanup` ketika belum ada proyek uji. Hasil `passed` pada profil `local-docker-capacity` menunjukkan pemeriksaan ruang lulus.
 
 ## Profil dan pengukuran
 

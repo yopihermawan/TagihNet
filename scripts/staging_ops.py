@@ -195,17 +195,20 @@ def storage_snapshot(directory, config, container, min_free_mib=None):
     return {'status': status, 'filesystems': filesystems, 'minimum_free_bytes': minimum, 'issues': issues}
 
 
+def docker_filesystem():
+    info = docker('info', '--format', '[{{json .Driver}},{{json .DockerRootDir}}]', capture=True, timeout=15)
+    driver, root = json.loads(info.stdout)
+    if not isinstance(driver, str) or not driver or not Path(root).is_absolute():
+        raise ValueError('Invalid Docker storage metadata')
+    return driver, host_filesystem(Path(root))
+
+
 def recovery_storage_plan(image_id, container):
     """Estimate space for the four containers and database of a fresh VFS recovery."""
     plan = {'status': 'unknown', 'issue': 'recovery_plan_unavailable', 'driver': None, 'docker_filesystem': None}
     try:
-        info = docker('info', '--format', '[{{json .Driver}},{{json .DockerRootDir}}]', capture=True, timeout=15)
-        driver, root = json.loads(info.stdout)
-        if not isinstance(driver, str) or not Path(root).is_absolute():
-            return plan
-        plan['driver'] = driver
-        capacity = host_filesystem(Path(root))
-        plan['docker_filesystem'] = capacity
+        driver, capacity = docker_filesystem()
+        plan.update(driver=driver, docker_filesystem=capacity)
         if capacity is None:
             return plan
         if capacity['available_bytes'] == 0 or capacity['available_inodes'] == 0:
