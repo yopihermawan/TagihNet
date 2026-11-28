@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/staging-load.yml'
       - 'scripts/staging_load.py'
+      - 'scripts/staging_portal_load.py'
       - 'scripts/staging_lab.py'
       - 'scripts/staging_ops.py'
       - 'scripts/verify_staging.py'
@@ -22,8 +23,15 @@ permissions:
   contents: read
 jobs:
   load:
+    name: Load (${{ matrix.profile }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [operator, portal]
+    env:
+      TAGIHNET_LOAD_PROFILE: ${{ matrix.profile }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -43,7 +51,7 @@ jobs:
       - name: Measure the pinned staging image
         env:
           TAGIHNET_LOAD_IMAGE_ID: ${{ steps.staging_image.outputs.id }}
-        run: python scripts/staging_load.py --image-id "$TAGIHNET_LOAD_IMAGE_ID" --output data/evidence/staging-load-ci.json
+        run: python scripts/staging_load.py --profile "$TAGIHNET_LOAD_PROFILE" --image-id "$TAGIHNET_LOAD_IMAGE_ID" --output data/evidence/staging-load-ci.json
       - name: Summarize the load report
         if: always()
         run: |
@@ -56,6 +64,7 @@ jobs:
           if not path.is_file():
               raise SystemExit(0)
           report = json.loads(path.read_text())
+          profile = os.environ['TAGIHNET_LOAD_PROFILE'].capitalize()
           result = f"Result {report['status']} with cleanup {report['cleanup']}."
           level = 'notice' if report['status'] == 'passed' else 'error'
           failures = ', '.join(report['failures'])
@@ -69,8 +78,14 @@ jobs:
               details.append(f'Phase: {phase}.')
           if monitor_issues:
               details.append(f"Monitor: {', '.join(monitor_issues)}.")
-          print(f"::{level} title=Staging load result::{' '.join(details)}")
-          rows = ['## Staging load', '', *details, '']
+          if 'scope_checks' in report:
+              scope = report['scope_checks']
+              details.append(f"Scope: {scope['foreign_documents']} foreign documents denied and "
+                             f"{scope['invalid_months']} invalid months rejected.")
+          if 'billing_rows_unchanged' in report.get('integrity', {}):
+              details.append(f"Billing rows unchanged: {report['integrity']['billing_rows_unchanged']}.")
+          print(f"::{level} title={profile} staging load result::{' '.join(details)}")
+          rows = [f'## {profile} staging load', '', *details, '']
           if report['stages']:
               rows.extend(['| Clients | Requests | Failures | P95 (ms) | Worst endpoint P95 (ms) |',
                            '| ---: | ---: | ---: | ---: | ---: |'])
@@ -79,7 +94,7 @@ jobs:
                   endpoints = stage['endpoints']
                   worst_p95 = max((value['p95_ms'] for value in endpoints.values()
                                    if value['p95_ms'] is not None), default=None)
-                  print(f"::notice title=Load with {stage['concurrency']} clients::"
+                  print(f"::notice title={profile} load with {stage['concurrency']} clients::"
                         f"{stats['attempts']} requests, {stats['failures']} failed, "
                         f"P95 {stats['p95_ms']} ms, worst endpoint P95 {worst_p95} ms.")
                   rows.append(f"| {stage['concurrency']} | {stats['attempts']} | {stats['failures']} | "
@@ -88,7 +103,7 @@ jobs:
                       p95 = values['p95_ms']
                       if values['attempts'] < 3 or values['failures'] or p95 is None or p95 > report['p95_limit_ms']:
                           errors = ', '.join(f'{code}={count}' for code, count in values['errors'].items())
-                          print(f"::warning title=Load check for {name} with {stage['concurrency']} clients::"
+                          print(f"::warning title={profile} load check for {name} with {stage['concurrency']} clients::"
                                 f"{values['failures']}/{values['attempts']} failed, P95 {p95} ms. {errors}")
           with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a', encoding='utf-8') as summary:
               summary.write('\n'.join(rows) + '\n')
@@ -96,7 +111,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: local-staging-load
+          name: local-staging-load-${{ matrix.profile }}
           path: data/evidence/staging-load-ci.json
           retention-days: 7
           if-no-files-found: ignore

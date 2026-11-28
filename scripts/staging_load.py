@@ -1,4 +1,4 @@
-"""Bounded HTTPS read load and concurrent billing on a newly created disposable staging stack."""
+"""Bounded HTTPS load on a newly created disposable staging stack."""
 import argparse
 import http.client
 import json
@@ -22,7 +22,7 @@ ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT));sys.path.insert(0,str(ROOT/'scripts'))
 from core.backup_archive import atomic_output
 from scripts.staging_lab import PG_IMAGE, PREPARE_IMAGE, compose, docker, manifest, pin_image, prepare
-from scripts import staging_ops as ops
+from scripts import staging_ops as ops, staging_portal_load as portal
 from scripts.ops_smoke import wait_ok
 from verify_staging import verify
 from verify_staging_backup import shell
@@ -127,26 +127,29 @@ def summary(samples,elapsed):
             'max_ms':round(max(durations),2) if durations else None}
 
 
-def response_problem(status,content_type,body,marker):
-    if status!=200:return 'http_status'
+def response_problem(status,content_type,body,marker,*,expected_status=200,forbidden=()):
+    if status!=expected_status:return 'http_status'
     if len(body)>MAX_BODY:return 'response_too_large'
-    if CANARY in body:return 'tenant_canary'
-    expected='application/pdf' if marker==b'%PDF-' else 'text/html'
-    if expected not in content_type or marker not in body:return 'unexpected_body'
+    if CANARY in body or any(value in body for value in forbidden):return 'tenant_canary'
+    markers = (marker,) if isinstance(marker, bytes) else marker
+    expected='application/pdf' if b'%PDF-' in markers else 'text/html'
+    if expected not in content_type or any(value not in body for value in markers):return 'unexpected_body'
     return None
 
 
 class Client:
-    def __init__(self,port,context,cookies):
+    def __init__(self,port,context,cookies,*,forbidden=()):
         self.port=port;self.context=context;self.cookies=dict(cookies)
+        self.forbidden = forbidden
 
-    def request(self,path,marker):
+    def request(self,path,marker,*,expected_status=200):
         started=time.perf_counter();connection=None;error=None
         try:
             connection=http.client.HTTPSConnection('localhost',self.port,context=self.context,timeout=10)
             connection.request('GET',path,headers={'Cookie':'; '.join(k+'='+v for k,v in self.cookies.items())})
             response=connection.getresponse();body=response.read(MAX_BODY+1)
-            error=response_problem(response.status,response.getheader('Content-Type',''),body,marker)
+            error=response_problem(response.status,response.getheader('Content-Type',''),body,marker,
+                                   expected_status=expected_status,forbidden=self.forbidden)
             for name,value in response.getheaders():
                 if name.lower()=='set-cookie':
                     updated=SimpleCookie();updated.load(value)
@@ -157,22 +160,45 @@ class Client:
         return {'ms':(time.perf_counter()-started)*1000,'error':error}
 
 
-def run_stage(clients,endpoints,seconds):
-    ready=threading.Barrier(len(clients)+1);started=[0.0]
-    def run(number,client):
+def run_stage(sessions,seconds):
+    ready=threading.Barrier(len(sessions)+1);started=[0.0]
+    def run(number,client,endpoints):
         ready.wait();rows=[];index=number
         while time.perf_counter()<started[0]+seconds:
             label,path,marker=endpoints[index%len(endpoints)]
             rows.append({'label':label,**client.request(path,marker)});index+=1
             if len(rows)>=10000:break
         return rows
-    with ThreadPoolExecutor(max_workers=len(clients)) as pool:
-        futures=[pool.submit(run,n,client) for n,client in enumerate(clients)]
+    with ThreadPoolExecutor(max_workers=len(sessions)) as pool:
+        futures=[pool.submit(run,n,client,endpoints) for n,(client,endpoints) in enumerate(sessions)]
         started[0]=time.perf_counter();ready.wait()
         samples=[row for future in futures for row in future.result()]
     elapsed=time.perf_counter()-started[0]
-    return {'concurrency':len(clients),'duration_seconds':round(elapsed,3),'overall':summary(samples,elapsed),
-            'endpoints':{name:summary([r for r in samples if r['label']==name],elapsed) for name,_,_ in endpoints}}
+    return {'concurrency':len(sessions),'duration_seconds':round(elapsed,3),'overall':summary(samples,elapsed),
+            'endpoints':{name:summary([r for r in samples if r['label']==name],elapsed) for name,_,_ in sessions[0][1]}}
+
+
+def portal_sessions(port, context, data, report):
+    accounts = data['accounts']
+    report['scope_checks'] = {'foreign_documents': 0, 'invalid_months': 0}
+    sessions = []
+    for index, account in enumerate(accounts):
+        cookies = portal.login(port, context, account)
+        unrelated = [account['peer'], accounts[1 - index]['own']]
+        forbidden = tuple(text.encode() for ref in unrelated for text in (ref['number'], ref['receipt']))
+        client = Client(port, context, cookies, forbidden=forbidden)
+        for ref in unrelated:
+            for kind in ('invoice', 'invoice_pdf', 'receipt', 'receipt_pdf'):
+                if client.request(ref[kind], (), expected_status=404)['error']:
+                    raise AssertionError('Portal document permission check failed')
+                report['scope_checks']['foreign_documents'] += 1
+        for path in ('/portal/', '/portal/payments/'):
+            invalid = client.request(path + '?month=2026-13', b'Gunakan bulan yang valid', expected_status=400)
+            if invalid['error']:
+                raise AssertionError('Portal month validation failed')
+            report['scope_checks']['invalid_months'] += 1
+        sessions.append((client.cookies, portal.routes(account, data['month']), forbidden))
+    return sessions
 
 
 def resource_bytes(text):
@@ -301,14 +327,19 @@ def capacity_report(min_free_mib, image_id):
     return {**report, 'status': 'ok', 'issue': None}
 
 
-def probe(output,seconds=20,levels=(1,4,8),p95=2000,*,min_free_mib=None,capacity_only=False,image_id=None):
+def probe(output,seconds=20,levels=(1,4,8),p95=2000,*,min_free_mib=None,capacity_only=False,image_id=None,profile='operator'):
     levels = list(levels)
     validate_options(seconds, levels, p95, min_free_mib=min_free_mib, image_id=image_id)
+    if profile not in ('operator', 'portal'):
+        raise ValueError('Profil uji harus operator atau portal.')
+    is_portal = profile == 'portal'
     output=Path(output)
     if os.path.lexists(output):raise ValueError('Report already exists; choose a new file')
     report={'version':1,'started_at':datetime.now(timezone.utc).isoformat(),'profile':'local-https-closed-loop',
             'seconds_per_stage':seconds,'levels':levels,'p95_limit_ms':p95,'fixture':{'customers':500,'initial_invoices':1000,'payments':250,'reversals':25,'other_tenants':1},
             'stages':[],'status':'failed','failures':[],'cleanup':'pending'}
+    if is_portal:
+        report.update(profile='portal-https-closed-loop', fixture=portal.FIXTURE_COUNTS.copy())
     try:
         selected_image = resolve_image(image_id)
     except (OSError, subprocess.SubprocessError, TypeError, ValueError):
@@ -343,44 +374,60 @@ def probe(output,seconds=20,levels=(1,4,8),p95=2000,*,min_free_mib=None,capacity
             phase = 'staging_verification'
             identity=verify(directory)
             phase = 'fixture'
-            data=fixture(directory,FIXTURE)
+            data=fixture(directory,portal.FIXTURE if is_portal else FIXTURE)
             phase = 'scope_and_warmup'
             context=ssl.create_default_context(cafile=str(directory/'secrets/ca.crt'))
-            cookies={cookie.name:cookie.value for cookie in identity.cookies}
-            endpoints=[('dashboard','/',b'Ringkasan billing'),('customers','/customers/?size=50&due=unpaid',b'LOAD-'),
-                ('invoices','/invoices/?state=overdue&size=50',b'Faktur'),('profile',f"/customers/{data['customer']}/?tab=invoices",b'LOAD-0001'),
-                ('report',f"/reports/billing/?mode=receivables&start={data['start']}&end={data['today']}",b'Rekonsiliasi piutang'),
-                ('pdf',f"/invoices/{data['invoice']}/pdf/",b'%PDF-')]
-            # Scope negatives must return404, never redirect to a successful login page.
-            for path in (f"/customers/{data['other_customer']}/",f"/invoices/{data['other_invoice']}/pdf/"):
-                conn=http.client.HTTPSConnection('localhost',port,context=context,timeout=10)
-                try:
-                    conn.request('GET',path,headers={'Cookie':'; '.join(k+'='+v for k,v in cookies.items())})
-                    response=conn.getresponse();assert response.status==404;response.read(MAX_BODY+1)
-                finally:conn.close()
-            warm=Client(port,context,cookies)
-            report['warmup']={label:warm.request(path,marker) for label,path,marker in endpoints}
+            if is_portal:
+                sessions = portal_sessions(port, context, data, report)
+                baseline = fixture(directory, portal.SNAPSHOT)
+            else:
+                cookies={cookie.name:cookie.value for cookie in identity.cookies}
+                endpoints=[('dashboard','/',b'Ringkasan billing'),('customers','/customers/?size=50&due=unpaid',b'LOAD-'),
+                    ('invoices','/invoices/?state=overdue&size=50',b'Faktur'),('profile',f"/customers/{data['customer']}/?tab=invoices",b'LOAD-0001'),
+                    ('report',f"/reports/billing/?mode=receivables&start={data['start']}&end={data['today']}",b'Rekonsiliasi piutang'),
+                    ('pdf',f"/invoices/{data['invoice']}/pdf/",b'%PDF-')]
+                client = Client(port, context, cookies)
+                for path in (f"/customers/{data['other_customer']}/", f"/invoices/{data['other_invoice']}/pdf/"):
+                    if client.request(path, (), expected_status=404)['error']:
+                        raise AssertionError('Operator document permission check failed')
+                sessions = [(client.cookies, endpoints, ())]
+            report['warmup'] = {}
+            for number, (cookies, endpoints, forbidden) in enumerate(sessions, 1):
+                client = Client(port, context, cookies, forbidden=forbidden)
+                report['warmup'].update({f'{number}:{label}' if is_portal else label: client.request(path, marker)
+                                         for label, path, marker in endpoints})
             phase = 'monitor_start'
             wait_ok(directory)
             monitor=Monitor(directory, selected_image);monitor.thread.start();batch_started=None
             for level in levels:
-                if level==levels[-1]:
+                if not is_portal and level==levels[-1]:
                     phase = 'billing_start'
                     fixture(directory,START_BATCH);batch_started=time.monotonic()
                 phase = 'load_stage'
-                stage=run_stage([Client(port,context,cookies) for _ in range(level)],endpoints,seconds)
+                clients = []
+                for index in range(level):
+                    cookies, endpoints, forbidden = sessions[index % len(sessions)]
+                    clients.append((Client(port, context, cookies, forbidden=forbidden), endpoints))
+                stage=run_stage(clients,seconds)
                 report['stages'].append(stage)
                 print('LOAD: '+json.dumps({'concurrency':level,**stage['overall']}),flush=True)
-            phase = 'billing_completion'
-            deadline=time.monotonic()+120
-            while time.monotonic()<deadline:
-                health=ops.check(directory)
-                if health['metrics'] is not None and health['metrics']['billing_due']==0:break
-                time.sleep(1)
-            else:raise RuntimeError('Billing completion timeout')
             phase = 'billing_integrity'
-            report['integrity']=fixture(directory,INTEGRITY)
-            report['batch_seconds_to_observation']=round(time.monotonic()-batch_started,2)
+            if is_portal:
+                unchanged = baseline == fixture(directory, portal.SNAPSHOT)
+                report['integrity'] = {'billing_rows_unchanged': unchanged}
+                if not unchanged:
+                    raise AssertionError('Portal reads changed the billing fixture')
+            else:
+                phase = 'billing_completion'
+                deadline=time.monotonic()+120
+                while time.monotonic()<deadline:
+                    health=ops.check(directory)
+                    if health['metrics'] is not None and health['metrics']['billing_due']==0:break
+                    time.sleep(1)
+                else:raise RuntimeError('Billing completion timeout')
+                phase = 'billing_integrity'
+                report['integrity']=fixture(directory,INTEGRITY)
+                report['batch_seconds_to_observation']=round(time.monotonic()-batch_started,2)
             phase = 'monitor_finish'
             wait_ok(directory)
             report['monitoring']=monitor.finish();monitor=None
@@ -414,10 +461,11 @@ def main():
     parser.add_argument('--min-free-mib', type=int, help='Ambang tambahan ruang kosong Docker dalam MiB.')
     parser.add_argument('--capacity-only', action='store_true', help='Ukur ruang Docker tanpa membuat proyek uji.')
     parser.add_argument('--image-id', help='Gunakan ID image lokal sha256 lengkap untuk uji.')
+    parser.add_argument('--profile', choices=('operator', 'portal'), default='operator')
     args=parser.parse_args()
     try:
         result=probe(args.output,args.seconds,args.levels,args.p95_ms,
-                     min_free_mib=args.min_free_mib,capacity_only=args.capacity_only,image_id=args.image_id)
+                     min_free_mib=args.min_free_mib,capacity_only=args.capacity_only,image_id=args.image_id,profile=args.profile)
         print('LOAD RESULT: '+json.dumps({'profile':result['profile'],'status':result['status'],
             'image_id':result['image_id'],'capacity_status':result['capacity']['status'],'failures':result['failures'],
             'cleanup':result['cleanup'],'output':str(args.output)}))

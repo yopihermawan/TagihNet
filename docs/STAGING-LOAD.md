@@ -65,7 +65,7 @@ Worker menyelesaikan500 faktur baru:1500 faktur total,250 pembayaran/25 reversal
 
 ## CI dan batas
 
-Workflow `.github/workflows/staging-load.yml` berjalan pada push ke `main` yang mengubah workflow, tool uji, atau konfigurasi build staging. Workflow juga menerima `workflow_dispatch`. Runner `ubuntu-latest` membangun image dari commit yang diuji dan memakai ID lengkap hasil build untuk `staging_load.py`. Anotasi Actions menampilkan status pembersihan, hasil per tingkat klien, dan kode pemeriksaan yang gagal. Laporan JSON agregat tersimpan selama tujuh hari. Angka antarhost dapat berbeda.
+Workflow `.github/workflows/staging-load.yml` berjalan pada push ke `main` yang mengubah workflow, tool uji, atau konfigurasi build staging. Workflow juga menerima `workflow_dispatch`. Profil operator dan portal berjalan sebagai job terpisah. Setiap runner `ubuntu-latest` membangun image dari commit yang diuji dan memakai ID lengkap hasil build. Anotasi Actions menampilkan status pembersihan, hasil per tingkat klien, dan kode pemeriksaan yang gagal. Laporan JSON agregat tersimpan selama tujuh hari. Angka antarhost dapat berbeda.
 
 Ini belum menguji peak traffic dengan laju tetap, ribuan sesi/tenant, banyak pembayaran POST serentak, data bertahun-tahun, PDF besar, external WAN, soak panjang, failover, restore di server lain, atau performa real adapter. Infrastruktur produksi masih memerlukan pengujian dengan hardware/data/traffic target, retensi/offsite dan integrasi nyata.
 
@@ -94,3 +94,13 @@ Pengukuran alternatif memakai Gunicorn HTTPS pada host dan database sementara di
 | 8 | 1.172 | 0 | 58,21 | 193,54 | 210,44 |
 
 Database sementara berukuran sekitar 13 MiB dan dibersihkan setelah tes. Isi tabel bisnis, metadata kolom, dan sequence cocok sebelum dan sesudah pengukuran. Pengukuran host memakai profil lab PostgreSQL dan sumber daya host. Kapasitas Compose dengan batas resource container, PostgreSQL verify-full, serta worker bersamaan masih perlu diukur pada host dengan ruang Docker memadai. Bukti privat tersedia di `data/evidence/portal-pg-lab-load-20261123.json`.
+
+### Profil portal pada Compose
+
+```bash
+.venv/bin/python scripts/staging_load.py --profile portal --image-id "$STAGING_IMAGE_ID" --output data/evidence/staging-portal-load-baru.json
+```
+
+Profil ini membuat 500 pelanggan di dua ISP fiktif, 2.000 faktur, 8.500 pembayaran, dan 500 reversal. Dua akun pelanggan masuk melalui HTTPS. Klien bergantian memakai akun pada tahap dengan beberapa klien. Empat rute mengukur daftar tagihan, filter bulan dan tunggakan, halaman kedua pembayaran pada bulan WIB, serta kuitansi yang direversal. Permintaan berjalan dengan worker aktif dan tanpa membuat batch faktur baru.
+
+Sebelum uji, 16 akses dokumen lintas pelanggan atau ISP harus menerima HTTP 404 dan empat permintaan bulan tidak valid harus menerima HTTP 400. Isi tabel pelanggan, faktur, baris faktur, pembayaran, dan reversal dicocokkan sebelum dan sesudah pengukuran. Standar sampel, p95, kesehatan dan pembersihan sama dengan profil operator.

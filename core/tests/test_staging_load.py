@@ -1,9 +1,14 @@
+import io
 import json
 import tempfile
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock,patch
-from django.test import SimpleTestCase
+from django.contrib.auth import get_user_model
+from django.test import Client, SimpleTestCase, TestCase, override_settings
+from core.models import Membership, Tenant
 from scripts import staging_load as load
+from scripts import staging_portal_load as portal
 
 
 TEST_IMAGE = 'sha256:' + 'a' * 64
@@ -36,6 +41,15 @@ class LoadProbeTests(SimpleTestCase):
 
     def test_other_tenant_canary_rejects_even_successful_page(self):
         self.assertEqual(load.response_problem(200,'text/html',b'Faktur '+load.CANARY,b'Faktur'),'tenant_canary')
+
+    def test_portal_body_requires_own_markers_and_rejects_foreign_markers(self):
+        required = (b'own document', b'correction')
+        foreign = (b'foreign document',)
+        self.assertIsNone(load.response_problem(200, 'text/html', b'own document correction', required, forbidden=foreign))
+        self.assertEqual(load.response_problem(200, 'text/html', b'correction', required), 'unexpected_body')
+        self.assertEqual(load.response_problem(200, 'text/html', b'own document correction foreign document',
+                                               required, forbidden=foreign), 'tenant_canary')
+        self.assertIsNone(load.response_problem(404, 'text/html', b'Not found', (), expected_status=404))
 
     def test_tls_context_is_passed_to_fixed_local_target(self):
         response=Mock();response.status=200;response.getheader.return_value='text/html';response.read.return_value=b'Faktur'
@@ -218,3 +232,44 @@ class LoadProbeTests(SimpleTestCase):
                 result=load.probe(output)
             self.assertEqual(result['cleanup'],'failed');self.assertEqual(result['status'],'failed')
             self.assertIn('cleanup_failed',result['failures'])
+
+
+@override_settings(SIMULATION=True)
+class PortalLoadFixtureTests(TestCase):
+    def fixture(self, code):
+        output = io.StringIO()
+        with redirect_stdout(output):
+            exec(code, {})
+        return json.loads(output.getvalue().split('LOAD:', 1)[1])
+
+    def test_disposable_fixture_produces_two_scoped_sessions_and_stable_ledger(self):
+        tenant = Tenant.objects.create(name='ISP uji beban')
+        owner = get_user_model().objects.create_user(username='staging-owner')
+        Membership.objects.create(user=owner, tenant=tenant, role='owner')
+        data = self.fixture(portal.FIXTURE)
+        baseline = self.fixture(portal.SNAPSHOT)
+        self.assertEqual({key: value[0] for key, value in baseline.items()},
+                         {'customer': 500, 'invoice': 2000, 'invoiceline': 2000, 'payment': 8500,
+                          'paymentreversal': 500})
+        for index, account in enumerate(data['accounts']):
+            client = Client(enforce_csrf_checks=True)
+            self.assertEqual(client.get('/login/', secure=True).status_code, 200)
+            response = client.post('/login/', {
+                'username': account['username'], 'password': account['password'],
+                'csrfmiddlewaretoken': client.cookies['csrftoken'].value,
+            }, secure=True, HTTP_ORIGIN='https://testserver')
+            self.assertRedirects(response, '/portal/', fetch_redirect_response=False)
+
+            foreign = (account['peer'], data['accounts'][1 - index]['own'])
+            forbidden = tuple(item[key].encode() for item in foreign for key in ('number', 'receipt'))
+            for label, path, marker in portal.routes(account, data['month']):
+                response = client.get(path, secure=True)
+                self.assertIsNone(load.response_problem(response.status_code, response['Content-Type'], response.content,
+                                                        marker, forbidden=forbidden), label)
+            for document in foreign:
+                for key in ('invoice', 'invoice_pdf', 'receipt', 'receipt_pdf'):
+                    self.assertEqual(client.get(document[key], secure=True).status_code, 404)
+            for path in ('/portal/', '/portal/payments/'):
+                self.assertContains(client.get(path + '?month=2026-13', secure=True),
+                                    'Gunakan bulan yang valid', status_code=400)
+        self.assertEqual(self.fixture(portal.SNAPSHOT), baseline)
