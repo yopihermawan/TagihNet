@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.debug import sensitive_post_parameters
 from .billing import audit, issue_invoice, record_payment, reverse_payment
-from .forms import CustomerForm, InvoiceForm, LoginForm, MonthFilterForm, PaymentForm
+from .forms import CustomerForm, InvoiceForm, LoginForm, MonthFilterForm, PaymentForm, ResetEmailForm
 from .customer_filters import DUE_CHOICES, apply_service_filters, positive_id, with_financial_summary
 from .customer_profile import invoice_rows, profile_context
 from .invoice_queries import INVOICE_STATUS_LABELS, filter_invoice_status, outstanding_summary, service_month_bounds, with_balances
@@ -61,6 +61,7 @@ def login_view(request):
 
 
 class ThrottledPasswordResetView(PasswordResetView):
+    form_class = ResetEmailForm
     template_name = "registration/reset_form.html"
     email_template_name = "registration/reset_email.txt"
     subject_template_name = "registration/reset_subject.txt"

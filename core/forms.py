@@ -1,17 +1,35 @@
+import logging
 from datetime import date
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from .isolation_models import MAX_GRACE_DAYS
 from .models import Customer, Fund
 from .validation import normalize_phone
 from .plan_selection import selectable_plans
+
+logger = logging.getLogger(__name__)
 
 
 class LoginForm(AuthenticationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["username"].widget.attrs.pop("autofocus", None)
+
+
+class ResetEmailForm(PasswordResetForm):
+    def send_mail(self, subject_template_name, email_template_name, context, from_email, to_email,
+                  html_email_template_name=None):
+        subject = "".join(render_to_string(subject_template_name, context).splitlines())
+        body = render_to_string(email_template_name, context)
+        html = render_to_string(html_email_template_name, context) if html_email_template_name else None
+        try:
+            send_mail(subject, body, from_email, [to_email], html_message=html)
+        except Exception:
+            # Transport errors can contain recipient addresses or the provider's raw response.
+            logger.warning("Pengiriman email reset gagal.")
 
 
 class CustomerForm(forms.ModelForm):

@@ -39,6 +39,10 @@ Service hanya menerima akun aktor, tanpa target akun dari request. Ia mengunci m
 
 Lupa password: gunakan alur reset yang sama. Reset password mencabut sesi tetapi **tidak menghapus MFA**. Kehilangan perangkat: gunakan satu kode pemulihan di tantangan login. Setelah masuk, **Keamanan akun → Buat ulang kode pemulihan** memerlukan password dan faktor kedua, membatalkan semua kode lama serta sesi lain. MFA tidak dapat dimatikan via web.
 
+Profil dasar `DEBUG=0` mengirim email reset melalui SMTP STARTTLS. Isi `TAGIHNET_EMAIL_HOST`, `TAGIHNET_EMAIL_USER`, `TAGIHNET_EMAIL_PASSWORD_FILE`, dan `TAGIHNET_FROM_EMAIL` sesuai penyedia. `TAGIHNET_EMAIL_PORT` memakai 587 secara bawaan. Timeout operasi socket SMTP adalah lima detik. Jika pengiriman gagal, halaman tetap menampilkan konfirmasi generik dan log mencatat kegagalan tanpa alamat penerima, token, atau respons penyedia. Compose simulasi memakai backend dummy.
+
+Jalankan `python scripts/verify_reset_smtp.py` untuk latihan dengan SQLite sementara, server SMTP loopback, autentikasi SMTP, dan CA lokal. Pemeriksaan memproses email yang diterima, mencoba tautan dari email, menguji kegagalan sertifikat, penolakan penerima, timeout, dan login ulang dengan MFA. Verifikasi penyedia SMTP produksi memerlukan host, domain pengirim, dan akun sandbox yang disetujui.
+
 Jika perangkat dan seluruh kode hilang, administrator host tepercaya wajib memverifikasi identitas pemilik melalui prosedur organisasi di luar aplikasi, mengonfirmasi username+ID, lalu menjalankan command offline berikut. Jangan menjalankan reset hanya berdasarkan permintaan akun yang belum diverifikasi.
 
 ```bash
@@ -57,4 +61,4 @@ Backup database saja tidak cukup: simpan kunci MFA di vault/offsite terenkripsi 
 
 Limiting memakai update counter bersyarat dalam transaksi, lima percobaan per identitas dan IP dalam 15 menit untuk tiap scope login/MFA/step-up/reset. Header forwarded tidak dipercaya. Limiter fail-closed bila database sibuk. Batas IP dapat memengaruhi banyak operator di NAT yang sama; kebijakan edge dan uji beban produksi masih diperlukan.
 
-Verifikasi lokal mencakup replay OTP/recovery paralel, revocation saat pending login, last-owner race, password reset, CSRF, dan browser nyata. Belum ada audit kriptografi independen, uji phishing, WebAuthn/passkeys, SMTP/TLS deployment, multi-process PostgreSQL, atau proses verifikasi identitas organisasi yang tersertifikasi. MFA TOTP tidak menghapus seluruh risiko phishing dan tidak menjadikan aplikasi otomatis siap produksi.
+Verifikasi lokal mencakup replay OTP/recovery paralel, revocation saat pending login, last-owner race, password reset melalui SMTP STARTTLS loopback, CSRF, dan browser nyata. Audit kriptografi independen, uji phishing, WebAuthn/passkeys, SMTP pada penyedia target, dan proses verifikasi identitas organisasi masih terbuka.
